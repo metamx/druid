@@ -36,7 +36,6 @@ import io.druid.curator.discovery.NoopServiceAnnouncer;
 import io.druid.curator.inventory.InventoryManagerConfig;
 import io.druid.jackson.DefaultObjectMapper;
 import io.druid.metadata.MetadataRuleManager;
-import io.druid.metadata.MetadataNamespaceManager;
 import io.druid.metadata.MetadataSegmentManager;
 import io.druid.server.DruidNode;
 import io.druid.server.coordination.DruidServerMetadata;
@@ -89,7 +88,6 @@ public class DruidCoordinatorTest extends CuratorTestBase
   private ObjectMapper objectMapper;
   private JacksonConfigManager configManager;
   private static final String LOADPATH = "/druid/loadqueue/localhost:1234";
-  private MetadataNamespaceManager metadataNamespaceManager;
 
   @Before
   public void setUp() throws Exception
@@ -133,8 +131,6 @@ public class DruidCoordinatorTest extends CuratorTestBase
     };
     leaderAnnouncerLatch = new CountDownLatch(1);
 
-    metadataNamespaceManager = EasyMock.createNiceMock(MetadataNamespaceManager.class);
-    EasyMock.replay(metadataNamespaceManager);
     coordinator = new DruidCoordinator(
         druidCoordinatorConfig,
         new ZkPathsConfig()
@@ -150,7 +146,6 @@ public class DruidCoordinatorTest extends CuratorTestBase
         databaseSegmentManager,
         serverInventoryView,
         metadataRuleManager,
-        metadataNamespaceManager,
         curator,
         new NoopServiceEmitter(),
         scheduledExecutorFactory,
@@ -174,7 +169,6 @@ public class DruidCoordinatorTest extends CuratorTestBase
   {
     pathChildrenCache.close();
     tearDownServerAndCurator();
-    EasyMock.verify(metadataNamespaceManager);
   }
 
   @Test

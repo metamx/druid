@@ -2,7 +2,17 @@
 
 Lookups are a concept in Druid where dimension values are (optionally) replaced with a new value.
 
-Lookups can be specified on the [Coordinator](Coordinator.html).
+Lookups can be specified as part of the runtime properties file.
+ ```json
+ druid.query.extraction.namespaceList=\
+   [{ "type":"uri", "namespace":"some_uri_lookup","uri": "file:/tmp/prefix/",\
+   "namespaceParseSpec":\
+     {"type":"csv","columns":["key","value"]},\
+   "pollPeriod":"PT5M"},\
+   { "type":"jdbc", "namespace":"some_jdbc_lookup",\
+   "connectorConfig":{"createTables":true,"connectURI":"jdbc:mysql://localhost:3306/druid","user":"druid","password":"diurd"},\
+   "table": "lookupTable", "keyColumn": "mykeyColumn", "valueColumn": "MyValueColumn", "tsColumn": "timeColumn"}]
+ ```
 
 ## URI lookup update
 The remapping values for each lookup can be specified by a lookup update json object as per

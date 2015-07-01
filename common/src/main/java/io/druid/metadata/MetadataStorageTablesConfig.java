@@ -29,7 +29,7 @@ public class MetadataStorageTablesConfig
 {
   public static MetadataStorageTablesConfig fromBase(String base)
   {
-    return new MetadataStorageTablesConfig(base, null, null, null, null, null, null, null, null);
+    return new MetadataStorageTablesConfig(base, null, null, null, null, null, null, null);
   }
 
   public static final String TASK_ENTRY_TYPE = "task";
@@ -64,8 +64,6 @@ public class MetadataStorageTablesConfig
   @JsonProperty("audit")
   private final String auditTable;
 
-  @JsonProperty("namespaces")
-  private final String namespacesTable;
 
   @JsonCreator
   public MetadataStorageTablesConfig(
@@ -76,8 +74,7 @@ public class MetadataStorageTablesConfig
       @JsonProperty("tasks") String tasksTable,
       @JsonProperty("taskLog") String taskLogTable,
       @JsonProperty("taskLock") String taskLockTable,
-      @JsonProperty("audit") String auditTable,
-      @JsonProperty("namespaces") String namespacesTable
+      @JsonProperty("audit") String auditTable
   )
   {
     this.base = (base == null) ? DEFAULT_BASE : base;
@@ -92,7 +89,6 @@ public class MetadataStorageTablesConfig
     logTables.put(TASK_ENTRY_TYPE, this.taskLogTable);
     lockTables.put(TASK_ENTRY_TYPE, this.taskLockTable);
     this.auditTable = makeTableName(auditTable, "audit");
-    this.namespacesTable = makeTableName(namespacesTable, "namespaces");
   }
 
   private String makeTableName(String explicitTableName, String defaultSuffix)
@@ -150,10 +146,5 @@ public class MetadataStorageTablesConfig
   public String getAuditTable()
   {
     return auditTable;
-  }
-
-  public String getNamespacesTable()
-  {
-    return namespacesTable;
   }
 }

@@ -25,8 +25,6 @@ import io.druid.indexer.MetadataStorageUpdaterJobHandler;
 import io.druid.indexer.SQLMetadataStorageUpdaterJobHandler;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
 import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
-import io.druid.metadata.MetadataNamespaceManager;
-import io.druid.metadata.MetadataNamespaceManagerProvider;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.metadata.MetadataRuleManagerProvider;
 import io.druid.metadata.MetadataSegmentManager;
@@ -38,7 +36,6 @@ import io.druid.metadata.MetadataStorageConnector;
 import io.druid.metadata.MetadataStorageProvider;
 import io.druid.metadata.NoopMetadataStorageProvider;
 import io.druid.metadata.SQLMetadataConnector;
-import io.druid.metadata.SQLMetadataNamespaceManagerProvider;
 import io.druid.metadata.SQLMetadataRuleManager;
 import io.druid.metadata.SQLMetadataRuleManagerProvider;
 import io.druid.metadata.SQLMetadataSegmentManager;
@@ -157,20 +154,6 @@ public class SQLMetadataStorageDruidModule implements Module
         Key.get(SQLAuditManagerProvider.class),
         defaultPropertyValue
     );
-    PolyBind.createChoiceWithDefault(
-      binder,
-      PROPERTY,
-      Key.get(MetadataNamespaceManager.class),
-      Key.get(MetadataNamespaceManager.SQLMetadataNamespaceManager.class),
-      defaultPropertyValue
-    );
-    PolyBind.createChoiceWithDefault(
-      binder,
-      PROPERTY,
-      Key.get(MetadataNamespaceManagerProvider.class),
-      Key.get(SQLMetadataNamespaceManagerProvider.class),
-      defaultPropertyValue
-    );
   }
 
   @Override
@@ -231,16 +214,6 @@ public class SQLMetadataStorageDruidModule implements Module
     PolyBind.optionBinder(binder, Key.get(AuditManagerProvider.class))
             .addBinding(type)
             .to(SQLAuditManagerProvider.class)
-            .in(LazySingleton.class);
-
-    PolyBind.optionBinder(binder, Key.get(MetadataNamespaceManager.class))
-            .addBinding(type)
-            .to(Key.get(MetadataNamespaceManager.SQLMetadataNamespaceManager.class))
-            .in(LazySingleton.class);
-
-    PolyBind.optionBinder(binder, Key.get(MetadataNamespaceManagerProvider.class))
-            .addBinding(type)
-            .to(Key.get(SQLMetadataNamespaceManagerProvider.class))
             .in(LazySingleton.class);
   }
 }

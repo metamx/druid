@@ -188,16 +188,6 @@ Returns all rules for a specified datasource and includes default datasource.
 
  Returns audit history of rules. default value of interval can be specified by setting `druid.audit.manager.auditHistoryMillis` (1 week if not configured) in coordinator runtime.properties
 
-#### Namespaced Lookups
-
-* `/druid/coordinator/v1/namespaces`
-
-Returns all namespaces known to the cluster
-
-* `/druid/coordinator/v1/namespaces/{namespace}`
-
-Returns information on the specific namespace
-
 ### POST
 
 #### Datasources
@@ -245,12 +235,6 @@ Runs a [Kill task](../misc/tasks.html) for a given interval and datasource.
 * `/druid/coordinator/v1/datasources/{dataSourceName}/segments/{segmentId}`
 
 Disables a segment.
-
-#### Namespaces
-
-* `/druid/coordinator/v1/lookups/{lookup}`
-
-Deletes the specified lookup from the cluster
 
 The Coordinator Console
 ------------------

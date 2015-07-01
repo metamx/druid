@@ -431,10 +431,4 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
     }
   }
 
-  @Override
-  public void createNamespacesTable(){
-    if(config.get().isCreateTables()){
-      createNamespacesTable(getDBI(), tablesConfigSupplier.get().getNamespacesTable());
-    }
-  }
 }

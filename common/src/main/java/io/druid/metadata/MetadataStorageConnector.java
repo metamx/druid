@@ -47,5 +47,4 @@ public interface MetadataStorageConnector
 
   public void createAuditTable();
 
-  public void createNamespacesTable();
 }

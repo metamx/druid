@@ -76,9 +76,7 @@ import java.util.concurrent.ConcurrentMap;
 public class NamespacedExtractorModuleTest
 {
   private static final ObjectMapper mapper = URIExtractionNamespaceTest.registerTypes(new DefaultObjectMapper());
-  private static final ZkPathsConfig zkPathsConfig = new ZkPathsConfig();
   private static TestingCluster testingCluster;
-  private static CuratorFramework cf;
   private static NamespaceExtractionCacheManager cacheManager;
   private static Lifecycle lifecycle;
   private static ConcurrentMap<String, Function<String, String>> fnCache = new ConcurrentHashMap<>();
@@ -118,14 +116,6 @@ public class NamespacedExtractorModuleTest
     );
     testingCluster = new TestingCluster(1);
     testingCluster.start();
-
-    cf = CuratorFrameworkFactory.builder()
-                                .connectString(testingCluster.getConnectString())
-                                .retryPolicy(new ExponentialBackoffRetry(1, 10))
-                                .compressionProvider(new PotentiallyGzippedCompressionProvider(false))
-                                .build();
-    cf.start();
-    cf.create().creatingParentsIfNeeded().forPath(zkPathsConfig.getNamespacePath());
     fnCache.clear();
   }
 
@@ -133,7 +123,6 @@ public class NamespacedExtractorModuleTest
   public static void tearDownStatic() throws Exception
   {
     lifecycle.stop();
-    cf.close();
     testingCluster.stop();
   }
 
@@ -162,74 +151,8 @@ public class NamespacedExtractorModuleTest
     Assert.assertEquals(null, map.get("baz"));
   }
 
-  @Before
-  public void setUp() throws Exception
-  {
-    ZKPaths.deleteChildren(cf.getZookeeperClient().getZooKeeper(), zkPathsConfig.getNamespacePath(), false);
-  }
-
-  @Test(timeout = 1_000)
-  public void testListNamespaces() throws Exception
-  {
-    final File tmpFile = temporaryFolder.newFile();
-    try (OutputStreamWriter out = new FileWriter(tmpFile)) {
-      out.write(mapper.writeValueAsString(ImmutableMap.<String, String>of("foo", "bar")));
-    }
-    final URIExtractionNamespace namespace = new URIExtractionNamespace(
-        "ns",
-        tmpFile.toURI(),
-        new URIExtractionNamespace.ObjectMapperFlatDataParser(URIExtractionNamespaceTest.registerTypes(new DefaultObjectMapper())),
-        new Period(0),
-        null
-    );
-    cf.inTransaction()
-      .create()
-      .forPath(
-          ZKPaths.makePath(zkPathsConfig.getNamespacePath(), "ns"),
-          mapper.writeValueAsString(namespace).getBytes("utf8")
-      )
-      .and()
-      .commit();
-    Collection<String> strings = cacheManager.getKnownNamespaces();
-    Assert.assertArrayEquals(new String[]{"ns"}, strings.toArray(new String[strings.size()]));
-    cf.inTransaction().delete().forPath(ZKPaths.makePath(zkPathsConfig.getNamespacePath(), "ns")).and().commit();
-    while (!Arrays.equals(cacheManager.getKnownNamespaces().toArray(), new Object[]{"ns"})) {
-      Thread.sleep(1);
-    }
-  }
-
   private static boolean noNamespaces(NamespaceExtractionCacheManager manager){
     return manager.getKnownNamespaces().isEmpty();
-  }
-
-  @Test(timeout = 1_000)
-  public void testDeleteNamespaces() throws Exception
-  {
-    final File tmpFile = temporaryFolder.newFile();
-    try (OutputStreamWriter out = new FileWriter(tmpFile)) {
-      out.write(mapper.writeValueAsString(ImmutableMap.<String, String>of("foo", "bar")));
-    }
-    final URIExtractionNamespace namespace = new URIExtractionNamespace(
-        "ns",
-        tmpFile.toURI(),
-        new URIExtractionNamespace.ObjectMapperFlatDataParser(
-            URIExtractionNamespaceTest.registerTypes(new DefaultObjectMapper())
-        ),
-        new Period(0),
-        null
-    );
-    cf.inTransaction()
-      .create()
-      .forPath(
-          ZKPaths.makePath(zkPathsConfig.getNamespacePath(), "ns"),
-          mapper.writeValueAsString(namespace).getBytes("utf8")
-      )
-      .and()
-      .commit();
-    cacheManager.delete("ns");
-    while (!noNamespaces(cacheManager)) {
-      Thread.sleep(1);
-    }
   }
 
   @Test(timeout = 10_000)
