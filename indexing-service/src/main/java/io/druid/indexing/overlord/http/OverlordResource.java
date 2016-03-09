@@ -238,6 +238,8 @@ public class OverlordResource
   @Produces(MediaType.APPLICATION_JSON)
   public <T> Response doAction(final TaskActionHolder<T> holder)
   {
+    log.debug("Received action for task[%s]: %s", holder.getTask(), holder.getAction());
+
     return asLeaderWith(
         taskMaster.getTaskActionClient(holder.getTask()),
         new Function<TaskActionClient, Response>()
@@ -256,8 +258,8 @@ public class OverlordResource
               retMap = Maps.newHashMap();
               retMap.put("result", ret);
             }
-            catch (IOException e) {
-              log.warn(e, "Failed to perform task action");
+            catch (Exception e) {
+              log.warn(e, "Failed to perform action for task[%s]: %s", holder.getTask(), holder.getAction());
               return Response.serverError().build();
             }
 

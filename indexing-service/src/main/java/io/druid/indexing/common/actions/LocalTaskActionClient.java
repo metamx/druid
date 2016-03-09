@@ -43,7 +43,7 @@ public class LocalTaskActionClient implements TaskActionClient
   public <RetType> RetType submit(TaskAction<RetType> taskAction) throws IOException
   {
     log.info("Performing action for task[%s]: %s", task.getId(), taskAction);
-
+    long startTime = System.currentTimeMillis();
     if (taskAction.isAudited()) {
       // Add audit log
       try {
@@ -59,6 +59,13 @@ public class LocalTaskActionClient implements TaskActionClient
       }
     }
 
-    return taskAction.perform(task, toolbox);
+    RetType rv = taskAction.perform(task, toolbox);
+    log.debug(
+        "Completed action for task[%s]: %s. Took [%d]ms",
+        task.getId(),
+        taskAction,
+        System.currentTimeMillis() - startTime
+    );
+    return rv;
   }
 }
