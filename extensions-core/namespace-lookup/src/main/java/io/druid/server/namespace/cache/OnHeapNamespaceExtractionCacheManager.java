@@ -19,16 +19,16 @@
 
 package io.druid.server.namespace.cache;
 
-import com.google.common.base.Function;
+import com.google.common.primitives.Chars;
 import com.google.common.util.concurrent.Striped;
 import com.google.inject.Inject;
-import com.google.inject.name.Named;
+import com.metamx.common.IAE;
 import com.metamx.common.lifecycle.Lifecycle;
+import com.metamx.common.logger.Logger;
 import com.metamx.emitter.service.ServiceEmitter;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.query.extraction.namespace.ExtractionNamespace;
-import io.druid.query.extraction.namespace.ExtractionNamespaceFunctionFactory;
-
-import java.util.List;
+import io.druid.query.extraction.namespace.ExtractionNamespaceCacheFactory;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -39,21 +39,18 @@ import java.util.concurrent.locks.Lock;
  */
 public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCacheManager
 {
+  private static final Logger LOG = new Logger(OnHeapNamespaceExtractionCacheManager.class);
   private final ConcurrentMap<String, ConcurrentMap<String, String>> mapMap = new ConcurrentHashMap<>();
   private final Striped<Lock> nsLocks = Striped.lock(32);
 
   @Inject
   public OnHeapNamespaceExtractionCacheManager(
       final Lifecycle lifecycle,
-      @Named("namespaceExtractionFunctionCache")
-      final ConcurrentMap<String, Function<String, String>> fnCache,
-      @Named("namespaceReverseExtractionFunctionCache")
-      final ConcurrentMap<String, Function<String, List<String>>> reverseFnCache,
       final ServiceEmitter emitter,
-      final Map<Class<? extends ExtractionNamespace>, ExtractionNamespaceFunctionFactory<?>> namespaceFunctionFactoryMap
+      final Map<Class<? extends ExtractionNamespace>, ExtractionNamespaceCacheFactory<?>> namespaceFunctionFactoryMap
   )
   {
-    super(lifecycle, fnCache, reverseFnCache,emitter, namespaceFunctionFactoryMap);
+    super(lifecycle, emitter, namespaceFunctionFactoryMap);
   }
 
   @Override
@@ -64,14 +61,12 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
     try {
       ConcurrentMap<String, String> cacheMap = mapMap.get(cacheKey);
       if (cacheMap == null) {
-        // Sometimes cache will not be populated (for example: if it doesn't contain new data)
-        return false;
+        throw new IAE("Extraction Cache [%s] does not exist", cacheKey);
       }
-      dataSize.addAndGet(cacheMap.size());
       ConcurrentMap<String, String> prior = mapMap.put(namespaceKey, cacheMap);
       mapMap.remove(cacheKey);
       if (prior != null) {
-        dataSize.addAndGet(-prior.size());
+        // Old map will get GC'd when it is not used anymore
         return true;
       } else {
         return false;
@@ -87,7 +82,7 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
   {
     ConcurrentMap<String, String> map = mapMap.get(namespaceOrCacheKey);
     if (map == null) {
-      mapMap.putIfAbsent(namespaceOrCacheKey, new ConcurrentHashMap<String, String>(32));
+      mapMap.putIfAbsent(namespaceOrCacheKey, new ConcurrentHashMap<String, String>());
       map = mapMap.get(namespaceOrCacheKey);
     }
     return map;
@@ -105,5 +100,31 @@ public class OnHeapNamespaceExtractionCacheManager extends NamespaceExtractionCa
     finally {
       lock.unlock();
     }
+  }
+
+  @Override
+  protected void monitor(ServiceEmitter serviceEmitter)
+  {
+    long numEntries = 0;
+    long size = 0;
+    for (Map.Entry<String, ConcurrentMap<String, String>> entry : mapMap.entrySet()) {
+      final ConcurrentMap<String, String> map = entry.getValue();
+      if (map == null) {
+        LOG.debug("missing cache key for reporting [%s]", entry.getKey());
+        continue;
+      }
+      numEntries += map.size();
+      for (Map.Entry<String, String> sEntry : map.entrySet()) {
+        final String key = sEntry.getKey();
+        final String value = sEntry.getValue();
+        if (key == null || value == null) {
+          LOG.debug("Missing entries for cache key [%s]", entry.getKey());
+          continue;
+        }
+        size += key.length() + value.length();
+      }
+    }
+    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/numEntries", numEntries));
+    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/heapSizeInBytes", size * Chars.BYTES));
   }
 }

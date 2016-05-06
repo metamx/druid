@@ -13,14 +13,15 @@ Make sure to [include](../../operations/including-extensions.html) `druid-namesp
 ## Configuration
 
 Namespaced lookups are appropriate for lookups which are not possible to pass at query time due to their size, 
-or are not desired to be passed at query time because the data is to reside in and be handled by the Druid servers. 
-Namespaced lookups can be specified as part of the runtime properties file. The property is a list of the namespaces 
-described as per the sections on this page. For example:
+or are not desired to be passed at query time because the data is to reside in and be handled by the Druid servers,
+and are small enough to reasonably populate on a node. This usually means tens to tens of thousands of entries per lookup.
+
+Namespaced lookups can be specified as part of the [cluster wide config for lookups](../../querying/lookups.html) as a type of `cachedNamespace`
 
  ```json
- druid.query.extraction.namespace.lookups=
-   [
-     {
+ {
+    "type": "cachedNamespace",
+    "extractionNamespace": {
        "type": "uri",
        "namespace": "some_uri_lookup",
        "uri": "file:/tmp/prefix/",
@@ -33,7 +34,14 @@ described as per the sections on this page. For example:
        },
        "pollPeriod": "PT5M"
      },
-     {
+     "firstCacheTimeout": 0
+ }
+ ```
+ 
+ ```json
+{
+    "type": "cachedNamespace",
+    "extractionNamespace": {
        "type": "jdbc",
        "namespace": "some_jdbc_lookup",
        "connectorConfig": {
@@ -46,9 +54,16 @@ described as per the sections on this page. For example:
        "keyColumn": "mykeyColumn",
        "valueColumn": "MyValueColumn",
        "tsColumn": "timeColumn"
-     }
-   ]
+    },
+    "firstCacheTimeout": 120000
+}
  ```
+
+The parameters are as follows
+|Property|Description|Required|Default|
+|--------|-----------|--------|-------|
+|`extractionNamespace`|Specifies how to populate the local cache. See below|Yes|-|
+|`firstCacheTimeout`|How long to wait (in ms) for the first run of the cache to populate. 0 indicates to not wait|No|`60000` (1 minute)|
 
 Proper functionality of Namespaced lookups requires the following extension to be loaded on the broker, peon, and historical nodes: 
 `druid-namespace-lookup`
@@ -71,34 +86,50 @@ For additional lookups, please see our [extensions list](../extensions.html).
 
 ## URI namespace update
 
-The remapping values for each namespaced lookup can be specified by json as per
+The remapping values for each namespaced lookup can be specified by a json object as per the following examples:
 
 ```json
 {
   "type":"uri",
   "namespace":"some_lookup",
-  "uri": "s3://bucket/some/key/prefix/",
+  "uri": "s3://bucket/some/key/prefix/renames-0003.gz",
   "namespaceParseSpec":{
     "format":"csv",
     "columns":["key","value"]
   },
   "pollPeriod":"PT5M",
-  "versionRegex": "renames-[0-9]*\\.gz"
 }
 ```
 
+```json
+{
+  "type":"uri",
+  "namespace":"some_lookup",
+  "uriPrefix": "s3://bucket/some/key/prefix/",
+  "fileRegex":"renames-[0-9]*\\.gz",
+  "namespaceParseSpec":{
+    "format":"csv",
+    "columns":["key","value"]
+  },
+  "pollPeriod":"PT5M",
+}
+```
 |Property|Description|Required|Default|
 |--------|-----------|--------|-------|
 |`namespace`|The namespace to define|Yes||
 |`pollPeriod`|Period between polling for updates|No|0 (only once)|
-|`versionRegex`|Regex to help find newer versions of the namespace data|Yes||
+|`uri`|URI for the file of interest|No|Use `uriPrefix`|
+|`uriPrefix`|A URI which specifies a directory (or other searchable resource) in which to search for files|No|Use `uri`|
+|`fileRegex`|Optional regex for matching the file name under `uriPrefix`. Only used if `uriPrefix` is used|No|`".*"`|
 |`namespaceParseSpec`|How to interpret the data at the URI|Yes||
 
-The `pollPeriod` value specifies the period in ISO 8601 format between checks for updates. If the source of the lookup is capable of providing a timestamp, the lookup will only be updated if it has changed since the prior tick of `pollPeriod`. A value of 0, an absent parameter, or `null` all mean populate once and do not attempt to update. Whenever an update occurs, the updating system will look for a file with the most recent timestamp and assume that one with the most recent data.
+One of either `uri` xor `uriPrefix` must be specified.
 
-The `versionRegex` value specifies a regex to use to determine if a filename in the parent path of the uri should be considered when trying to find the latest version. Omitting this setting or setting it equal to `null` will match to all files it can find (equivalent to using `".*"`). The search occurs in the most significant "directory" of the uri.
+The `pollPeriod` value specifies the period in ISO 8601 format between checks for replacement data for the lookup. If the source of the lookup is capable of providing a timestamp, the lookup will only be updated if it has changed since the prior tick of `pollPeriod`. A value of 0, an absent parameter, or `null` all mean populate once and do not attempt to look for new data later. Whenever an poll occurs, the updating system will look for a file with the most recent timestamp and assume that one with the most recent data set, replacing the local cache of the lookup data.
 
 The `namespaceParseSpec` can be one of a number of values. Each of the examples below would rename foo to bar, baz to bat, and buck to truck. All parseSpec types assumes each input is delimited by a new line. See below for the types of parseSpec supported.
+
+Only ONE file which matches the search will be used. For most implementations, the discriminator for choosing the URIs is by whichever one reports the most recent timestamp for its modification time.
 
 ### csv lookupParseSpec
 

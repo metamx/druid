@@ -19,23 +19,22 @@
 
 package io.druid.server.namespace.cache;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.util.concurrent.Striped;
 import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import com.metamx.common.lifecycle.Lifecycle;
 import com.metamx.common.logger.Logger;
 import com.metamx.emitter.service.ServiceEmitter;
+import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.query.extraction.namespace.ExtractionNamespace;
-import io.druid.query.extraction.namespace.ExtractionNamespaceFunctionFactory;
+import io.druid.query.extraction.namespace.ExtractionNamespaceCacheFactory;
+import java.util.concurrent.atomic.AtomicLong;
 import org.mapdb.DB;
 import org.mapdb.DBMaker;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,15 +55,11 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
   @Inject
   public OffHeapNamespaceExtractionCacheManager(
       Lifecycle lifecycle,
-      @Named("namespaceExtractionFunctionCache")
-      ConcurrentMap<String, Function<String, String>> fnCache,
-      @Named("namespaceReverseExtractionFunctionCache")
-      ConcurrentMap<String, Function<String, List<String>>> reverseFnCache,
       ServiceEmitter emitter,
-      final Map<Class<? extends ExtractionNamespace>, ExtractionNamespaceFunctionFactory<?>> namespaceFunctionFactoryMap
+      final Map<Class<? extends ExtractionNamespace>, ExtractionNamespaceCacheFactory<?>> namespaceFunctionFactoryMap
   )
   {
-    super(lifecycle, fnCache, reverseFnCache, emitter, namespaceFunctionFactoryMap);
+    super(lifecycle, emitter, namespaceFunctionFactoryMap);
     try {
       tmpFile = File.createTempFile("druidMapDB", getClass().getCanonicalName());
       log.info("Using file [%s] for mapDB off heap namespace cache", tmpFile.getAbsolutePath());
@@ -119,11 +114,10 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
 
       final String priorCache = currentNamespaceCache.put(namespaceKey, swapCacheKey);
       if (priorCache != null) {
+        // TODO: resolve what happens here if query is actively going on
         mmapDB.delete(priorCache);
-        dataSize.set(tmpFile.length());
         return true;
       } else {
-        dataSize.set(tmpFile.length());
         return false;
       }
     }
@@ -135,7 +129,6 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
   @Override
   public boolean delete(final String namespaceKey)
   {
-
     final Lock lock = nsLocks.get(namespaceKey);
     lock.lock();
     try {
@@ -144,8 +137,7 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
       if (mmapDBkey != null) {
         final long pre = tmpFile.length();
         mmapDB.delete(mmapDBkey);
-        dataSize.set(tmpFile.length());
-        log.debug("MapDB file size: pre %d  post %d", pre, dataSize.get());
+        log.debug("MapDB file size: pre %d  post %d", pre, tmpFile.length());
         return true;
       } else {
         return false;
@@ -182,5 +174,10 @@ public class OffHeapNamespaceExtractionCacheManager extends NamespaceExtractionC
     finally {
       lock.unlock();
     }
+  }
+
+  @Override
+  protected void monitor(ServiceEmitter serviceEmitter) {
+    serviceEmitter.emit(ServiceMetricEvent.builder().build("namespace/cache/diskSize", tmpFile.length()));
   }
 }
