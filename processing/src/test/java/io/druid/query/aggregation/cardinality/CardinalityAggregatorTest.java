@@ -40,13 +40,14 @@ import io.druid.query.extraction.JavaScriptExtractionFn;
 import io.druid.query.extraction.RegexDimExtractionFn;
 import io.druid.segment.DimensionSelector;
 import io.druid.segment.data.IndexedInts;
+import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.ints.IntIterators;
 import org.junit.Assert;
 import org.junit.Test;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -134,9 +135,9 @@ public class CardinalityAggregatorTest
         }
 
         @Override
-        public Iterator<Integer> iterator()
+        public IntIterator iterator()
         {
-          return Iterators.forArray(column.get(p));
+          return IntIterators.asIntIterator(Iterators.forArray(column.get(p)));
         }
 
         @Override
