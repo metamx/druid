@@ -40,6 +40,7 @@ import io.druid.segment.ColumnSelectorFactory;
 import io.druid.segment.DimensionSelector;
 import io.druid.segment.FloatColumnSelector;
 import io.druid.segment.LongColumnSelector;
+import io.druid.segment.NumericColumnSelector;
 import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.column.ColumnCapabilities;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
@@ -195,6 +196,12 @@ public class FilteredAggregatorTest
           caps.setHasBitmapIndexes(true);
         }
         return caps;
+      }
+
+      @Override
+      public NumericColumnSelector makeMathExpressionSelector(String expression)
+      {
+        throw new UnsupportedOperationException();
       }
     };
   }
