@@ -26,7 +26,6 @@ import com.yahoo.sketches.memory.NativeMemory;
 import com.yahoo.sketches.theta.Sketch;
 import com.yahoo.sketches.theta.Sketches;
 import com.yahoo.sketches.theta.Union;
-
 import io.druid.java.util.common.IAE;
 import io.druid.segment.data.ObjectStrategy;
 
