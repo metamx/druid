@@ -24,11 +24,8 @@ import io.druid.query.aggregation.Aggregator;
 public class EmptyDistinctCountAggregator extends Aggregator
 {
 
-  private final String name;
-
-  public EmptyDistinctCountAggregator(String name)
+  public EmptyDistinctCountAggregator()
   {
-    this.name = name;
   }
 
   @Override
@@ -56,7 +53,7 @@ public class EmptyDistinctCountAggregator extends Aggregator
   @Override
   public String getName()
   {
-    return name;
+    throw new UnsupportedOperationException("getName is deprecated");
   }
 
   @Override

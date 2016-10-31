@@ -35,13 +35,11 @@ public class DoubleMinAggregator extends Aggregator
   }
 
   private final FloatColumnSelector selector;
-  private final String name;
 
   private double min;
 
-  public DoubleMinAggregator(String name, FloatColumnSelector selector)
+  public DoubleMinAggregator(FloatColumnSelector selector)
   {
-    this.name = name;
     this.selector = selector;
 
     reset();
@@ -80,13 +78,13 @@ public class DoubleMinAggregator extends Aggregator
   @Override
   public String getName()
   {
-    return this.name;
+    throw new UnsupportedOperationException("getName is deprecated");
   }
 
   @Override
   public Aggregator clone()
   {
-    return new DoubleMinAggregator(name, selector);
+    return new DoubleMinAggregator(selector);
   }
 
   @Override

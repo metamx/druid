@@ -23,11 +23,8 @@ import io.druid.query.aggregation.Aggregator;
 
 public class EmptySketchAggregator extends Aggregator
 {
-  private final String name;
-
-  public EmptySketchAggregator(String name)
+  public EmptySketchAggregator()
   {
-    this.name = name;
   }
 
   @Override
@@ -61,7 +58,7 @@ public class EmptySketchAggregator extends Aggregator
   @Override
   public String getName()
   {
-    return name;
+    throw new UnsupportedOperationException("getName is deprecated");
   }
 
   @Override
