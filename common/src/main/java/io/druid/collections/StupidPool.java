@@ -83,14 +83,17 @@ public class StupidPool<T>
 
   private void tryReturnToPool(T object)
   {
-    if (poolSize.get() < objectsCacheMaxCount) {
-      if (objects.offer(object)) {
-        poolSize.incrementAndGet();
-      } else {
-        log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue", object);
+    long currentPoolSize;
+    do {
+      currentPoolSize = poolSize.get();
+      if (currentPoolSize >= objectsCacheMaxCount) {
+        log.debug("cache num entries is exceeding max limit [%s]", objectsCacheMaxCount);
+        return;
       }
-    } else {
-      log.debug("cache num entries is exceeding max limit [%s]", objectsCacheMaxCount);
+    } while (!poolSize.compareAndSet(currentPoolSize, currentPoolSize + 1));
+    if (!objects.offer(object)) {
+      poolSize.decrementAndGet();
+      log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue", object);
     }
   }
 
