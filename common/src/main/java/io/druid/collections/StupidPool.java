@@ -26,6 +26,7 @@ import sun.misc.Cleaner;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -37,6 +38,12 @@ public class StupidPool<T>
   private final Supplier<T> generator;
 
   private final Queue<T> objects = new ConcurrentLinkedQueue<>();
+  /**
+   * {@link ConcurrentLinkedQueue}'s size() is O(n) queue traversal apparently for the sake of being 100%
+   * wait-free, that is not required by {@code StupidPool}. In {@code poolSize} we account the queue size
+   * ourselves, to avoid traversal of {@link #objects} in {@link #tryReturnToPool(Object)}.
+   */
+  private final AtomicLong poolSize = new AtomicLong(0);
 
   //note that this is just the max entries in the cache, pool can still create as many buffers as needed.
   private final int objectsCacheMaxCount;
@@ -61,13 +68,25 @@ public class StupidPool<T>
   public ResourceHolder<T> take()
   {
     final T obj = objects.poll();
-    return obj == null ? new ObjectResourceHolder(generator.get()) : new ObjectResourceHolder(obj);
+    if (obj == null) {
+      return new ObjectResourceHolder(generator.get());
+    } else {
+      poolSize.decrementAndGet();
+      return new ObjectResourceHolder(obj);
+    }
+  }
+
+  /** For tests */
+  long poolSize() {
+    return poolSize.get();
   }
 
   private void tryReturnToPool(T object)
   {
-    if (objects.size() < objectsCacheMaxCount) {
-      if (!objects.offer(object)) {
+    if (poolSize.get() < objectsCacheMaxCount) {
+      if (objects.offer(object)) {
+        poolSize.incrementAndGet();
+      } else {
         log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue", object);
       }
     } else {
