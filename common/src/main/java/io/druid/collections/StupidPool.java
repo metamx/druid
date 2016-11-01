@@ -22,11 +22,11 @@ package io.druid.collections;
 import com.google.common.base.Supplier;
 import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
+import sun.misc.Cleaner;
 
-import java.io.IOException;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  */
@@ -64,14 +64,26 @@ public class StupidPool<T>
     return obj == null ? new ObjectResourceHolder(generator.get()) : new ObjectResourceHolder(obj);
   }
 
+  private void tryReturnToPool(T object)
+  {
+    if (objects.size() < objectsCacheMaxCount) {
+      if (!objects.offer(object)) {
+        log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue", object);
+      }
+    } else {
+      log.debug("cache num entries is exceeding max limit [%s]", objectsCacheMaxCount);
+    }
+  }
+
   private class ObjectResourceHolder implements ResourceHolder<T>
   {
-    private AtomicBoolean closed = new AtomicBoolean(false);
-    private final T object;
+    private final AtomicReference<T> objectRef;
+    private final Cleaner cleaner;
 
-    public ObjectResourceHolder(final T object)
+    ObjectResourceHolder(final T object)
     {
-      this.object = object;
+      this.objectRef = new AtomicReference<>(object);
+      this.cleaner = Cleaner.create(ObjectResourceHolder.this, new ObjectReclaimer(objectRef));
     }
 
     // WARNING: it is entirely possible for a caller to hold onto the object and call ObjectResourceHolder.close,
@@ -79,7 +91,8 @@ public class StupidPool<T>
     @Override
     public T get()
     {
-      if (closed.get()) {
+      final T object = objectRef.get();
+      if (object == null) {
         throw new ISE("Already Closed!");
       }
 
@@ -89,29 +102,45 @@ public class StupidPool<T>
     @Override
     public void close()
     {
-      if (!closed.compareAndSet(false, true)) {
-        log.warn(new ISE("Already Closed!"), "Already closed");
-        return;
-      }
-      if (objects.size() < objectsCacheMaxCount) {
-        if (!objects.offer(object)) {
-          log.warn(new ISE("Queue offer failed"), "Could not offer object [%s] back into the queue", object);
-        }
+      final T object = objectRef.get();
+      if (object != null && objectRef.compareAndSet(object, null)) {
+        tryReturnToPool(object);
+        // Effectively does nothing, because objectRef is already set to null. The purpose of this call is to
+        // deregister the cleaner from the internal linked list of all cleaners in the JVM.
+        cleaner.clean();
       } else {
-        log.debug("cache num entries is exceeding max limit [%s]", objectsCacheMaxCount);
+        log.warn(new ISE("Already Closed!"), "Already closed");
       }
+    }
+  }
+
+  private class ObjectReclaimer implements Runnable
+  {
+    private final AtomicReference<T> objectRef;
+
+    private ObjectReclaimer(AtomicReference<T> objectRef)
+    {
+      this.objectRef = objectRef;
     }
 
     @Override
-    protected void finalize() throws Throwable
+    public void run()
     {
       try {
-        if (!closed.get()) {
+        final T object = objectRef.get();
+        if (object != null && objectRef.compareAndSet(object, null)) {
           log.warn("Not closed!  Object was[%s]. Allowing gc to prevent leak.", object);
+          tryReturnToPool(object);
         }
       }
-      finally {
-        super.finalize();
+      // Exceptions must not be thrown in Cleaner.clean(), which calls this ObjectReclaimer.run() method
+      catch (Exception e) {
+        try {
+          log.error(e, "Exception in ObjectReclaimer.run()");
+        }
+        catch (Exception ignore) {
+          // ignore
+        }
       }
     }
   }
