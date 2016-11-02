@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSink;
 import com.google.common.io.ByteSource;
 import com.google.inject.Inject;
-
 import io.druid.common.utils.UUIDUtils;
 import io.druid.java.util.common.CompressionUtils;
 import io.druid.java.util.common.logger.Logger;
