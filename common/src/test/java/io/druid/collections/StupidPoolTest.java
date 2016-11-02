@@ -73,6 +73,10 @@ public class StupidPoolTest
   @Test(timeout = 60_000)
   public void testResourceHandlerClearedByJVM()
   {
+    if (System.getProperty("java.version").startsWith("1.7")) {
+      // This test is unreliable on Java 7, probably GC is not triggered by System.gc()
+      return;
+    }
     createDanglingObjectHandler();
     long poolSize = poolOfString.poolSize();
     // Wait until dangling object string is returned to the pool
