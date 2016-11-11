@@ -40,7 +40,7 @@ public class EmptySketchAggregator extends Aggregator
   @Override
   public Object get()
   {
-    return SketchOperations.EMPTY_SKETCH;
+    return SketchHolder.EMPTY;
   }
 
   @Override

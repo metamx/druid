@@ -42,7 +42,7 @@ public class EmptySketchBufferAggregator extends BufferAggregator
   @Override
   public Object get(ByteBuffer buf, int position)
   {
-    return SketchOperations.EMPTY_SKETCH;
+    return SketchHolder.EMPTY;
   }
 
   @Override
