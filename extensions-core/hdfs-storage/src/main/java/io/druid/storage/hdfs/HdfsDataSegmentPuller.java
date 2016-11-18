@@ -23,7 +23,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
 import com.google.common.io.ByteSource;
 import com.google.inject.Inject;
-
 import io.druid.java.util.common.CompressionUtils;
 import io.druid.java.util.common.FileUtils;
 import io.druid.java.util.common.IAE;
