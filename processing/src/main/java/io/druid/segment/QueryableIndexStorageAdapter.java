@@ -1341,7 +1341,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
   {
     private final int rowCount;
     private final boolean descending;
-    private volatile int currentOffset;
+    private int currentOffset;
 
     NoFilterOffset(int currentOffset, int rowCount, boolean descending)
     {

@@ -503,11 +503,6 @@ public abstract class IncrementalIndex<AggregatorType> implements Iterable<Row>,
     return TYPE_MAP.get(singleVal.getClass());
   }
 
-  public Map<String, DimensionDesc> getDimensionDescs()
-  {
-    return dimensionDescs;
-  }
-
   public Map<String, ColumnCapabilitiesImpl> getColumnCapabilities()
   {
     return columnCapabilities;
