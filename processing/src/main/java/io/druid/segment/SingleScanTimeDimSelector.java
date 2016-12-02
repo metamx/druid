@@ -25,6 +25,7 @@ import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.SingleIndexedInt;
 
 import java.util.Map;
+import java.util.Objects;
 
 public class SingleScanTimeDimSelector<LongColumnSelectorType extends LongColumnSelector>
     implements DimensionSelector
@@ -86,7 +87,7 @@ public class SingleScanTimeDimSelector<LongColumnSelectorType extends LongColumn
       }
       currentTimestamp = timestamp;
       final String value = extractionFn.apply(timestamp);
-      if (!value.equals(currentValue)) {
+      if (!Objects.equals(value, currentValue)) {
         currentValue = value;
         ++index;
         timeValues.put(index, currentValue);
