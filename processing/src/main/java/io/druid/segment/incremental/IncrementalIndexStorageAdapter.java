@@ -52,8 +52,11 @@ import io.druid.segment.NullDimensionSelector;
 import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.SingleScanTimeDimSelector;
 import io.druid.segment.StorageAdapter;
+import io.druid.segment.VirtualColumn;
+import io.druid.segment.VirtualColumns;
 import io.druid.segment.column.Column;
 import io.druid.segment.column.ColumnCapabilities;
+import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.ListIndexed;
@@ -199,6 +202,7 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
   public Sequence<Cursor> makeCursors(
       final Filter filter,
       final Interval interval,
+      final VirtualColumns virtualColumns,
       final QueryGranularity gran,
       final boolean descending,
       @Nullable QueryMetricsContext queryMetricsContext
@@ -540,11 +544,16 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
 
                 IncrementalIndex.DimensionDesc dimensionDesc = index.getDimension(column);
 
-                if (dimensionDesc != null) {
+                if (dimensionDesc == null) {
+                  VirtualColumn virtualColumn = virtualColumns.getVirtualColumn(column);
+                  if (virtualColumn != null) {
+                    return virtualColumn.init(column, this);
+                  }
+                  return null;
+                } else {
 
                   final int dimensionIndex = dimensionDesc.getIndex();
                   final DimensionIndexer indexer = dimensionDesc.getIndexer();
-                  final ColumnCapabilities capabilities = dimensionDesc.getCapabilities();
 
                   return new ObjectColumnSelector<Object>()
                   {
@@ -573,14 +582,20 @@ public class IncrementalIndexStorageAdapter implements StorageAdapter
                     }
                   };
                 }
-
-                return null;
               }
 
               @Override
               public ColumnCapabilities getColumnCapabilities(String columnName)
               {
-                return index.getCapabilities(columnName);
+                ColumnCapabilities capabilities = index.getCapabilities(columnName);
+                if (capabilities == null && !virtualColumns.isEmpty()) {
+                  VirtualColumn virtualColumn = virtualColumns.getVirtualColumn(columnName);
+                  if (virtualColumn != null) {
+                    Class clazz = virtualColumn.init(columnName, this).classOfObject();
+                    capabilities = new ColumnCapabilitiesImpl().setType(ValueType.typeFor(clazz));
+                  }
+                }
+                return capabilities;
               }
             };
           }
