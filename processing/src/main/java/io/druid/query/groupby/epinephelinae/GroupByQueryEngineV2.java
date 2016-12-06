@@ -389,7 +389,7 @@ outer:
     }
 
     @Override
-    public Grouper.KeyComparator comparator()
+    public Grouper.KeyComparator bufferComparator()
     {
       // No sorting, let mergeRunners handle that
       throw new UnsupportedOperationException();
