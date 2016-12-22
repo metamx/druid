@@ -1,3 +1,5 @@
+package io.druid.query.filter;
+
 /*
  * Licensed to Metamarkets Group Inc. (Metamarkets) under one
  * or more contributor license agreements. See the NOTICE file
@@ -17,13 +19,25 @@
  * under the License.
  */
 
-package io.druid.segment;
+import io.druid.java.util.common.IAE;
+import io.druid.query.dimension.ColumnSelectorStrategyFactory;
+import io.druid.segment.column.ColumnCapabilities;
+import io.druid.segment.column.ValueType;
 
-/**
- */
-public interface LongColumnSelector extends ColumnValueSelector
+public class ValueMatcherColumnSelectorStrategyFactory
+    implements ColumnSelectorStrategyFactory<ValueMatcherColumnSelectorStrategy>
 {
-  long get();
-
-  String getLongColumnSelectorType();
+  @Override
+  public ValueMatcherColumnSelectorStrategy makeColumnSelectorStrategy(
+      ColumnCapabilities capabilities
+  )
+  {
+    ValueType type = capabilities.getType();
+    switch (type) {
+      case STRING:
+        return new StringValueMatcherColumnSelectorStrategy();
+      default:
+        throw new IAE("Cannot create query type helper from invalid type [%s]", type);
+    }
+  }
 }

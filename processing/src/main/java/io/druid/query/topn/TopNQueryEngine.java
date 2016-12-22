@@ -139,7 +139,6 @@ public class TopNQueryEngine
   {
     final Capabilities capabilities = adapter.getCapabilities();
     final String dimension = query.getDimensionSpec().getDimension();
-
     final int cardinality = adapter.getDimensionCardinality(dimension);
     if (queryMetricsContext != null) {
       queryMetricsContext.setDimension("dimensionCardinality", QueryMetricsContext.roundToPowerOfTwo(cardinality));

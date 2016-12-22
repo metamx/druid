@@ -23,7 +23,7 @@ import io.druid.segment.data.IndexedInts;
 
 /**
  */
-public interface DimensionSelector
+public interface DimensionSelector extends ColumnValueSelector
 {
   int CARDINALITY_UNKNOWN = -1;
   int VARIABLE_ROW_SIZE = -1;

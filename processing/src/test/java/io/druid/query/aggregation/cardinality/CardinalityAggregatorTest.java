@@ -28,9 +28,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.druid.jackson.DefaultObjectMapper;
 import io.druid.js.JavaScriptConfig;
+import io.druid.query.ColumnSelectorPlus;
 import io.druid.query.aggregation.Aggregator;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.BufferAggregator;
+import io.druid.query.aggregation.cardinality.types.CardinalityAggregatorColumnSelectorStrategy;
+import io.druid.query.aggregation.cardinality.types.StringCardinalityAggregatorColumnSelectorStrategy;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.dimension.ExtractionDimensionSpec;
@@ -256,24 +259,43 @@ public class CardinalityAggregatorTest
     }
   }
 
+  List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfoList;
   List<DimensionSelector> selectorList;
   CardinalityAggregatorFactory rowAggregatorFactory;
   CardinalityAggregatorFactory valueAggregatorFactory;
   final TestDimensionSelector dim1;
   final TestDimensionSelector dim2;
 
+  List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfoListWithExtraction;
   List<DimensionSelector> selectorListWithExtraction;
   final TestDimensionSelector dim1WithExtraction;
   final TestDimensionSelector dim2WithExtraction;
 
+  List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfoListConstantVal;
   List<DimensionSelector> selectorListConstantVal;
   final TestDimensionSelector dim1ConstantVal;
   final TestDimensionSelector dim2ConstantVal;
+
+  final DimensionSpec dimSpec1 = new DefaultDimensionSpec("dim1", "dim1");
+  final DimensionSpec dimSpec2 = new DefaultDimensionSpec("dim2", "dim2");
 
   public CardinalityAggregatorTest()
   {
     dim1 = new TestDimensionSelector(values1, null);
     dim2 = new TestDimensionSelector(values2, null);
+
+    dimInfoList = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim1
+        ),
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec2.getDimension(),
+            dimSpec2.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim2
+        )
+    );
 
     selectorList = Lists.newArrayList(
         (DimensionSelector) dim1,
@@ -283,8 +305,8 @@ public class CardinalityAggregatorTest
     rowAggregatorFactory = new CardinalityAggregatorFactory(
         "billy",
         Lists.<DimensionSpec>newArrayList(
-            new DefaultDimensionSpec("dim1", "dim1"),
-            new DefaultDimensionSpec("dim2", "dim2")
+            dimSpec1,
+            dimSpec2
         ),
         true
     );
@@ -292,8 +314,8 @@ public class CardinalityAggregatorTest
     valueAggregatorFactory = new CardinalityAggregatorFactory(
         "billy",
         Lists.<DimensionSpec>newArrayList(
-            new DefaultDimensionSpec("dim1", "dim1"),
-            new DefaultDimensionSpec("dim2", "dim2")
+            dimSpec1,
+            dimSpec2
         ),
         false
     );
@@ -307,6 +329,18 @@ public class CardinalityAggregatorTest
         (DimensionSelector) dim1WithExtraction,
         dim2WithExtraction
     );
+    dimInfoListWithExtraction = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim1WithExtraction
+        ),
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim2WithExtraction
+        )
+    );
 
     String helloJsFn = "function(str) { return 'hello' }";
     ExtractionFn helloFn = new JavaScriptExtractionFn(helloJsFn, false, JavaScriptConfig.getDefault());
@@ -316,13 +350,27 @@ public class CardinalityAggregatorTest
         (DimensionSelector) dim1ConstantVal,
         dim2ConstantVal
     );
+    dimInfoListConstantVal = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim1ConstantVal
+        ),
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim2ConstantVal
+        )
+    );
+
   }
 
   @Test
   public void testAggregateRows() throws Exception
   {
     CardinalityAggregator agg = new CardinalityAggregator(
-        selectorList,
+        "billy",
+        dimInfoList,
         true
     );
 
@@ -337,7 +385,8 @@ public class CardinalityAggregatorTest
   public void testAggregateValues() throws Exception
   {
     CardinalityAggregator agg = new CardinalityAggregator(
-        selectorList,
+        "billy",
+        dimInfoList,
         false
     );
 
@@ -351,7 +400,7 @@ public class CardinalityAggregatorTest
   public void testBufferAggregateRows() throws Exception
   {
     CardinalityBufferAggregator agg = new CardinalityBufferAggregator(
-        selectorList,
+        dimInfoList,
         true
     );
 
@@ -372,7 +421,7 @@ public class CardinalityAggregatorTest
   public void testBufferAggregateValues() throws Exception
   {
     CardinalityBufferAggregator agg = new CardinalityBufferAggregator(
-        selectorList,
+        dimInfoList,
         false
     );
 
@@ -394,9 +443,23 @@ public class CardinalityAggregatorTest
   {
     List<DimensionSelector> selector1 = Lists.newArrayList((DimensionSelector) dim1);
     List<DimensionSelector> selector2 = Lists.newArrayList((DimensionSelector) dim2);
+    List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfo1 = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim1
+        )
+    );
+    List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfo2 = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim2
+        )
+    );
 
-    CardinalityAggregator agg1 = new CardinalityAggregator(selector1, true);
-    CardinalityAggregator agg2 = new CardinalityAggregator(selector2, true);
+    CardinalityAggregator agg1 = new CardinalityAggregator("billy", dimInfo1, true);
+    CardinalityAggregator agg2 = new CardinalityAggregator("billy", dimInfo2, true);
 
     for (int i = 0; i < values1.size(); ++i) {
       aggregate(selector1, agg1);
@@ -426,8 +489,23 @@ public class CardinalityAggregatorTest
     List<DimensionSelector> selector1 = Lists.newArrayList((DimensionSelector) dim1);
     List<DimensionSelector> selector2 = Lists.newArrayList((DimensionSelector) dim2);
 
-    CardinalityAggregator agg1 = new CardinalityAggregator(selector1, false);
-    CardinalityAggregator agg2 = new CardinalityAggregator(selector2, false);
+    List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfo1 = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim1
+        )
+    );
+    List<ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>> dimInfo2 = Lists.newArrayList(
+        new ColumnSelectorPlus<CardinalityAggregatorColumnSelectorStrategy>(
+            dimSpec1.getDimension(),
+            dimSpec1.getOutputName(),
+            new StringCardinalityAggregatorColumnSelectorStrategy(), dim2
+        )
+    );
+
+    CardinalityAggregator agg1 = new CardinalityAggregator("billy", dimInfo1, false);
+    CardinalityAggregator agg2 = new CardinalityAggregator("billy", dimInfo2, false);
 
     for (int i = 0; i < values1.size(); ++i) {
       aggregate(selector1, agg1);
@@ -455,7 +533,8 @@ public class CardinalityAggregatorTest
   public void testAggregateRowsWithExtraction() throws Exception
   {
     CardinalityAggregator agg = new CardinalityAggregator(
-        selectorListWithExtraction,
+        "billy",
+        dimInfoListWithExtraction,
         true
     );
     for (int i = 0; i < values1.size(); ++i) {
@@ -464,7 +543,8 @@ public class CardinalityAggregatorTest
     Assert.assertEquals(9.0, (Double) rowAggregatorFactory.finalizeComputation(agg.get()), 0.05);
 
     CardinalityAggregator agg2 = new CardinalityAggregator(
-        selectorListConstantVal,
+        "billy",
+        dimInfoListConstantVal,
         true
     );
     for (int i = 0; i < values1.size(); ++i) {
@@ -477,7 +557,8 @@ public class CardinalityAggregatorTest
   public void testAggregateValuesWithExtraction() throws Exception
   {
     CardinalityAggregator agg = new CardinalityAggregator(
-        selectorListWithExtraction,
+        "billy",
+        dimInfoListWithExtraction,
         false
     );
     for (int i = 0; i < values1.size(); ++i) {
@@ -486,7 +567,8 @@ public class CardinalityAggregatorTest
     Assert.assertEquals(7.0, (Double) valueAggregatorFactory.finalizeComputation(agg.get()), 0.05);
 
     CardinalityAggregator agg2 = new CardinalityAggregator(
-        selectorListConstantVal,
+        "billy",
+        dimInfoListConstantVal,
         false
     );
     for (int i = 0; i < values1.size(); ++i) {

@@ -20,10 +20,8 @@
 package io.druid.segment;
 
 /**
+ * Base type for interfaces that manage column value selection, e.g. DimensionSelector, LongColumnSelector
  */
-public interface LongColumnSelector extends ColumnValueSelector
+public interface ColumnValueSelector
 {
-  long get();
-
-  String getLongColumnSelectorType();
 }

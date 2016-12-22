@@ -17,13 +17,26 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.query.topn.types;
 
-/**
- */
-public interface LongColumnSelector extends ColumnValueSelector
+import io.druid.java.util.common.IAE;
+import io.druid.query.dimension.ColumnSelectorStrategyFactory;
+import io.druid.segment.column.ColumnCapabilities;
+import io.druid.segment.column.ValueType;
+
+public class TopNStrategyFactory implements ColumnSelectorStrategyFactory<TopNColumnSelectorStrategy>
 {
-  long get();
-
-  String getLongColumnSelectorType();
+  @Override
+  public TopNColumnSelectorStrategy makeColumnSelectorStrategy(
+      ColumnCapabilities capabilities
+  )
+  {
+    ValueType type = capabilities.getType();
+    switch(type) {
+      case STRING:
+        return new StringTopNColumnSelectorStrategy();
+      default:
+        throw new IAE("Cannot create query type helper from invalid type [%s]", type);
+    }
+  }
 }

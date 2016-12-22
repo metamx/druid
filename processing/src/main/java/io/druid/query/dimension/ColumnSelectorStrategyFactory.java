@@ -17,13 +17,11 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.query.dimension;
 
-/**
- */
-public interface LongColumnSelector extends ColumnValueSelector
+import io.druid.segment.column.ColumnCapabilities;
+
+public interface ColumnSelectorStrategyFactory<ColumnSelectorStrategyClass extends ColumnSelectorStrategy>
 {
-  long get();
-
-  String getLongColumnSelectorType();
+  ColumnSelectorStrategyClass makeColumnSelectorStrategy(ColumnCapabilities capabilities);
 }

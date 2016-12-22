@@ -17,13 +17,11 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.query.dimension;
 
 /**
+ * Base type for strategy objects that handle value type operations pertaining to a specific query type
  */
-public interface LongColumnSelector extends ColumnValueSelector
+public interface ColumnSelectorStrategy
 {
-  long get();
-
-  String getLongColumnSelectorType();
 }
