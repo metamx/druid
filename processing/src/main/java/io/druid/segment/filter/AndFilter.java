@@ -29,7 +29,7 @@ import io.druid.query.filter.BooleanFilter;
 import io.druid.query.filter.Filter;
 import io.druid.query.filter.RowOffsetMatcherFactory;
 import io.druid.query.filter.ValueMatcher;
-import io.druid.query.filter.ValueMatcherFactory;
+import io.druid.segment.ColumnSelectorFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -79,7 +79,7 @@ public class AndFilter implements BooleanFilter
   }
 
   @Override
-  public ValueMatcher makeMatcher(ValueMatcherFactory factory)
+  public ValueMatcher makeMatcher(ColumnSelectorFactory factory)
   {
     if (filters.size() == 0) {
       return new BooleanValueMatcher(false);
@@ -96,7 +96,7 @@ public class AndFilter implements BooleanFilter
   @Override
   public ValueMatcher makeMatcher(
       BitmapIndexSelector selector,
-      ValueMatcherFactory valueMatcherFactory,
+      ColumnSelectorFactory columnSelectorFactory,
       RowOffsetMatcherFactory rowOffsetMatcherFactory
   )
   {
@@ -107,7 +107,7 @@ public class AndFilter implements BooleanFilter
       if (filter.supportsBitmapIndex(selector)) {
         bitmaps.add(filter.getBitmapIndex(selector).getBitmap());
       } else {
-        ValueMatcher matcher = filter.makeMatcher(valueMatcherFactory);
+        ValueMatcher matcher = filter.makeMatcher(columnSelectorFactory);
         matchers.add(matcher);
       }
     }
