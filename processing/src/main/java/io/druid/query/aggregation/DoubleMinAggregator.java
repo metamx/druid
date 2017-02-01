@@ -76,12 +76,6 @@ public class DoubleMinAggregator extends Aggregator
   }
 
   @Override
-  public String getName()
-  {
-    throw new UnsupportedOperationException("getName is deprecated");
-  }
-
-  @Override
   public Aggregator clone()
   {
     return new DoubleMinAggregator(selector);
