@@ -654,6 +654,10 @@
                         <artifactId>google-http-client</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>com.google.http-client</groupId>
+                        <artifactId>google-http-client-jackson2</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>org.apache.httpcomponents</groupId>
                         <artifactId>httpclient</artifactId>
                     </exclusion>
