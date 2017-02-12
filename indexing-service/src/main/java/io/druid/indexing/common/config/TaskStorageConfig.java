@@ -28,22 +28,35 @@ import javax.validation.constraints.NotNull;
 
 public class TaskStorageConfig
 {
+  public static final String DEFAULT_TASK_OWNER_IR = "default";
+
   @JsonProperty
   @NotNull
-  public Duration recentlyFinishedThreshold = new Period("PT24H").toStandardDuration();
+  private Duration recentlyFinishedThreshold = new Period("PT24H").toStandardDuration();
+
+  @JsonProperty
+  private String taskOwnerId = DEFAULT_TASK_OWNER_IR;
 
   @JsonCreator
   public TaskStorageConfig(
-      @JsonProperty("recentlyFinishedThreshold") Period period
+      @JsonProperty("recentlyFinishedThreshold") Period period,
+      @JsonProperty("taskOwnerId") String taskOwnerId
   )
   {
     if(period != null) {
       this.recentlyFinishedThreshold = period.toStandardDuration();
+    }
+    if (taskOwnerId != null) {
+      this.taskOwnerId = taskOwnerId;
     }
   }
 
   public Duration getRecentlyFinishedThreshold()
   {
     return recentlyFinishedThreshold;
+  }
+
+  public String getTaskOwnerId() {
+    return taskOwnerId;
   }
 }
