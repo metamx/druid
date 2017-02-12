@@ -53,6 +53,7 @@ import io.druid.indexing.common.actions.TaskActionToolbox;
 import io.druid.indexing.common.config.TaskConfig;
 import io.druid.indexing.common.config.TaskStorageConfig;
 import io.druid.indexing.overlord.HeapMemoryTaskStorage;
+import io.druid.indexing.overlord.LocalTaskLockbox;
 import io.druid.indexing.overlord.TaskLockbox;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
@@ -126,7 +127,7 @@ public class IngestSegmentFirehoseFactoryTest
     final IndexSpec indexSpec = new IndexSpec();
 
     final HeapMemoryTaskStorage ts = new HeapMemoryTaskStorage(
-        new TaskStorageConfig(null)
+        new TaskStorageConfig(null, null)
         {
         }
     );
@@ -156,7 +157,7 @@ public class IngestSegmentFirehoseFactoryTest
     }
     INDEX_MERGER.persist(index, persistDir, indexSpec);
 
-    final TaskLockbox tl = new TaskLockbox(ts);
+    final TaskLockbox tl = new LocalTaskLockbox(ts);
     final IndexerSQLMetadataStorageCoordinator mdc = new IndexerSQLMetadataStorageCoordinator(null, null, null)
     {
       final private Set<DataSegment> published = Sets.newHashSet();
