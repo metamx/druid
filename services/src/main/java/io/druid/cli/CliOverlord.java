@@ -51,8 +51,10 @@ import io.druid.indexing.common.config.TaskConfig;
 import io.druid.indexing.common.config.TaskStorageConfig;
 import io.druid.indexing.common.tasklogs.SwitchingTaskLogStreamer;
 import io.druid.indexing.common.tasklogs.TaskRunnerTaskLogStreamer;
+import io.druid.indexing.overlord.DistributedTaskLockbox;
 import io.druid.indexing.overlord.ForkingTaskRunnerFactory;
 import io.druid.indexing.overlord.HeapMemoryTaskStorage;
+import io.druid.indexing.overlord.LocalTaskLockbox;
 import io.druid.indexing.overlord.MetadataTaskStorage;
 import io.druid.indexing.overlord.RemoteTaskRunnerFactory;
 import io.druid.indexing.overlord.TaskLockbox;
@@ -144,12 +146,12 @@ public class CliOverlord extends ServerRunnable
 
             binder.bind(TaskActionClientFactory.class).to(LocalTaskActionClientFactory.class).in(LazySingleton.class);
             binder.bind(TaskActionToolbox.class).in(LazySingleton.class);
-            binder.bind(TaskLockbox.class).in(LazySingleton.class);
             binder.bind(TaskStorageQueryAdapter.class).in(LazySingleton.class);
 
             binder.bind(ChatHandlerProvider.class).toProvider(Providers.<ChatHandlerProvider>of(null));
 
             configureTaskStorage(binder);
+            configureTaskLockbox(binder);
             configureAutoscale(binder);
             configureRunners(binder);
             configureOverlordHelpers(binder);
@@ -210,6 +212,27 @@ public class CliOverlord extends ServerRunnable
             binder.bind(RemoteTaskRunnerFactory.class).in(LazySingleton.class);
 
             JacksonConfigProvider.bind(binder, WorkerBehaviorConfig.CONFIG_KEY, WorkerBehaviorConfig.class, null);
+          }
+
+          private void configureTaskLockbox(Binder binder)
+          {
+            PolyBind.createChoice(
+                binder,
+                "druid.indexer.tasklockbox.type",
+                Key.get(TaskLockbox.class),
+                Key.get(LocalTaskLockbox.class)
+            );
+
+            final MapBinder<String, TaskLockbox> lockboxBinder = PolyBind.optionBinder(
+                binder,
+                Key.get(TaskLockbox.class)
+            );
+
+            lockboxBinder.addBinding("local").to(LocalTaskLockbox.class);
+            binder.bind(LocalTaskLockbox.class).in(LazySingleton.class);
+
+            lockboxBinder.addBinding("distributed").to(DistributedTaskLockbox.class);
+            binder.bind(DistributedTaskLockbox.class).in(LazySingleton.class);
           }
 
           private void configureAutoscale(Binder binder)

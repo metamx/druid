@@ -24,6 +24,7 @@ import io.druid.indexing.common.TestUtils;
 import io.druid.indexing.common.config.TaskStorageConfig;
 import io.druid.indexing.overlord.HeapMemoryTaskStorage;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
+import io.druid.indexing.overlord.LocalTaskLockbox;
 import io.druid.indexing.overlord.TaskLockbox;
 import io.druid.indexing.overlord.TaskStorage;
 import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
@@ -77,8 +78,8 @@ public class TaskActionTestKit extends ExternalResource
   @Override
   public void before()
   {
-    taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(new Period("PT24H")));
-    taskLockbox = new TaskLockbox(taskStorage);
+    taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(new Period("PT24H"), null));
+    taskLockbox = new LocalTaskLockbox(taskStorage);
     testDerbyConnector = new TestDerbyConnector(
         Suppliers.ofInstance(new MetadataStorageConnectorConfig()),
         Suppliers.ofInstance(metadataStorageTablesConfig)

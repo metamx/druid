@@ -375,7 +375,7 @@ public class TaskLifecycleTest
     switch (taskStorageType) {
       case HEAP_TASK_STORAGE: {
         taskStorage = new HeapMemoryTaskStorage(
-            new TaskStorageConfig(null)
+            new TaskStorageConfig(null, null)
             {
             }
         );
@@ -392,7 +392,7 @@ public class TaskLifecycleTest
         testDerbyConnector.createSegmentTable();
         taskStorage = new MetadataTaskStorage(
             testDerbyConnector,
-            new TaskStorageConfig(null),
+            new TaskStorageConfig(null, null),
             new SQLMetadataStorageActionHandlerFactory(
                 testDerbyConnector,
                 derbyConnectorRule.metadataTablesConfigSupplier().get(),
@@ -506,7 +506,7 @@ public class TaskLifecycleTest
     Preconditions.checkNotNull(taskStorage);
     Preconditions.checkNotNull(emitter);
 
-    taskLockbox = new TaskLockbox(taskStorage);
+    taskLockbox = new LocalTaskLockbox(taskStorage);
     tac = new LocalTaskActionClientFactory(taskStorage, new TaskActionToolbox(taskLockbox, mdc, emitter));
     File tmpDir = temporaryFolder.newFolder();
     taskConfig = new TaskConfig(tmpDir.toString(), null, null, 50000, null, false, null, null);
