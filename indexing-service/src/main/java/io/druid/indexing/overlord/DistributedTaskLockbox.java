@@ -28,6 +28,7 @@ import org.joda.time.Interval;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Delegates all functionality to LocalTaskLockbox,
@@ -35,7 +36,8 @@ import java.util.List;
  */
 public class DistributedTaskLockbox implements TaskLockbox
 {
-  private static final int TASK_LOCKS_SIZE = 1000;
+  private static final int TASK_LOCKS_CACHE_SIZE = 1000;
+  private static final long RETRY_AFTER_MILLIS = TimeUnit.SECONDS.toMillis(5);
 
   private final TaskStorage taskStorage;
   private final TaskLockbox delegate;
@@ -48,7 +50,7 @@ public class DistributedTaskLockbox implements TaskLockbox
   {
     this.taskStorage = taskStorage;
     this.delegate = new LocalTaskLockbox(taskStorage);
-    this.taskLocks = new LinkedHashSet<>(TASK_LOCKS_SIZE);
+    this.taskLocks = new LinkedHashSet<>(TASK_LOCKS_CACHE_SIZE);
   }
 
   @Override
@@ -66,7 +68,7 @@ public class DistributedTaskLockbox implements TaskLockbox
     while (!taskLock.isPresent()) {
       taskLock = tryLock(task, interval);
       if (!taskLock.isPresent()) {
-        Thread.sleep(100);
+        Thread.sleep(RETRY_AFTER_MILLIS);
       }
     }
     return taskLock.get();
@@ -148,7 +150,7 @@ public class DistributedTaskLockbox implements TaskLockbox
   {
     synchronized (taskLocks) {
       Iterator<TaskLock> it = taskLocks.iterator();
-      while (taskLocks.size() > TASK_LOCKS_SIZE) {
+      while (taskLocks.size() > TASK_LOCKS_CACHE_SIZE) {
         it.next();
         it.remove();
       }
