@@ -33,6 +33,7 @@ import com.metamx.common.concurrent.ScheduledExecutors;
 import com.metamx.emitter.EmittingLogger;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
 import io.druid.indexing.overlord.TaskRunnerWorkItem;
+import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.worker.Worker;
@@ -89,14 +90,14 @@ public class SimpleWorkerProvisioningStrategy extends AbstractWorkerProvisioning
   }
 
   @Override
-  public Provisioner makeProvisioner(WorkerTaskRunner runner)
+  public Provisioner makeProvisioner(TasksAndWorkers runner)
   {
     return new SimpleProvisioner(runner);
   }
 
   private class SimpleProvisioner implements Provisioner
   {
-    private final WorkerTaskRunner runner;
+    private final TasksAndWorkers runner;
     private final ScalingStats scalingStats = new ScalingStats(config.getNumEventsToTrack());
 
     private final Set<String> currentlyProvisioning = Sets.newHashSet();
@@ -106,7 +107,7 @@ public class SimpleWorkerProvisioningStrategy extends AbstractWorkerProvisioning
     private DateTime lastProvisionTime = new DateTime();
     private DateTime lastTerminateTime = new DateTime();
 
-    SimpleProvisioner(WorkerTaskRunner runner)
+    SimpleProvisioner(TasksAndWorkers runner)
     {
       this.runner = runner;
     }

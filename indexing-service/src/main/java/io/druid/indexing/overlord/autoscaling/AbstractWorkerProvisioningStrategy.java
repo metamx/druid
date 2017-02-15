@@ -21,6 +21,7 @@ package io.druid.indexing.overlord.autoscaling;
 
 import com.google.common.base.Supplier;
 import com.metamx.emitter.EmittingLogger;
+import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
 import io.druid.java.util.common.granularity.PeriodGranularity;
 import org.joda.time.DateTime;
@@ -127,5 +128,5 @@ public abstract class AbstractWorkerProvisioningStrategy implements Provisioning
     }
   }
 
-  abstract Provisioner makeProvisioner(WorkerTaskRunner runner);
+  abstract Provisioner makeProvisioner(TasksAndWorkers runner);
 }

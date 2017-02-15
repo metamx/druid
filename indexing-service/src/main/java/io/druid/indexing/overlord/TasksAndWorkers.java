@@ -16,10 +16,41 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 package io.druid.indexing.overlord;
 
+import com.google.common.base.Predicate;
+import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
+import io.druid.indexing.worker.Worker;
 
-public interface WorkerTaskRunner extends TaskRunner, TasksAndWorkers
+import java.util.Collection;
+
+public interface TasksAndWorkers
 {
+  /**
+   * List of known workers who can accept tasks
+   * @return A list of workers who can accept tasks for running
+   */
+  Collection<ImmutableWorkerInfo> getWorkers();
+
+  /**
+   * Return a list of workers who can be reaped by autoscaling
+   * @return Workers which can be reaped by autoscaling
+   */
+  Collection<Worker> getLazyWorkers();
+
+  /**
+   * Check which workers can be marked as lazy
+   * @param isLazyWorker
+   * @param maxWorkers
+   * @return
+   */
+  Collection<Worker> markWorkersLazy(Predicate<ImmutableWorkerInfo> isLazyWorker, int maxWorkers);
+
+  WorkerTaskRunnerConfig getConfig();
+
+  Collection<Task> getPendingTaskPayloads();
+
+  Collection<? extends TaskRunnerWorkItem> getPendingTasks();
 }
