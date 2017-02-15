@@ -12,10 +12,10 @@ import io.druid.indexing.overlord.setup.WorkerSelectStrategy;
 
 import java.util.Map;
 
+import static io.druid.indexing.common.task.TaskLabels.getTaskLabel;
+
 public class TwoCloudWorkerSelectStrategy implements WorkerSelectStrategy
 {
-  private static final String TASK_LABEL = "label";
-
   private final TwoCloudConfig twoCloudConfig;
 
   @JsonCreator
@@ -46,10 +46,5 @@ public class TwoCloudWorkerSelectStrategy implements WorkerSelectStrategy
       }
     }
     return filtered.build();
-  }
-
-  private String getTaskLabel(Task task) {
-    Object taskLabel = task.getContext().get(TASK_LABEL);
-    return taskLabel == null ? null : (String) taskLabel;
   }
 }
