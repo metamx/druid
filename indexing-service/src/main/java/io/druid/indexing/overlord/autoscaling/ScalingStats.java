@@ -65,6 +65,15 @@ public class ScalingStats
     }
   }
 
+  public ScalingStats(ScalingStats stats1, ScalingStats stats2)
+  {
+    this(stats1.recentEvents.size() + stats2.recentEvents.size());
+    synchronized (lock) {
+      recentEvents.addAll(stats1.toList());
+      recentEvents.addAll(stats2.toList());
+    }
+  }
+
   public void addProvisionEvent(AutoScalingData data)
   {
     synchronized (lock) {

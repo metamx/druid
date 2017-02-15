@@ -35,7 +35,7 @@ import com.metamx.common.concurrent.ScheduledExecutors;
 import com.metamx.emitter.EmittingLogger;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
-import io.druid.indexing.overlord.WorkerTaskRunner;
+import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.overlord.setup.WorkerSelectStrategy;
@@ -55,9 +55,11 @@ import java.util.concurrent.ScheduledExecutorService;
 public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerProvisioningStrategy
 {
   private static final EmittingLogger log = new EmittingLogger(PendingTaskBasedWorkerProvisioningStrategy.class);
+  static final String DEFAULT_DUMMY_WORKER_IP = "-2";
 
   private final PendingTaskBasedWorkerProvisioningConfig config;
   private final Supplier<WorkerBehaviorConfig> workerConfigRef;
+  private final String dummyWorkerIp;
 
   @Inject
   public PendingTaskBasedWorkerProvisioningStrategy(
@@ -77,7 +79,8 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
           {
             return ScheduledExecutors.fixed(1, "PendingTaskBasedWorkerProvisioning-manager--%d");
           }
-        }
+        },
+        DEFAULT_DUMMY_WORKER_IP
     );
   }
 
@@ -85,23 +88,25 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
       PendingTaskBasedWorkerProvisioningConfig config,
       Supplier<WorkerBehaviorConfig> workerConfigRef,
       ProvisioningSchedulerConfig provisioningSchedulerConfig,
-      Supplier<ScheduledExecutorService> execFactory
+      Supplier<ScheduledExecutorService> execFactory,
+      String dummyWorkerIp
   )
   {
     super(provisioningSchedulerConfig, execFactory);
     this.config = config;
     this.workerConfigRef = workerConfigRef;
+    this.dummyWorkerIp = dummyWorkerIp;
   }
 
   @Override
-  public Provisioner makeProvisioner(WorkerTaskRunner runner)
+  public Provisioner makeProvisioner(TasksAndWorkers runner)
   {
     return new PendingProvisioner(runner);
   }
 
   private class PendingProvisioner implements Provisioner
   {
-    private final WorkerTaskRunner runner;
+    private final TasksAndWorkers runner;
     private final ScalingStats scalingStats = new ScalingStats(config.getNumEventsToTrack());
 
     private final Set<String> currentlyProvisioning = Sets.newHashSet();
@@ -110,7 +115,7 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
     private DateTime lastProvisionTime = new DateTime();
     private DateTime lastTerminateTime = new DateTime();
 
-    private PendingProvisioner(WorkerTaskRunner runner)
+    private PendingProvisioner(TasksAndWorkers runner)
     {
       this.runner = runner;
     }
@@ -268,6 +273,17 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
       return need;
     }
 
+    private ImmutableWorkerInfo createDummyWorker(String host, int capacity, String version)
+    {
+      return new ImmutableWorkerInfo(
+          new Worker(host, dummyWorkerIp, capacity, version),
+          0,
+          Sets.<String>newHashSet(),
+          Sets.<String>newHashSet(),
+          DateTime.now()
+      );
+    }
+
     @Override
     public synchronized boolean doTerminate()
     {
@@ -400,17 +416,6 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
                 task.getId()
             )
         ),
-        DateTime.now()
-    );
-  }
-
-  private static ImmutableWorkerInfo createDummyWorker(String host, int capacity, String version)
-  {
-    return new ImmutableWorkerInfo(
-        new Worker(host, "-2", capacity, version),
-        0,
-        Sets.<String>newHashSet(),
-        Sets.<String>newHashSet(),
         DateTime.now()
     );
   }
