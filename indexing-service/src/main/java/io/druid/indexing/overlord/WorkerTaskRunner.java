@@ -18,7 +18,6 @@
  */
 package io.druid.indexing.overlord;
 
-import io.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
 
 public interface WorkerTaskRunner extends TaskRunner, TasksAndWorkers
 {

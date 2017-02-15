@@ -24,23 +24,34 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TwoCloudConfig
 {
+  private final String taskLabel1;
   private final String ipPrefix1;
   private final WorkerBehaviorConfig workerBehaviorConfig1;
+  private final String taskLabel2;
   private final String ipPrefix2;
   private final WorkerBehaviorConfig workerBehaviorConfig2;
 
   @JsonCreator
   public TwoCloudConfig(
+      @JsonProperty("taskLabel1") String taskLabel1,
       @JsonProperty("ipPrefix1") String ipPrefix1,
       @JsonProperty("workerBehaviorConfig1") WorkerBehaviorConfig workerBehaviorConfig1,
+      @JsonProperty("taskLabel2") String taskLabel2,
       @JsonProperty("ipPrefix2") String ipPrefix2,
       @JsonProperty("workerBehaviorConfig2") WorkerBehaviorConfig workerBehaviorConfig2
   )
   {
+    this.taskLabel1 = taskLabel1;
     this.ipPrefix1 = ipPrefix1;
     this.workerBehaviorConfig1 = workerBehaviorConfig1;
+    this.taskLabel2 = taskLabel2;
     this.ipPrefix2 = ipPrefix2;
     this.workerBehaviorConfig2 = workerBehaviorConfig2;
+  }
+
+  @JsonProperty
+  public String getTaskLabel1() {
+    return taskLabel1;
   }
 
   @JsonProperty
@@ -56,6 +67,11 @@ public class TwoCloudConfig
   }
 
   @JsonProperty
+  public String getTaskLabel2() {
+    return taskLabel2;
+  }
+
+  @JsonProperty
   public String getIpPrefix2()
   {
     return ipPrefix2;
@@ -67,12 +83,28 @@ public class TwoCloudConfig
     return workerBehaviorConfig2;
   }
 
+  public String getIpFilter(String taskLabel) {
+    if (taskLabel == null || taskLabel.equals(taskLabel1)) {
+      return ipPrefix1;
+    }
+    return ipPrefix2;
+  }
+
+  public WorkerBehaviorConfig getWorkerBehaviorConfig(String taskLabel) {
+    if (taskLabel == null || taskLabel.equals(taskLabel1)) {
+      return workerBehaviorConfig1;
+    }
+    return workerBehaviorConfig2;
+  }
+
   @Override
   public String toString()
   {
     return "TwoCloudConfig{" +
+           "taskLabel1='" + taskLabel1 + '\'' +
            "ipPrefix1='" + ipPrefix1 + '\'' +
            ", workerBehaviorConfig1=" + workerBehaviorConfig1 +
+           "taskLabel2='" + taskLabel2 + '\'' +
            ", ipPrefix2='" + ipPrefix2 + '\'' +
            ", workerBehaviorConfig2=" + workerBehaviorConfig2 +
            '}';
@@ -90,12 +122,18 @@ public class TwoCloudConfig
 
     TwoCloudConfig that = (TwoCloudConfig) o;
 
+    if (taskLabel1 != null ? !taskLabel1.equals(that.taskLabel1) : that.taskLabel1 != null) {
+      return false;
+    }
     if (ipPrefix1 != null ? !ipPrefix1.equals(that.ipPrefix1) : that.ipPrefix1 != null) {
       return false;
     }
     if (workerBehaviorConfig1 != null
         ? !workerBehaviorConfig1.equals(that.workerBehaviorConfig1)
         : that.workerBehaviorConfig1 != null) {
+      return false;
+    }
+    if (taskLabel2 != null ? !taskLabel2.equals(that.taskLabel2) : that.taskLabel2 != null) {
       return false;
     }
     if (ipPrefix2 != null ? !ipPrefix2.equals(that.ipPrefix2) : that.ipPrefix2 != null) {
@@ -109,8 +147,10 @@ public class TwoCloudConfig
   @Override
   public int hashCode()
   {
-    int result = ipPrefix1 != null ? ipPrefix1.hashCode() : 0;
+    int result = taskLabel1 != null ? taskLabel1.hashCode() : 0;
+    result = 31 * result + (ipPrefix1 != null ? ipPrefix1.hashCode() : 0);
     result = 31 * result + (workerBehaviorConfig1 != null ? workerBehaviorConfig1.hashCode() : 0);
+    result = 31 * result + (taskLabel2 != null ? taskLabel2.hashCode() : 0);
     result = 31 * result + (ipPrefix2 != null ? ipPrefix2.hashCode() : 0);
     result = 31 * result + (workerBehaviorConfig2 != null ? workerBehaviorConfig2.hashCode() : 0);
     return result;

@@ -20,8 +20,10 @@
 package io.druid.indexing.overlord.autoscaling;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
+import io.druid.indexing.overlord.TaskRunner;
 import io.druid.indexing.overlord.TaskRunnerWorkItem;
 import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
@@ -31,16 +33,20 @@ import io.druid.indexing.worker.Worker;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 
 public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
 {
   private final WorkerTaskRunner delegate;
   private final String ipPrefix;
+  private final Predicate<Task> taskPredicate;
 
-  public TasksAndWorkersFilteredByIp(WorkerTaskRunner delegate, String ipPrefix)
+  public TasksAndWorkersFilteredByIp(WorkerTaskRunner delegate, String ipPrefix, Predicate<Task> taskPredicate)
   {
     this.delegate = delegate;
     this.ipPrefix = ipPrefix;
+    this.taskPredicate = taskPredicate;
   }
 
   private Collection<Worker> filter(Collection<Worker> workers)
@@ -96,14 +102,29 @@ public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
   @Override
   public Collection<Task> getPendingTaskPayloads()
   {
-    // TODO https://metamarkets.atlassian.net/browse/BACKEND-658
-    return delegate.getPendingTaskPayloads();
+    ImmutableList.Builder<Task> filtered = ImmutableList.builder();
+    for (Task task : delegate.getPendingTaskPayloads()) {
+      if (taskPredicate.apply(task)) {
+        filtered.add(task);
+      }
+    }
+    return filtered.build();
   }
 
   @Override
   public Collection<? extends TaskRunnerWorkItem> getPendingTasks()
   {
-    // TODO https://metamarkets.atlassian.net/browse/BACKEND-658
-    return delegate.getPendingTasks();
+    Collection<? extends TaskRunnerWorkItem> pendingTasks = delegate.getPendingTasks();
+    Set<String> pendingTaskIds = new HashSet<>();
+    for (Task task : getPendingTaskPayloads()) {
+      pendingTaskIds.add(task.getId());
+    }
+    ImmutableList.Builder<TaskRunnerWorkItem> filtered = ImmutableList.builder();
+    for (TaskRunnerWorkItem taskRunnerWorkItem : pendingTasks) {
+      if (pendingTaskIds.contains(taskRunnerWorkItem.getTaskId())) {
+        filtered.add(taskRunnerWorkItem);
+      }
+    }
+    return filtered.build();
   }
 }
