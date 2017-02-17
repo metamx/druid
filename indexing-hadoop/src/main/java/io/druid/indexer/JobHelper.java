@@ -454,33 +454,30 @@ public class JobHelper
         .withSize(size.get())
         .withBinaryVersion(SegmentUtils.getVersionFromDir(mergedBase));
 
-    int retryAttempts = 0;
-    int retryThreshold = 5;
-    int retryGranularity = 1000;
-
-    while (retryAttempts != retryThreshold) {
-      if (renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath)) {
-        break;
-      } else {
-        retryAttempts++;
-        try {
-          Thread.sleep(retryAttempts * retryGranularity);
-        }
-        catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
-        }
+    try {
+      if (!RetryUtils.retry(
+          new Callable<Boolean>()
+          {
+            @Override
+            public Boolean call() throws Exception
+            {
+              return renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath);
+            }
+          }
+          , FileUtils.IS_EXCEPTION, NUM_RETRIES)) {
+        throw new IOException(
+            String.format(
+                "Unable to rename [%s] to [%s]",
+                tmpPath.toUri().toString(),
+                finalIndexZipFilePath.toUri().toString()
+            )
+        );
       }
     }
-
-    if (retryAttempts == retryThreshold) {
-      throw new IOException(
-          String.format(
-              "Unable to rename [%s] to [%s]",
-              tmpPath.toUri().toString(),
-              finalIndexZipFilePath.toUri().toString()
-          )
-      );
+    catch (Exception e) {
+      throw Throwables.propagate(e);
     }
+
     writeSegmentDescriptor(
         outputFS,
         finalSegment,
