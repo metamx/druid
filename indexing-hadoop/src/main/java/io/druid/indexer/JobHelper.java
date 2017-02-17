@@ -458,13 +458,15 @@ public class JobHelper
     int retryThreshold = 5;
     int retryGranularity = 1000;
 
-    while(retryAttempts != retryThreshold) {
-      if (renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath)) break;
-      else {
+    while (retryAttempts != retryThreshold) {
+      if (renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath)) {
+        break;
+      } else {
         retryAttempts++;
         try {
-          Thread.sleep(retryAttempts*retryGranularity);
-        } catch(InterruptedException ex) {
+          Thread.sleep(retryAttempts * retryGranularity);
+        }
+        catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
         }
       }
