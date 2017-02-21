@@ -454,15 +454,21 @@ public class JobHelper
         .withSize(size.get())
         .withBinaryVersion(SegmentUtils.getVersionFromDir(mergedBase));
 
-    if (!renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath)) {
-      throw new IOException(
-          String.format(
-              "Unable to rename [%s] to [%s]",
-              tmpPath.toUri().toString(),
-              finalIndexZipFilePath.toUri().toString()
-          )
-      );
+    try {
+      if (!renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath)) {
+        throw new IOException(
+            String.format(
+                "Unable to rename [%s] to [%s]",
+                tmpPath.toUri().toString(),
+                finalIndexZipFilePath.toUri().toString()
+            )
+        );
+      }
     }
+    catch (Exception e) {
+      Throwables.propagate(e);
+    }
+
     writeSegmentDescriptor(
         outputFS,
         finalSegment,
