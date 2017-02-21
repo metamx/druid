@@ -624,7 +624,6 @@ public class JobHelper
                 final FileStatus zipFile = outputFS.getFileStatus(indexZipFilePath);
                 final FileStatus finalIndexZipFile = outputFS.getFileStatus(finalIndexZipFilePath);
 
-
                 if (zipFile.getModificationTime() >= finalIndexZipFile.getModificationTime()
                     || zipFile.getLen() != finalIndexZipFile.getLen()) {
                   log.info(
