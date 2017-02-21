@@ -455,16 +455,7 @@ public class JobHelper
         .withBinaryVersion(SegmentUtils.getVersionFromDir(mergedBase));
 
     try {
-      if (!RetryUtils.retry(
-          new Callable<Boolean>()
-          {
-            @Override
-            public Boolean call() throws Exception
-            {
-              return renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath);
-            }
-          }
-          , FileUtils.IS_EXCEPTION, NUM_RETRIES)) {
+      if (!renameIndexFiles(outputFS, tmpPath, finalIndexZipFilePath)) {
         throw new IOException(
             String.format(
                 "Unable to rename [%s] to [%s]",
@@ -475,7 +466,7 @@ public class JobHelper
       }
     }
     catch (Exception e) {
-      throw Throwables.propagate(e);
+      Throwables.propagate(e);
     }
 
     writeSegmentDescriptor(
