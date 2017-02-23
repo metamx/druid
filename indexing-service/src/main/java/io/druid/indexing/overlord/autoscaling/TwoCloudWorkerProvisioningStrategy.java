@@ -46,6 +46,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
     }
   };
 
+  private final PendingTaskBasedWorkerProvisioningConfig config;
   private final String taskLabel1;
   private final String ipPrefix1;
   private final PendingTaskBasedWorkerProvisioningStrategy provisioningStrategy1;
@@ -94,6 +95,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
           }
         }
     );
+    this.config = config;
     this.taskLabel1 = taskLabel1;
     this.taskLabel2 = taskLabel2;
     this.ipPrefix1 = ipPrefix1;
@@ -151,7 +153,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       {
         ScalingStats stats1 = provisioner1.getStats();
         ScalingStats stats2 = provisioner2.getStats();
-        ScalingStats stats = new ScalingStats(stats1.size() + stats2.size());
+        ScalingStats stats = new ScalingStats(config.getNumEventsToTrack() * 2);
         stats.addAll(stats1);
         stats.addAll(stats2);
         return stats;
