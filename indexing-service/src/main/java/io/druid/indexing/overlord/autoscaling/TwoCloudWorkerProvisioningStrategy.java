@@ -23,7 +23,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
-import com.metamx.common.concurrent.ScheduledExecutors;
+import io.druid.concurrent.Execs;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
@@ -37,12 +37,12 @@ import static io.druid.indexing.common.task.TaskLabels.getTaskLabel;
 
 public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioningStrategy
 {
-  public static final Supplier<ScheduledExecutorService> EXEC_FACTORY = new Supplier<ScheduledExecutorService>()
+  private static final Supplier<ScheduledExecutorService> DUMMMY_EXEC_FACTORY = new Supplier<ScheduledExecutorService>()
   {
     @Override
     public ScheduledExecutorService get()
     {
-      return ScheduledExecutors.fixed(1, "TwoCloudWorkerProvisioningStrategy-manager--%d");
+      throw new IllegalStateException("ExecutorService not expected to be created by in-cloud provisioned strategies");
     }
   };
 
@@ -83,7 +83,17 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       ProvisioningSchedulerConfig provisioningSchedulerConfig
   )
   {
-    super(provisioningSchedulerConfig, EXEC_FACTORY);
+    super(
+        provisioningSchedulerConfig,
+        new Supplier<ScheduledExecutorService>()
+        {
+          @Override
+          public ScheduledExecutorService get()
+          {
+            return Execs.scheduledSingleThreaded("TwoCloudWorkerProvisioningStrategy-provisioner-%d");
+          }
+        }
+    );
     this.taskLabel1 = taskLabel1;
     this.taskLabel2 = taskLabel2;
     this.ipPrefix1 = ipPrefix1;
@@ -92,14 +102,14 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
         config,
         Suppliers.ofInstance(workerBehaviorConfig1),
         provisioningSchedulerConfig,
-        EXEC_FACTORY,
+        DUMMMY_EXEC_FACTORY,
         ipPrefix1
     );
     provisioningStrategy2 = new PendingTaskBasedWorkerProvisioningStrategy(
         config,
         Suppliers.ofInstance(workerBehaviorConfig2),
         provisioningSchedulerConfig,
-        EXEC_FACTORY,
+        DUMMMY_EXEC_FACTORY,
         ipPrefix2
     );
   }
@@ -121,19 +131,30 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       @Override
       public boolean doTerminate()
       {
-        return provisioner1.doTerminate() || provisioner2.doTerminate();
+        // Always try to terminate in both clouds before returning from this method
+        boolean terminated1 = provisioner1.doTerminate();
+        boolean terminated2 = provisioner2.doTerminate();
+        return terminated1 || terminated2;
       }
 
       @Override
       public boolean doProvision()
       {
-        return provisioner1.doProvision() || provisioner2.doProvision();
+        // Always try to provision in both clouds before returning from this method
+        boolean provisioned1 = provisioner1.doProvision();
+        boolean provisioned2 = provisioner2.doProvision();
+        return provisioned1 || provisioned2;
       }
 
       @Override
       public ScalingStats getStats()
       {
-        return new ScalingStats(provisioner1.getStats(), provisioner2.getStats());
+        ScalingStats stats1 = provisioner1.getStats();
+        ScalingStats stats2 = provisioner2.getStats();
+        ScalingStats stats = new ScalingStats(stats1.size() + stats2.size());
+        stats.addAll(stats1);
+        stats.addAll(stats2);
+        return stats;
       }
     };
   }
