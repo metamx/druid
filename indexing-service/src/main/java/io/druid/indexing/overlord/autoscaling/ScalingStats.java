@@ -65,13 +65,6 @@ public class ScalingStats
     }
   }
 
-  public int size()
-  {
-    synchronized (lock) {
-      return recentEvents.size();
-    }
-  }
-
   public void addAll(ScalingStats stats)
   {
     synchronized (lock) {
