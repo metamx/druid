@@ -65,12 +65,19 @@ public class ScalingStats
     }
   }
 
-  public ScalingStats(ScalingStats stats1, ScalingStats stats2)
+  public int size()
   {
-    this(stats1.recentEvents.size() + stats2.recentEvents.size());
     synchronized (lock) {
-      recentEvents.addAll(stats1.toList());
-      recentEvents.addAll(stats2.toList());
+      return recentEvents.size();
+    }
+  }
+
+  public void addAll(ScalingStats stats)
+  {
+    synchronized (lock) {
+      synchronized (stats.lock) {
+        recentEvents.addAll(stats.recentEvents);
+      }
     }
   }
 

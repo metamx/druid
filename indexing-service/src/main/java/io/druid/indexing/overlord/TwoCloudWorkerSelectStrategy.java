@@ -58,7 +58,11 @@ public class TwoCloudWorkerSelectStrategy implements WorkerSelectStrategy
     return workerSelectStrategy.findWorkerForTask(config, filterWorkers(ipFilter, zkWorkers), task);
   }
 
-  private ImmutableMap<String, ImmutableWorkerInfo> filterWorkers(String ipFilter, ImmutableMap<String, ImmutableWorkerInfo> zkWorkers) {
+  private ImmutableMap<String, ImmutableWorkerInfo> filterWorkers(
+      String ipFilter,
+      ImmutableMap<String, ImmutableWorkerInfo> zkWorkers
+  )
+  {
     ImmutableMap.Builder<String, ImmutableWorkerInfo> filtered = ImmutableMap.builder();
     for (Map.Entry<String, ImmutableWorkerInfo> e : zkWorkers.entrySet()) {
       if (e.getValue().getWorker().getIp().startsWith(ipFilter)) {

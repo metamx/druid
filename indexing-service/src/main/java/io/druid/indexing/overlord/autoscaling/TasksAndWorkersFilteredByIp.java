@@ -19,11 +19,14 @@
 
 package io.druid.indexing.overlord.autoscaling;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
-import io.druid.indexing.overlord.TaskRunner;
 import io.druid.indexing.overlord.TaskRunnerWorkItem;
 import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
@@ -40,12 +43,21 @@ public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
 {
   private final WorkerTaskRunner delegate;
   private final String ipPrefix;
+  private final Predicate<ImmutableWorkerInfo> ipFilter;
   private final Predicate<Task> taskPredicate;
 
-  public TasksAndWorkersFilteredByIp(WorkerTaskRunner delegate, String ipPrefix, Predicate<Task> taskPredicate)
+  TasksAndWorkersFilteredByIp(WorkerTaskRunner delegate, final String ipPrefix, Predicate<Task> taskPredicate)
   {
     this.delegate = delegate;
-    this.ipPrefix = ipPrefix;
+    this.ipPrefix = Preconditions.checkNotNull(ipPrefix);
+    this.ipFilter = new Predicate<ImmutableWorkerInfo>()
+    {
+      @Override
+      public boolean apply(@Nullable ImmutableWorkerInfo info)
+      {
+        return info != null && info.getWorker().getIp().startsWith(ipPrefix);
+      }
+    };
     this.taskPredicate = taskPredicate;
   }
 
@@ -63,14 +75,7 @@ public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
   @Override
   public Collection<ImmutableWorkerInfo> getWorkers()
   {
-    Collection<ImmutableWorkerInfo> workers = delegate.getWorkers();
-    Collection<ImmutableWorkerInfo> filtered = new ArrayList<>(workers.size());
-    for (ImmutableWorkerInfo workerInfo : workers) {
-      if (workerInfo.getWorker().getIp().startsWith(ipPrefix)) {
-        filtered.add(workerInfo);
-      }
-    }
-    return filtered;
+    return Lists.newArrayList(Collections2.filter(delegate.getWorkers(), ipFilter));
   }
 
   @Override
@@ -82,15 +87,7 @@ public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
   @Override
   public Collection<Worker> markWorkersLazy(final Predicate<ImmutableWorkerInfo> isLazyWorker, int maxWorkers)
   {
-    Predicate<ImmutableWorkerInfo> isLazyWorkerWithProperIp = new Predicate<ImmutableWorkerInfo>()
-    {
-      @Override
-      public boolean apply(@Nullable ImmutableWorkerInfo input)
-      {
-        return isLazyWorker.apply(input) && input.getWorker().getIp().startsWith(ipPrefix);
-      }
-    };
-    return filter(delegate.markWorkersLazy(isLazyWorkerWithProperIp, maxWorkers));
+    return filter(delegate.markWorkersLazy(Predicates.and(isLazyWorker, ipFilter), maxWorkers));
   }
 
   @Override
@@ -102,13 +99,7 @@ public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
   @Override
   public Collection<Task> getPendingTaskPayloads()
   {
-    ImmutableList.Builder<Task> filtered = ImmutableList.builder();
-    for (Task task : delegate.getPendingTaskPayloads()) {
-      if (taskPredicate.apply(task)) {
-        filtered.add(task);
-      }
-    }
-    return filtered.build();
+    return ImmutableList.copyOf(Collections2.filter(delegate.getPendingTaskPayloads(), taskPredicate));
   }
 
   @Override
