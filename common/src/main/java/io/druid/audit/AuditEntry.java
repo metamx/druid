@@ -27,7 +27,7 @@ import org.joda.time.DateTime;
 /**
  * An Entry in Audit Table.
  */
-public class AuditEntry implements Comparable<AuditEntry>
+public class AuditEntry
 {
   private final String key;
   private final String type;
@@ -88,12 +88,6 @@ public class AuditEntry implements Comparable<AuditEntry>
   public DateTime getAuditTime()
   {
     return auditTime;
-  }
-
-  @Override
-  public int compareTo(AuditEntry otherEntry)
-  {
-    return auditTime.compareTo(otherEntry.auditTime);
   }
 
   public static AuditEntry.Builder builder()

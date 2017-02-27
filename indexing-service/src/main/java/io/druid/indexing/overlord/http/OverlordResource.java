@@ -88,6 +88,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -342,7 +343,17 @@ public class OverlordResource
     List<AuditEntry> result = new ArrayList<>(list1.size() + list2.size());
     result.addAll(list1);
     result.addAll(list2);
-    Collections.sort(result);
+    Collections.sort(
+        result,
+        new Comparator<AuditEntry>()
+        {
+          @Override
+          public int compare(AuditEntry e1, AuditEntry e2)
+          {
+            return e1.getAuditTime().compareTo(e2.getAuditTime());
+          }
+        }
+    );
     return result;
   }
 
