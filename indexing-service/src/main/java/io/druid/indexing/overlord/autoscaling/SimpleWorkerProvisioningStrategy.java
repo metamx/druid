@@ -34,7 +34,6 @@ import com.metamx.emitter.EmittingLogger;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
 import io.druid.indexing.overlord.TaskRunnerWorkItem;
 import io.druid.indexing.overlord.TasksAndWorkers;
-import io.druid.indexing.overlord.WorkerTaskRunner;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.worker.Worker;
 import org.joda.time.DateTime;

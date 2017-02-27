@@ -24,6 +24,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class TwoCloudConfig
 {
+  public static final String CONFIG_KEY = WorkerBehaviorConfig.CONFIG_KEY + ".selectStrategy.twoCloudConfig";
   private final String taskLabel1;
   private final String ipPrefix1;
   private final WorkerBehaviorConfig workerBehaviorConfig1;

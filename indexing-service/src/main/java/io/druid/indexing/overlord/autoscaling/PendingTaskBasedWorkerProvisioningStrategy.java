@@ -104,10 +104,15 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
     return new PendingProvisioner(runner);
   }
 
+  Provisioner makeProvisioner(TasksAndWorkers runner, ScalingStats scalingStats)
+  {
+    return new PendingProvisioner(runner, scalingStats);
+  }
+
   private class PendingProvisioner implements Provisioner
   {
     private final TasksAndWorkers runner;
-    private final ScalingStats scalingStats = new ScalingStats(config.getNumEventsToTrack());
+    private final ScalingStats scalingStats;
 
     private final Set<String> currentlyProvisioning = Sets.newHashSet();
     private final Set<String> currentlyTerminating = Sets.newHashSet();
@@ -117,7 +122,13 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
 
     private PendingProvisioner(TasksAndWorkers runner)
     {
+      this(runner, new ScalingStats(config.getNumEventsToTrack()));
+    }
+
+    private PendingProvisioner(TasksAndWorkers runner, ScalingStats scalingStats)
+    {
       this.runner = runner;
+      this.scalingStats = scalingStats;
     }
 
     @Override
@@ -264,7 +275,11 @@ public class PendingTaskBasedWorkerProvisioningStrategy extends AbstractWorkerPr
         } else {
           // None of the existing worker can run this task, we need to provision one worker for it.
           // create a dummy worker and try to simulate assigning task to it.
-          workerRunningTask = createDummyWorker("dummy" + need, capacity, workerTaskRunnerConfig.getMinWorkerVersion());
+          workerRunningTask = createDummyWorker(
+              "dummy" + need,
+              capacity,
+              workerTaskRunnerConfig.getMinWorkerVersion()
+          );
           need++;
         }
         // Update map with worker running task

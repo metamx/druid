@@ -35,6 +35,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.inject.Inject;
 import com.sun.jersey.spi.container.ResourceFilters;
+import io.druid.audit.AuditEntry;
 import io.druid.audit.AuditInfo;
 import io.druid.audit.AuditManager;
 import io.druid.common.config.JacksonConfigManager;
@@ -51,6 +52,7 @@ import io.druid.indexing.overlord.TaskStorageQueryAdapter;
 import io.druid.indexing.overlord.WorkerTaskRunner;
 import io.druid.indexing.overlord.autoscaling.ScalingStats;
 import io.druid.indexing.overlord.http.security.TaskResourceFilter;
+import io.druid.indexing.overlord.setup.TwoCloudConfig;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.java.util.common.Pair;
 import io.druid.java.util.common.logger.Logger;
@@ -83,7 +85,9 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -266,6 +270,30 @@ public class OverlordResource
     return Response.ok().build();
   }
 
+  @POST
+  @Path("/two-cloud-worker")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @ResourceFilters(ConfigResourceFilter.class)
+  public Response setWorkerConfig(
+      final TwoCloudConfig twoCloudConfig,
+      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
+      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
+      @Context final HttpServletRequest req
+  )
+  {
+    if (!configManager.set(
+        TwoCloudConfig.CONFIG_KEY,
+        twoCloudConfig,
+        new AuditInfo(author, comment, req.getRemoteAddr())
+    )) {
+      return Response.status(Response.Status.BAD_REQUEST).build();
+    }
+
+    log.info("Updating Two Cloud Worker configs: %s", twoCloudConfig);
+
+    return Response.ok().build();
+  }
+
   @GET
   @Path("/worker/history")
   @Produces(MediaType.APPLICATION_JSON)
@@ -278,14 +306,17 @@ public class OverlordResource
     Interval theInterval = interval == null ? null : new Interval(interval);
     if (theInterval == null && count != null) {
       try {
-        return Response.ok(
-            auditManager.fetchAuditHistory(
-                WorkerBehaviorConfig.CONFIG_KEY,
-                WorkerBehaviorConfig.CONFIG_KEY,
-                count
-            )
-        )
-                       .build();
+        List<AuditEntry> workerEntryList = auditManager.fetchAuditHistory(
+            WorkerBehaviorConfig.CONFIG_KEY,
+            WorkerBehaviorConfig.CONFIG_KEY,
+            count
+        );
+        List<AuditEntry> twoCloudWorkerEntryList = auditManager.fetchAuditHistory(
+            TwoCloudConfig.CONFIG_KEY,
+            TwoCloudConfig.CONFIG_KEY,
+            count
+        );
+        return Response.ok(mergeLists(workerEntryList, twoCloudWorkerEntryList)).build();
       }
       catch (IllegalArgumentException e) {
         return Response.status(Response.Status.BAD_REQUEST)
@@ -293,14 +324,26 @@ public class OverlordResource
                        .build();
       }
     }
-    return Response.ok(
-        auditManager.fetchAuditHistory(
-            WorkerBehaviorConfig.CONFIG_KEY,
-            WorkerBehaviorConfig.CONFIG_KEY,
-            theInterval
-        )
-    )
-                   .build();
+    List<AuditEntry> workerEntryList = auditManager.fetchAuditHistory(
+        WorkerBehaviorConfig.CONFIG_KEY,
+        WorkerBehaviorConfig.CONFIG_KEY,
+        theInterval
+    );
+    List<AuditEntry> twoCloudWorkerEntryList = auditManager.fetchAuditHistory(
+        TwoCloudConfig.CONFIG_KEY,
+        TwoCloudConfig.CONFIG_KEY,
+        theInterval
+    );
+    return Response.ok(mergeLists(workerEntryList, twoCloudWorkerEntryList)).build();
+  }
+
+  private static List<AuditEntry> mergeLists(List<AuditEntry> list1, List<AuditEntry> list2)
+  {
+    List<AuditEntry> result = new ArrayList<>(list1.size() + list2.size());
+    result.addAll(list1);
+    result.addAll(list2);
+    Collections.sort(result);
+    return result;
   }
 
   @POST

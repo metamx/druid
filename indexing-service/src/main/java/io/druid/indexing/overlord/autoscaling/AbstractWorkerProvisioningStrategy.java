@@ -49,6 +49,11 @@ public abstract class AbstractWorkerProvisioningStrategy implements Provisioning
     this.execFactory = execFactory;
   }
 
+  ProvisioningSchedulerConfig getProvisioningSchedulerConfig()
+  {
+    return provisioningSchedulerConfig;
+  }
+
   @Override
   public ProvisioningService makeProvisioningService(WorkerTaskRunner runner)
   {
