@@ -227,7 +227,7 @@ public class CliOverlord extends ServerRunnable
             binder.bind(RemoteTaskRunnerFactory.class).in(LazySingleton.class);
 
             JacksonConfigProvider.bind(binder, WorkerBehaviorConfig.CONFIG_KEY, WorkerBehaviorConfig.class, null);
-            JacksonConfigProvider.bind(binder, WorkerBehaviorConfig.CONFIG_KEY + ".selectStrategy.twoCloudConfig", TwoCloudConfig.class, null);
+            JacksonConfigProvider.bind(binder, TwoCloudConfig.CONFIG_KEY, TwoCloudConfig.class, null);
           }
 
           private void configureAutoscale(Binder binder)
