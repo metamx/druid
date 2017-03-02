@@ -110,6 +110,7 @@ public class OverlordResource
   private final AuthConfig authConfig;
 
   private AtomicReference<WorkerBehaviorConfig> workerConfigRef = null;
+  private AtomicReference<TwoCloudConfig> twoCloudConfigRef = null;
 
   @Inject
   public OverlordResource(
@@ -269,6 +270,19 @@ public class OverlordResource
     log.info("Updating Worker configs: %s", workerBehaviorConfig);
 
     return Response.ok().build();
+  }
+
+  @GET
+  @Path("/two-cloud-worker")
+  @Produces(MediaType.APPLICATION_JSON)
+  @ResourceFilters(ConfigResourceFilter.class)
+  public Response getTwoCloudWorkerConfig()
+  {
+    if (twoCloudConfigRef == null) {
+      twoCloudConfigRef = configManager.watch(TwoCloudConfig.CONFIG_KEY, TwoCloudConfig.class);
+    }
+
+    return Response.ok(twoCloudConfigRef.get()).build();
   }
 
   @POST
