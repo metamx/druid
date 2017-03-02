@@ -22,6 +22,7 @@ package io.druid.indexing.overlord.autoscaling;
 import com.google.common.base.Supplier;
 import com.metamx.emitter.EmittingLogger;
 import io.druid.granularity.PeriodGranularity;
+import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
 import org.joda.time.DateTime;
 import org.joda.time.Duration;
@@ -46,6 +47,11 @@ public abstract class AbstractWorkerProvisioningStrategy implements Provisioning
   {
     this.provisioningSchedulerConfig = provisioningSchedulerConfig;
     this.execFactory = execFactory;
+  }
+
+  ProvisioningSchedulerConfig getProvisioningSchedulerConfig()
+  {
+    return provisioningSchedulerConfig;
   }
 
   @Override
@@ -127,5 +133,5 @@ public abstract class AbstractWorkerProvisioningStrategy implements Provisioning
     }
   }
 
-  abstract Provisioner makeProvisioner(WorkerTaskRunner runner);
+  abstract Provisioner makeProvisioner(TasksAndWorkers runner);
 }

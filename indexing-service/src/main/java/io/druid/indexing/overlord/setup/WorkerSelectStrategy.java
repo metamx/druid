@@ -25,7 +25,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.overlord.ImmutableWorkerInfo;
-import io.druid.indexing.overlord.config.RemoteTaskRunnerConfig;
+import io.druid.indexing.overlord.TwoCloudWorkerSelectStrategy;
 import io.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
 
 /**
@@ -36,7 +36,8 @@ import io.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
     @JsonSubTypes.Type(name = "fillCapacity", value = FillCapacityWorkerSelectStrategy.class),
     @JsonSubTypes.Type(name = "fillCapacityWithAffinity", value = FillCapacityWithAffinityWorkerSelectStrategy.class),
     @JsonSubTypes.Type(name = "equalDistribution", value = EqualDistributionWorkerSelectStrategy.class),
-    @JsonSubTypes.Type(name = "javascript", value = JavaScriptWorkerSelectStrategy.class)
+    @JsonSubTypes.Type(name = "javascript", value = JavaScriptWorkerSelectStrategy.class),
+    @JsonSubTypes.Type(name = "twoCloud", value = TwoCloudWorkerSelectStrategy.class)
 })
 public interface WorkerSelectStrategy
 {

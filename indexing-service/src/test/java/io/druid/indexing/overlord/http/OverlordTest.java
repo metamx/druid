@@ -398,7 +398,7 @@ public class OverlordTest
     }
 
     @Override
-    public Collection<? extends TaskRunnerWorkItem> getPendingTasks()
+    public Collection<TaskRunnerWorkItem> getPendingTasks()
     {
       return ImmutableList.of();
     }

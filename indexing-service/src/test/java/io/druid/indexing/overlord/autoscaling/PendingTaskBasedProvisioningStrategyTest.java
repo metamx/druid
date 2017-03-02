@@ -103,7 +103,8 @@ public class PendingTaskBasedProvisioningStrategyTest
           {
             return executorService;
           }
-        }
+        },
+        PendingTaskBasedWorkerProvisioningStrategy.DEFAULT_DUMMY_WORKER_IP
     );
   }
 
