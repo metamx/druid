@@ -22,15 +22,12 @@ package io.druid.segment;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import io.druid.collections.bitmap.BitmapFactory;
 import io.druid.collections.bitmap.ImmutableBitmap;
 import io.druid.collections.bitmap.MutableBitmap;
 import io.druid.collections.spatial.ImmutableRTree;
 import io.druid.collections.spatial.RTree;
 import io.druid.collections.spatial.split.LinearGutmanSplitStrategy;
-import io.druid.java.util.common.ByteBufferUtils;
 import io.druid.java.util.common.ISE;
 import io.druid.java.util.common.io.Closer;
 import io.druid.java.util.common.logger.Logger;
@@ -45,7 +42,6 @@ import io.druid.segment.data.CompressedVSizeIndexedV3Writer;
 import io.druid.segment.data.CompressedVSizeIntsIndexedWriter;
 import io.druid.segment.data.GenericIndexed;
 import io.druid.segment.data.GenericIndexedWriter;
-import io.druid.segment.data.IOPeon;
 import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedIntsWriter;
@@ -57,12 +53,9 @@ import it.unimi.dsi.fastutil.ints.AbstractIntIterator;
 import it.unimi.dsi.fastutil.ints.IntIterable;
 import it.unimi.dsi.fastutil.ints.IntIterator;
 
-import java.io.Closeable;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.IntBuffer;
-import java.nio.MappedByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -78,6 +71,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
 
   protected String dimensionName;
   protected GenericIndexedWriter<String> dictionaryWriter;
+  protected List<String> dictionary;
   protected GenericIndexedWriter<ImmutableBitmap> bitmapWriter;
   protected ByteBufferWriter<ImmutableRTree> spatialWriter;
   protected ArrayList<IntBuffer> dimConversions;
@@ -85,7 +79,6 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
   protected boolean convertMissingValues = false;
   protected boolean hasNull = false;
   protected MutableBitmap nullRowsBitmap;
-  protected IOPeon ioPeon;
   protected int rowCount = 0;
   protected ColumnCapabilities capabilities;
   protected final File outDir;
@@ -97,7 +90,6 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
       String dimensionName,
       IndexSpec indexSpec,
       File outDir,
-      IOPeon ioPeon,
       ColumnCapabilities capabilities,
       ProgressIndicator progress
   )
@@ -106,7 +98,6 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     this.indexSpec = indexSpec;
     this.capabilities = capabilities;
     this.outDir = outDir;
-    this.ioPeon = ioPeon;
     this.progress = progress;
     nullRowsBitmap = indexSpec.getBitmapSerdeFactory().getBitmapFactory().makeEmptyMutableBitmap();
   }
@@ -157,11 +148,8 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     }
 
     String dictFilename = String.format("%s.dim_values", dimensionName);
-    dictionaryWriter = new GenericIndexedWriter<>(
-        ioPeon,
-        dictFilename,
-        GenericIndexed.STRING_STRATEGY
-    );
+    dictionaryWriter = new GenericIndexedWriter<>(dictFilename, GenericIndexed.STRING_STRATEGY);
+    dictionary = new ArrayList<>();
     dictionaryWriter.open();
 
     cardinality = 0;
@@ -169,7 +157,9 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
       IndexMerger.DictionaryMergeIterator iterator = new IndexMerger.DictionaryMergeIterator(dimValueLookups, true);
 
       while (iterator.hasNext()) {
-        dictionaryWriter.write(iterator.next());
+        String value = iterator.next();
+        dictionaryWriter.write(value);
+        dictionary.add(value);
       }
 
       for (int i = 0; i < adapters.size(); i++) {
@@ -181,6 +171,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     } else if (numMergeIndex == 1) {
       for (String value : dimValueLookup) {
         dictionaryWriter.write(value);
+        dictionary.add(value);
       }
       cardinality = dimValueLookup.size();
     }
@@ -191,7 +182,6 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
         cardinality,
         System.currentTimeMillis() - dimStartTime
     );
-    dictionaryWriter.close();
 
     setupEncodedValueWriter();
   }
@@ -203,22 +193,12 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     String filenameBase = String.format("%s.forward_dim", dimensionName);
     if (capabilities.hasMultipleValues()) {
       encodedValueWriter = (compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED)
-                           ? CompressedVSizeIndexedV3Writer.create(
-          ioPeon,
-          filenameBase,
-          cardinality,
-          compressionStrategy
-      )
-                           : new VSizeIndexedWriter(ioPeon, filenameBase, cardinality);
+                           ? CompressedVSizeIndexedV3Writer.create(filenameBase, cardinality, compressionStrategy)
+                           : new VSizeIndexedWriter(cardinality);
     } else {
       encodedValueWriter = (compressionStrategy != CompressedObjectStrategy.CompressionStrategy.UNCOMPRESSED)
-                           ? CompressedVSizeIntsIndexedWriter.create(
-          ioPeon,
-          filenameBase,
-          cardinality,
-          compressionStrategy
-      )
-                           : new VSizeIndexedIntsWriter(ioPeon, filenameBase, cardinality);
+                           ? CompressedVSizeIntsIndexedWriter.create(filenameBase, cardinality, compressionStrategy)
+                           : new VSizeIndexedIntsWriter(cardinality);
     }
     encodedValueWriter.open();
   }
@@ -276,84 +256,54 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     final BitmapSerdeFactory bitmapSerdeFactory = indexSpec.getBitmapSerdeFactory();
 
     String bmpFilename = String.format("%s.inverted", dimensionName);
-    bitmapWriter = new GenericIndexedWriter<>(
-        ioPeon,
-        bmpFilename,
-        bitmapSerdeFactory.getObjectStrategy()
-    );
+    bitmapWriter = new GenericIndexedWriter<>(bmpFilename, indexSpec.getBitmapSerdeFactory().getObjectStrategy());
     bitmapWriter.open();
 
-    // write dim values to one single file because we need to read it
-    File dimValueFile = IndexIO.makeDimFile(outDir, dimensionName);
-    try (FileOutputStream fos = new FileOutputStream(dimValueFile)) {
-      ByteStreams.copy(dictionaryWriter.combineStreams(), fos);
+    BitmapFactory bitmapFactory = bitmapSerdeFactory.getBitmapFactory();
+
+    RTree tree = null;
+    boolean hasSpatial = capabilities.hasSpatialIndexes();
+    if (hasSpatial) {
+      spatialWriter = new ByteBufferWriter<>(new IndexedRTree.ImmutableRTreeObjectStrategy(bitmapFactory));
+      spatialWriter.open();
+      tree = new RTree(2, new LinearGutmanSplitStrategy(0, 50, bitmapFactory), bitmapFactory);
     }
 
-    final MappedByteBuffer dimValsMapped = Files.map(dimValueFile);
-    try (
-        Closeable toCloseEncodedValueWriter = encodedValueWriter;
-        Closeable toCloseBitmapWriter = bitmapWriter;
-        Closeable dimValsMappedUnmapper = new Closeable()
-    {
-      @Override
-      public void close()
-      {
-        ByteBufferUtils.unmap(dimValsMapped);
-      }
-    }) {
-      Indexed<String> dimVals = GenericIndexed.read(dimValsMapped, GenericIndexed.STRING_STRATEGY);
-      BitmapFactory bmpFactory = bitmapSerdeFactory.getBitmapFactory();
+    IndexSeeker[] dictIdSeeker = toIndexSeekers(adapters, dimConversions, dimensionName);
 
-      RTree tree = null;
-      boolean hasSpatial = capabilities.hasSpatialIndexes();
-      if (hasSpatial) {
-        spatialWriter = new ByteBufferWriter<>(
-            ioPeon,
-            String.format("%s.spatial", dimensionName),
-            new IndexedRTree.ImmutableRTreeObjectStrategy(bmpFactory)
-        );
-        spatialWriter.open();
-        tree = new RTree(2, new LinearGutmanSplitStrategy(0, 50, bmpFactory), bmpFactory);
-      }
-
-      IndexSeeker[] dictIdSeeker = toIndexSeekers(adapters, dimConversions, dimensionName);
-
-      //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
-      for (int dictId = 0; dictId < dimVals.size(); dictId++) {
-        progress.progress();
-        mergeBitmaps(
-            segmentRowNumConversions,
-            dimVals,
-            bmpFactory,
-            tree,
-            hasSpatial,
-            dictIdSeeker,
-            dictId,
-            adapters,
-            dimensionName,
-            nullRowsBitmap,
-            bitmapWriter
-        );
-      }
-
-      if (hasSpatial) {
-        spatialWriter.write(ImmutableRTree.newImmutableFromMutable(tree));
-        spatialWriter.close();
-      }
-
-
-      log.info(
-          "Completed dim[%s] inverted with cardinality[%,d] in %,d millis.",
+    //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
+    for (int dictId = 0; dictId < dictionary.size(); dictId++) {
+      progress.progress();
+      mergeBitmaps(
+          segmentRowNumConversions,
+          dictionary,
+          bitmapFactory,
+          tree,
+          hasSpatial,
+          dictIdSeeker,
+          dictId,
+          adapters,
           dimensionName,
-          dimVals.size(),
-          System.currentTimeMillis() - dimStartTime
+          nullRowsBitmap,
+          bitmapWriter
       );
     }
+
+    if (hasSpatial) {
+      spatialWriter.write(ImmutableRTree.newImmutableFromMutable(tree));
+    }
+
+    log.info(
+        "Completed dim[%s] inverted with cardinality[%,d] in %,d millis.",
+        dimensionName,
+        dictionary.size(),
+        System.currentTimeMillis() - dimStartTime
+    );
   }
 
   static void mergeBitmaps(
       List<IntBuffer> segmentRowNumConversions,
-      Indexed<String> dimVals,
+      List<String> dictionary,
       BitmapFactory bmpFactory,
       RTree tree,
       boolean hasSpatial,
@@ -396,14 +346,14 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
       prevRow = row;
     }
 
-    if ((dictId == 0) && (Iterables.getFirst(dimVals, "") == null)) {
+    if ((dictId == 0) && (Iterables.getFirst(dictionary, "") == null)) {
       mergedIndexes.or(nullRowsBitmap);
     }
 
     bitmapWriter.write(bmpFactory.makeImmutableBitmap(mergedIndexes));
 
     if (hasSpatial) {
-      String dimVal = dimVals.get(dictId);
+      String dimVal = dictionary.get(dictId);
       if (dimVal != null) {
         List<String> stringCoords = Lists.newArrayList(SPLITTER.split(dimVal));
         float[] coords = new float[stringCoords.size()];
