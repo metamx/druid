@@ -97,20 +97,15 @@ public class StringDimensionMergerLegacy extends StringDimensionMergerV9 impleme
     IndexSeeker[] dictIdSeeker = toIndexSeekers(adapters, dimConversions, dimensionName);
 
     //Iterate all dim values's dictionary id in ascending order which in line with dim values's compare result.
-    for (int dictId = 0; dictId < dictionary.size(); dictId++) {
+    for (int dictId = 0; dictId < dictionarySize; dictId++) {
       progress.progress();
       mergeBitmaps(
           segmentRowNumConversions,
-          dictionary,
           bitmapFactory,
           tree,
           hasSpatial,
           dictIdSeeker,
-          dictId,
-          adapters,
-          dimensionName,
-          nullRowsBitmap,
-          bitmapWriter
+          dictId
       );
     }
 
