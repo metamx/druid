@@ -168,8 +168,7 @@ public class GenericIndexedWriter<T> implements Serializer
         numBytesWritten
     );
 
-    int metaSize = metaSize();
-    ByteBuffer meta = ByteBuffer.allocate(metaSize);
+    ByteBuffer meta = ByteBuffer.allocate(metaSize());
     meta.put(GenericIndexed.VERSION_ONE);
     meta.put(objectsSorted ? GenericIndexed.REVERSE_LOOKUP_ALLOWED : GenericIndexed.REVERSE_LOOKUP_DISALLOWED);
     meta.putInt(Ints.checkedCast(numBytesWritten + Integer.BYTES));

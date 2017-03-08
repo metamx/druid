@@ -387,7 +387,8 @@ public class IndexMergerV9 extends IndexMerger
     ZeroCopyByteArrayOutputStream specBytes = new ZeroCopyByteArrayOutputStream();
     serializerUtils.writeString(specBytes, mapper.writeValueAsString(serdeficator));
     try (SmooshedWriter channel = v9Smoosher.addWithSmooshedWriter(
-        columnName, serdeficator.getSerializedSize() + specBytes.size()
+        columnName,
+        specBytes.size() + serdeficator.getSerializedSize()
     )) {
       specBytes.writeTo(channel);
       serdeficator.writeTo(channel, v9Smoosher);

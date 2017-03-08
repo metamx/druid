@@ -19,6 +19,7 @@
 
 package io.druid.segment;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.io.smoosh.FileSmoosher;
 import io.druid.java.util.common.io.smoosh.SmooshedFileMapper;
@@ -84,7 +85,7 @@ public class CompressedVSizeIndexedV3Supplier implements WritableSupplier<Indexe
     throw new IAE("Unknown version[%s]", versionFromBuffer);
   }
 
-  // for test
+  @VisibleForTesting
   public static CompressedVSizeIndexedV3Supplier fromIterable(
       Iterable<IndexedInts> objectsIterable,
       int offsetChunkFactor,
