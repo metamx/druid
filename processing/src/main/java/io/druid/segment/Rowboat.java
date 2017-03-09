@@ -19,15 +19,15 @@
 
 package io.druid.segment;
 
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntRBTreeSet;
+import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import org.joda.time.DateTime;
 
 import java.util.Arrays;
-import java.util.Map;
-import java.util.TreeSet;
 
 public class Rowboat implements Comparable<Rowboat>
 {
@@ -35,7 +35,7 @@ public class Rowboat implements Comparable<Rowboat>
   private final Object[] dims;
   private final Object[] metrics;
   private final int rowNum;
-  private final Map<Integer, TreeSet<Integer>> comprisedRows;
+  private final Int2ObjectMap<IntSortedSet> comprisedRows;
   private final DimensionHandler[] handlers;
 
   public Rowboat(
@@ -52,7 +52,7 @@ public class Rowboat implements Comparable<Rowboat>
     this.rowNum = rowNum;
     this.handlers = handlers;
 
-    this.comprisedRows = Maps.newHashMap();
+    this.comprisedRows = new Int2ObjectOpenHashMap<>(1);
   }
 
   public long getTimestamp()
@@ -72,15 +72,15 @@ public class Rowboat implements Comparable<Rowboat>
 
   public void addRow(int indexNum, int rowNum)
   {
-    TreeSet<Integer> rowNums = comprisedRows.get(indexNum);
+    IntSortedSet rowNums = comprisedRows.get(indexNum);
     if (rowNums == null) {
-      rowNums = Sets.newTreeSet();
+      rowNums = new IntRBTreeSet();
       comprisedRows.put(indexNum, rowNums);
     }
     rowNums.add(rowNum);
   }
 
-  public Map<Integer, TreeSet<Integer>> getComprisedRows()
+  public Int2ObjectMap<IntSortedSet> getComprisedRows()
   {
     return comprisedRows;
   }
