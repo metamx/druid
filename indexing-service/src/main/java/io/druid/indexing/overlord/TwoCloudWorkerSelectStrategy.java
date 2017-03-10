@@ -46,6 +46,12 @@ public class TwoCloudWorkerSelectStrategy implements WorkerSelectStrategy
     this.twoCloudConfig = twoCloudConfig;
   }
 
+  @JsonProperty
+  public TwoCloudConfig getTwoCloudConfig()
+  {
+    return twoCloudConfig;
+  }
+
   @Override
   public Optional<ImmutableWorkerInfo> findWorkerForTask(
       WorkerTaskRunnerConfig config, ImmutableMap<String, ImmutableWorkerInfo> zkWorkers, Task task
