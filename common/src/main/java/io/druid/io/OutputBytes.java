@@ -99,10 +99,10 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
         headBuffer.putInt(v);
         size += Ints.BYTES;
       } else {
-        write(v);
-        write(v >> 8);
-        write(v >> 16);
         write(v >> 24);
+        write(v >> 16);
+        write(v >> 8);
+        write(v);
       }
     }
   }

@@ -79,6 +79,7 @@ public class VSizeIndexedInts implements IndexedInts, Comparable<VSizeIndexedInt
 
   private static void writeToBuffer(ByteBuffer buffer, IntList list, int numBytes, int maxValue)
   {
+    ByteBuffer helperBuffer = ByteBuffer.allocate(Ints.BYTES);
     for (int i = 0; i < list.size(); i++) {
       int val = list.getInt(i);
       if (val < 0) {
@@ -88,9 +89,8 @@ public class VSizeIndexedInts implements IndexedInts, Comparable<VSizeIndexedInt
         throw new IAE("val[%d] > maxValue[%d], please don't lie about maxValue.  i[%d]", val, maxValue, i);
       }
 
-      for (int shift = 24, byteIndex = 0; byteIndex < numBytes; byteIndex++, shift -= 8) {
-        buffer.put((byte) (val >> shift));
-      }
+      helperBuffer.putInt(0, val);
+      buffer.put(helperBuffer.array(), Ints.BYTES - numBytes, numBytes);
     }
     buffer.position(0);
   }
