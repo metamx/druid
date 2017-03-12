@@ -45,11 +45,6 @@ public class DecompressingByteBufferObjectStrategy extends ObjectStrategy<Resour
     return (Class) ResourceHolder.class;
   }
 
-  private void decompress(ByteBuffer buffer, int numBytes, ByteBuffer buf)
-  {
-    decompressor.decompress(buffer, numBytes, buf, sizePerInBytes);
-  }
-
   @Override
   public ResourceHolder<ByteBuffer> fromByteBuffer(ByteBuffer buffer, int numBytes)
   {
@@ -57,7 +52,7 @@ public class DecompressingByteBufferObjectStrategy extends ObjectStrategy<Resour
     final ByteBuffer buf = bufHolder.get();
     buf.clear();
 
-    decompress(buffer, numBytes, buf);
+    decompressor.decompress(buffer, numBytes, buf);
     return new ResourceHolder<ByteBuffer>()
     {
       @Override
