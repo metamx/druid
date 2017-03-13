@@ -19,9 +19,6 @@
 
 package io.druid.segment.data;
 
-import com.google.common.primitives.Ints;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import org.junit.Assert;
 import org.junit.Test;
 

@@ -98,7 +98,7 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
     this.compression = compression;
     this.flattener = flattener;
     this.intBuffer = ByteBuffer.allocate(Ints.BYTES).order(byteOrder);
-    this.endBuffer = compression.getCompressor().allocateInBuffer(chunkFactor * chunkBytes).order(byteOrder);
+    this.endBuffer = compression.getCompressor().allocateInBuffer(chunkBytes).order(byteOrder);
     this.endBuffer.limit(numBytes * chunkFactor);
     this.numInserted = 0;
   }
