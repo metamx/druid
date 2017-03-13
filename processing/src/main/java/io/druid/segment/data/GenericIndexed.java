@@ -154,7 +154,7 @@ public class GenericIndexed<T> implements Indexed<T>, Serializer
         buffers,
         GenericIndexedWriter.compressedByteBuffersWriteObjectStrategy(compression, bufferSize),
         false,
-        new DecompressingByteBufferObjectStrategy(order, compression, bufferSize)
+        new DecompressingByteBufferObjectStrategy(order, compression)
     );
   }
 

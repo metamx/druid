@@ -141,7 +141,7 @@ public class CompressedIntsIndexedSupplier implements WritableSupplier<IndexedIn
       return new CompressedIntsIndexedSupplier(
           totalSize,
           sizePer,
-          GenericIndexed.read(buffer, new DecompressingByteBufferObjectStrategy(order, compression, sizePer * Ints.BYTES)),
+          GenericIndexed.read(buffer, new DecompressingByteBufferObjectStrategy(order, compression)),
           compression
       );
     }
