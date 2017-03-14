@@ -52,8 +52,7 @@ import io.druid.indexing.overlord.TaskStorageQueryAdapter;
 import io.druid.indexing.overlord.WorkerTaskRunner;
 import io.druid.indexing.overlord.autoscaling.ScalingStats;
 import io.druid.indexing.overlord.http.security.TaskResourceFilter;
-import io.druid.indexing.overlord.setup.TwoCloudConfig;
-import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
+import io.druid.indexing.overlord.setup.BaseWorkerBehaviorConfig;
 import io.druid.java.util.common.Pair;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.metadata.EntryExistsException;
@@ -85,10 +84,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,8 +105,7 @@ public class OverlordResource
   private final AuditManager auditManager;
   private final AuthConfig authConfig;
 
-  private AtomicReference<WorkerBehaviorConfig> workerConfigRef = null;
-  private AtomicReference<TwoCloudConfig> twoCloudConfigRef = null;
+  private AtomicReference<BaseWorkerBehaviorConfig> workerConfigRef = null;
 
   @Inject
   public OverlordResource(
@@ -241,7 +236,7 @@ public class OverlordResource
   public Response getWorkerConfig()
   {
     if (workerConfigRef == null) {
-      workerConfigRef = configManager.watch(WorkerBehaviorConfig.CONFIG_KEY, WorkerBehaviorConfig.class);
+      workerConfigRef = configManager.watch(BaseWorkerBehaviorConfig.CONFIG_KEY, BaseWorkerBehaviorConfig.class);
     }
 
     return Response.ok(workerConfigRef.get()).build();
@@ -253,14 +248,14 @@ public class OverlordResource
   @Consumes(MediaType.APPLICATION_JSON)
   @ResourceFilters(ConfigResourceFilter.class)
   public Response setWorkerConfig(
-      final WorkerBehaviorConfig workerBehaviorConfig,
+      final BaseWorkerBehaviorConfig workerBehaviorConfig,
       @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
       @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
       @Context final HttpServletRequest req
   )
   {
     if (!configManager.set(
-        WorkerBehaviorConfig.CONFIG_KEY,
+        BaseWorkerBehaviorConfig.CONFIG_KEY,
         workerBehaviorConfig,
         new AuditInfo(author, comment, req.getRemoteAddr())
     )) {
@@ -268,43 +263,6 @@ public class OverlordResource
     }
 
     log.info("Updating Worker configs: %s", workerBehaviorConfig);
-
-    return Response.ok().build();
-  }
-
-  @GET
-  @Path("/two-cloud-worker")
-  @Produces(MediaType.APPLICATION_JSON)
-  @ResourceFilters(ConfigResourceFilter.class)
-  public Response getTwoCloudWorkerConfig()
-  {
-    if (twoCloudConfigRef == null) {
-      twoCloudConfigRef = configManager.watch(TwoCloudConfig.CONFIG_KEY, TwoCloudConfig.class);
-    }
-
-    return Response.ok(twoCloudConfigRef.get()).build();
-  }
-
-  @POST
-  @Path("/two-cloud-worker")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @ResourceFilters(ConfigResourceFilter.class)
-  public Response setWorkerConfig(
-      final TwoCloudConfig twoCloudConfig,
-      @HeaderParam(AuditManager.X_DRUID_AUTHOR) @DefaultValue("") final String author,
-      @HeaderParam(AuditManager.X_DRUID_COMMENT) @DefaultValue("") final String comment,
-      @Context final HttpServletRequest req
-  )
-  {
-    if (!configManager.set(
-        TwoCloudConfig.CONFIG_KEY,
-        twoCloudConfig,
-        new AuditInfo(author, comment, req.getRemoteAddr())
-    )) {
-      return Response.status(Response.Status.BAD_REQUEST).build();
-    }
-
-    log.info("Updating Two Cloud Worker configs: %s", twoCloudConfig);
 
     return Response.ok().build();
   }
@@ -322,16 +280,11 @@ public class OverlordResource
     if (theInterval == null && count != null) {
       try {
         List<AuditEntry> workerEntryList = auditManager.fetchAuditHistory(
-            WorkerBehaviorConfig.CONFIG_KEY,
-            WorkerBehaviorConfig.CONFIG_KEY,
+            BaseWorkerBehaviorConfig.CONFIG_KEY,
+            BaseWorkerBehaviorConfig.CONFIG_KEY,
             count
         );
-        List<AuditEntry> twoCloudWorkerEntryList = auditManager.fetchAuditHistory(
-            TwoCloudConfig.CONFIG_KEY,
-            TwoCloudConfig.CONFIG_KEY,
-            count
-        );
-        return Response.ok(mergeLists(workerEntryList, twoCloudWorkerEntryList)).build();
+        return Response.ok(workerEntryList).build();
       }
       catch (IllegalArgumentException e) {
         return Response.status(Response.Status.BAD_REQUEST)
@@ -340,35 +293,11 @@ public class OverlordResource
       }
     }
     List<AuditEntry> workerEntryList = auditManager.fetchAuditHistory(
-        WorkerBehaviorConfig.CONFIG_KEY,
-        WorkerBehaviorConfig.CONFIG_KEY,
+        BaseWorkerBehaviorConfig.CONFIG_KEY,
+        BaseWorkerBehaviorConfig.CONFIG_KEY,
         theInterval
     );
-    List<AuditEntry> twoCloudWorkerEntryList = auditManager.fetchAuditHistory(
-        TwoCloudConfig.CONFIG_KEY,
-        TwoCloudConfig.CONFIG_KEY,
-        theInterval
-    );
-    return Response.ok(mergeLists(workerEntryList, twoCloudWorkerEntryList)).build();
-  }
-
-  private static List<AuditEntry> mergeLists(List<AuditEntry> list1, List<AuditEntry> list2)
-  {
-    List<AuditEntry> result = new ArrayList<>(list1.size() + list2.size());
-    result.addAll(list1);
-    result.addAll(list2);
-    Collections.sort(
-        result,
-        new Comparator<AuditEntry>()
-        {
-          @Override
-          public int compare(AuditEntry e1, AuditEntry e2)
-          {
-            return e1.getAuditTime().compareTo(e2.getAuditTime());
-          }
-        }
-    );
-    return result;
+    return Response.ok(workerEntryList).build();
   }
 
   @POST

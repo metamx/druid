@@ -22,20 +22,22 @@ package io.druid.indexing.overlord.autoscaling;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.inject.Inject;
+import com.metamx.common.ISE;
 import io.druid.concurrent.Execs;
 import io.druid.indexing.common.task.Task;
+import io.druid.indexing.common.task.TaskLabels;
 import io.druid.indexing.overlord.TasksAndWorkers;
 import io.druid.indexing.overlord.WorkerTaskRunner;
+import io.druid.indexing.overlord.setup.BaseWorkerBehaviorConfig;
 import io.druid.indexing.overlord.setup.TwoCloudConfig;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static io.druid.indexing.common.task.TaskLabels.getTaskLabel;
-
 public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioningStrategy
 {
+
   private static final Supplier<ScheduledExecutorService> DUMMY_EXEC_FACTORY = new Supplier<ScheduledExecutorService>()
   {
     @Override
@@ -46,13 +48,11 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
   };
 
   private final PendingTaskBasedWorkerProvisioningConfig pendingProvisioningConfig;
-  private final Supplier<WorkerBehaviorConfig> workerBehaviorConfigSupplier;
-  private final Supplier<TwoCloudConfig> twoCloudConfigSupplier;
+  private final Supplier<BaseWorkerBehaviorConfig> workerBehaviorConfigSupplier;
 
   @Inject
   public TwoCloudWorkerProvisioningStrategy(
-      final Supplier<WorkerBehaviorConfig> workerBehaviorConfigSupplier,
-      final Supplier<TwoCloudConfig> twoCloudConfigSupplier,
+      final Supplier<BaseWorkerBehaviorConfig> workerBehaviorConfigSupplier,
       PendingTaskBasedWorkerProvisioningConfig pendingProvisioningConfig,
       ProvisioningSchedulerConfig provisioningSchedulerConfig
   )
@@ -70,55 +70,58 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
     );
     this.pendingProvisioningConfig = pendingProvisioningConfig;
     this.workerBehaviorConfigSupplier = workerBehaviorConfigSupplier;
-    this.twoCloudConfigSupplier = twoCloudConfigSupplier;
   }
 
   @Override
   Provisioner makeProvisioner(final TasksAndWorkers runner)
   {
-
     return new Provisioner()
     {
       private final ScalingStats scalingStats = new ScalingStats(pendingProvisioningConfig.getNumEventsToTrack() * 2);
-      private WorkerBehaviorConfig lastWorkerBehaviorConfig;
-      private TwoCloudConfig lastTwoCloudConfig;
+      private BaseWorkerBehaviorConfig lastWorkerBehaviorConfig;
       private Provisioner provisioner1;
       private Provisioner provisioner2;
 
       private void updateDelegateProvisioners()
       {
-        final TwoCloudConfig newTwoCloudConfig = twoCloudConfigSupplier.get();
-        if (newTwoCloudConfig != lastTwoCloudConfig) {
-          lastTwoCloudConfig = newTwoCloudConfig;
-          if (newTwoCloudConfig != null) {
-            provisioner1 = makeDelegateProvisioner(
-                newTwoCloudConfig.getWorkerBehaviorConfig1(),
-                newTwoCloudConfig.getIpPrefix1(),
-                newTwoCloudConfig.getTaskLabel1(),
-                true
-            );
-            provisioner1 = makeDelegateProvisioner(
-                newTwoCloudConfig.getWorkerBehaviorConfig2(),
-                newTwoCloudConfig.getIpPrefix2(),
-                newTwoCloudConfig.getTaskLabel2(),
-                false
-            );
+        final BaseWorkerBehaviorConfig newConfig = workerBehaviorConfigSupplier.get();
+        if (newConfig != lastWorkerBehaviorConfig) {
+          if (newConfig instanceof TwoCloudConfig) {
+            updateTwoCloudProvisioners((TwoCloudConfig) newConfig);
+          } else if (newConfig instanceof WorkerBehaviorConfig) {
+            updateOneCloudProvisioner((WorkerBehaviorConfig) newConfig);
+          } else {
+            throw new ISE("Unknown type of BaseWorkerBehaviorConfig: [%s]", newConfig);
           }
+          lastWorkerBehaviorConfig = newConfig;
         }
-        if (lastTwoCloudConfig != null) {
-          return;
-        }
-        WorkerBehaviorConfig newWorkerBehaviorConfig = workerBehaviorConfigSupplier.get();
-        if (newWorkerBehaviorConfig != lastWorkerBehaviorConfig) {
-          lastWorkerBehaviorConfig = newWorkerBehaviorConfig;
-          provisioner1 = makeDelegateProvisioner(
-              newWorkerBehaviorConfig,
-              PendingTaskBasedWorkerProvisioningStrategy.DEFAULT_DUMMY_WORKER_IP,
-              null,
-              false
-          );
-          provisioner2 = null;
-        }
+      }
+
+      private void updateOneCloudProvisioner(WorkerBehaviorConfig newWorkerBehaviorConfig)
+      {
+        provisioner1 = makeDelegateProvisioner(
+            newWorkerBehaviorConfig,
+            PendingTaskBasedWorkerProvisioningStrategy.DEFAULT_DUMMY_WORKER_IP,
+            null,
+            false
+        );
+        provisioner2 = null;
+      }
+
+      private void updateTwoCloudProvisioners(TwoCloudConfig newConfig)
+      {
+        provisioner1 = makeDelegateProvisioner(
+            newConfig.getCloud1Config(),
+            newConfig.getIpPrefix1(),
+            newConfig.getTaskLabel1(),
+            true
+        );
+        provisioner1 = makeDelegateProvisioner(
+            newConfig.getCloud2Config(),
+            newConfig.getIpPrefix2(),
+            newConfig.getTaskLabel2(),
+            false
+        );
       }
 
       private Provisioner makeDelegateProvisioner(
@@ -131,7 +134,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
         PendingTaskBasedWorkerProvisioningStrategy delegateProvisioningStrategy = new
             PendingTaskBasedWorkerProvisioningStrategy(
             pendingProvisioningConfig,
-            new Supplier<WorkerBehaviorConfig>()
+            new Supplier<BaseWorkerBehaviorConfig>()
             {
               @Override
               public WorkerBehaviorConfig get()
@@ -196,7 +199,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       if (task == null) {
         return false;
       }
-      String label = getTaskLabel(task);
+      String label = TaskLabels.getTaskLabel(task);
       return label == null ? acceptNullLabel : label.equals(taskLabel);
     }
   }
