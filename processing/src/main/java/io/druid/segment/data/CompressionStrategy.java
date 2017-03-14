@@ -273,10 +273,7 @@ public enum CompressionStrategy
     @Override
     public ByteBuffer allocateOutBuffer(int inputSize)
     {
-      int estimateMaxWorkspaceSize = LZFEncoder.estimateMaxWorkspaceSize(inputSize);
-      // LZFEncoder.estimateMaxWorkspaceSize() is inaccurate, see https://github.com/ning/compress/issues/43
-      estimateMaxWorkspaceSize += estimateMaxWorkspaceSize / 4;
-      return ByteBuffer.allocate(estimateMaxWorkspaceSize);
+      return ByteBuffer.allocate(LZFEncoder.estimateMaxWorkspaceSize(inputSize));
     }
 
     @Override
