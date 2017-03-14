@@ -73,8 +73,7 @@ import io.druid.indexing.overlord.helpers.TaskLogAutoCleaner;
 import io.druid.indexing.overlord.helpers.TaskLogAutoCleanerConfig;
 import io.druid.indexing.overlord.http.OverlordRedirectInfo;
 import io.druid.indexing.overlord.http.OverlordResource;
-import io.druid.indexing.overlord.setup.TwoCloudConfig;
-import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
+import io.druid.indexing.overlord.setup.BaseWorkerBehaviorConfig;
 import io.druid.indexing.overlord.supervisor.SupervisorManager;
 import io.druid.indexing.overlord.supervisor.SupervisorResource;
 import io.druid.indexing.worker.config.WorkerConfig;
@@ -226,8 +225,7 @@ public class CliOverlord extends ServerRunnable
             biddy.addBinding(RemoteTaskRunnerFactory.TYPE_NAME).to(RemoteTaskRunnerFactory.class).in(LazySingleton.class);
             binder.bind(RemoteTaskRunnerFactory.class).in(LazySingleton.class);
 
-            JacksonConfigProvider.bind(binder, WorkerBehaviorConfig.CONFIG_KEY, WorkerBehaviorConfig.class, null);
-            JacksonConfigProvider.bind(binder, TwoCloudConfig.CONFIG_KEY, TwoCloudConfig.class, null);
+            JacksonConfigProvider.bind(binder, BaseWorkerBehaviorConfig.CONFIG_KEY, BaseWorkerBehaviorConfig.class, null);
           }
 
           private void configureAutoscale(Binder binder)

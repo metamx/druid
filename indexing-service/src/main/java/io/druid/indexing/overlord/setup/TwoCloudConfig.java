@@ -21,33 +21,35 @@ package io.druid.indexing.overlord.setup;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.druid.indexing.overlord.TwoCloudWorkerSelectStrategy;
 
-public class TwoCloudConfig
+import java.util.Objects;
+
+public class TwoCloudConfig implements BaseWorkerBehaviorConfig
 {
-  public static final String CONFIG_KEY = WorkerBehaviorConfig.CONFIG_KEY + ".selectStrategy.twoCloudConfig";
   private final String taskLabel1;
   private final String ipPrefix1;
-  private final WorkerBehaviorConfig workerBehaviorConfig1;
+  private final WorkerBehaviorConfig cloud1Config;
   private final String taskLabel2;
   private final String ipPrefix2;
-  private final WorkerBehaviorConfig workerBehaviorConfig2;
+  private final WorkerBehaviorConfig cloud2Config;
 
   @JsonCreator
   public TwoCloudConfig(
       @JsonProperty("taskLabel1") String taskLabel1,
       @JsonProperty("ipPrefix1") String ipPrefix1,
-      @JsonProperty("workerBehaviorConfig1") WorkerBehaviorConfig workerBehaviorConfig1,
+      @JsonProperty("cloud1Config") WorkerBehaviorConfig cloud1Config,
       @JsonProperty("taskLabel2") String taskLabel2,
       @JsonProperty("ipPrefix2") String ipPrefix2,
-      @JsonProperty("workerBehaviorConfig2") WorkerBehaviorConfig workerBehaviorConfig2
+      @JsonProperty("cloud2Config") WorkerBehaviorConfig cloud2Config
   )
   {
     this.taskLabel1 = taskLabel1;
     this.ipPrefix1 = ipPrefix1;
-    this.workerBehaviorConfig1 = workerBehaviorConfig1;
+    this.cloud1Config = cloud1Config;
     this.taskLabel2 = taskLabel2;
     this.ipPrefix2 = ipPrefix2;
-    this.workerBehaviorConfig2 = workerBehaviorConfig2;
+    this.cloud2Config = cloud2Config;
   }
 
   @JsonProperty
@@ -62,9 +64,9 @@ public class TwoCloudConfig
   }
 
   @JsonProperty
-  public WorkerBehaviorConfig getWorkerBehaviorConfig1()
+  public WorkerBehaviorConfig getCloud1Config()
   {
-    return workerBehaviorConfig1;
+    return cloud1Config;
   }
 
   @JsonProperty
@@ -79,9 +81,9 @@ public class TwoCloudConfig
   }
 
   @JsonProperty
-  public WorkerBehaviorConfig getWorkerBehaviorConfig2()
+  public WorkerBehaviorConfig getCloud2Config()
   {
-    return workerBehaviorConfig2;
+    return cloud2Config;
   }
 
   public String getIpFilter(String taskLabel) {
@@ -93,9 +95,15 @@ public class TwoCloudConfig
 
   public WorkerBehaviorConfig getWorkerBehaviorConfig(String taskLabel) {
     if (taskLabel == null || taskLabel.equals(taskLabel1)) {
-      return workerBehaviorConfig1;
+      return cloud1Config;
     }
-    return workerBehaviorConfig2;
+    return cloud2Config;
+  }
+
+  @Override
+  public WorkerSelectStrategy getSelectStrategy()
+  {
+    return new TwoCloudWorkerSelectStrategy(this);
   }
 
   @Override
@@ -103,11 +111,11 @@ public class TwoCloudConfig
   {
     return "TwoCloudConfig{" +
            "taskLabel1='" + taskLabel1 + '\'' +
-           "ipPrefix1='" + ipPrefix1 + '\'' +
-           ", workerBehaviorConfig1=" + workerBehaviorConfig1 +
-           "taskLabel2='" + taskLabel2 + '\'' +
+           ", ipPrefix1='" + ipPrefix1 + '\'' +
+           ", cloud1Config=" + cloud1Config +
+           ", taskLabel2='" + taskLabel2 + '\'' +
            ", ipPrefix2='" + ipPrefix2 + '\'' +
-           ", workerBehaviorConfig2=" + workerBehaviorConfig2 +
+           ", cloud2Config=" + cloud2Config +
            '}';
   }
 
@@ -120,40 +128,18 @@ public class TwoCloudConfig
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-
     TwoCloudConfig that = (TwoCloudConfig) o;
-
-    if (taskLabel1 != null ? !taskLabel1.equals(that.taskLabel1) : that.taskLabel1 != null) {
-      return false;
-    }
-    if (ipPrefix1 != null ? !ipPrefix1.equals(that.ipPrefix1) : that.ipPrefix1 != null) {
-      return false;
-    }
-    if (workerBehaviorConfig1 != null
-        ? !workerBehaviorConfig1.equals(that.workerBehaviorConfig1)
-        : that.workerBehaviorConfig1 != null) {
-      return false;
-    }
-    if (taskLabel2 != null ? !taskLabel2.equals(that.taskLabel2) : that.taskLabel2 != null) {
-      return false;
-    }
-    if (ipPrefix2 != null ? !ipPrefix2.equals(that.ipPrefix2) : that.ipPrefix2 != null) {
-      return false;
-    }
-    return workerBehaviorConfig2 != null
-           ? workerBehaviorConfig2.equals(that.workerBehaviorConfig2)
-           : that.workerBehaviorConfig2 == null;
+    return Objects.equals(taskLabel1, that.taskLabel1) &&
+           Objects.equals(ipPrefix1, that.ipPrefix1) &&
+           Objects.equals(cloud1Config, that.cloud1Config) &&
+           Objects.equals(taskLabel2, that.taskLabel2) &&
+           Objects.equals(ipPrefix2, that.ipPrefix2) &&
+           Objects.equals(cloud2Config, that.cloud2Config);
   }
 
   @Override
   public int hashCode()
   {
-    int result = taskLabel1 != null ? taskLabel1.hashCode() : 0;
-    result = 31 * result + (ipPrefix1 != null ? ipPrefix1.hashCode() : 0);
-    result = 31 * result + (workerBehaviorConfig1 != null ? workerBehaviorConfig1.hashCode() : 0);
-    result = 31 * result + (taskLabel2 != null ? taskLabel2.hashCode() : 0);
-    result = 31 * result + (ipPrefix2 != null ? ipPrefix2.hashCode() : 0);
-    result = 31 * result + (workerBehaviorConfig2 != null ? workerBehaviorConfig2.hashCode() : 0);
-    return result;
+    return Objects.hash(taskLabel1, ipPrefix1, cloud1Config, taskLabel2, ipPrefix2, cloud2Config);
   }
 }

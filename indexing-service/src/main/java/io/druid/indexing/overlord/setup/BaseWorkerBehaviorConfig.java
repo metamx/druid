@@ -17,23 +17,20 @@
  * under the License.
  */
 
+package io.druid.indexing.overlord.setup;
 
-package io.druid.indexing.common.task;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-import com.google.common.base.Preconditions;
-
-import javax.annotation.Nullable;
-import java.util.Map;
-
-public class TaskLabels
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = WorkerBehaviorConfig.class)
+@JsonSubTypes(value = {
+    @JsonSubTypes.Type(name = "oneCloud", value = WorkerBehaviorConfig.class),
+    @JsonSubTypes.Type(name = "twoCloud", value = TwoCloudConfig.class),
+})
+public interface BaseWorkerBehaviorConfig
 {
-  public static final String TASK_LABEL_FIELD = "label";
+  String CONFIG_KEY = "worker.config";
+  WorkerSelectStrategy DEFAULT_STRATEGY = new FillCapacityWorkerSelectStrategy();
 
-  @Nullable
-  public static String getTaskLabel(Task task) {
-    Preconditions.checkNotNull(task, "task");
-    Map<String, Object> context = task.getContext();
-    Object taskLabel = (context != null) ? context.get(TASK_LABEL_FIELD) : null;
-    return taskLabel == null ? null : (String) taskLabel;
-  }
+  WorkerSelectStrategy getSelectStrategy();
 }
