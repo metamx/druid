@@ -119,7 +119,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
             newConfig.getTaskLabel1(),
             true
         );
-        provisioner1 = makeDelegateProvisioner(
+        provisioner2 = makeDelegateProvisioner(
             newConfig.getCloud2Config(),
             newConfig.getIpPrefix2(),
             newConfig.getTaskLabel2(),
