@@ -23,6 +23,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.inject.Inject;
 import com.metamx.common.ISE;
+import com.metamx.common.logger.Logger;
 import io.druid.concurrent.Execs;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.common.task.TaskLabels;
@@ -37,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioningStrategy
 {
+  private static final Logger log = new Logger(TwoCloudWorkerProvisioningStrategy.class);
 
   private static final Supplier<ScheduledExecutorService> DUMMY_EXEC_FACTORY = new Supplier<ScheduledExecutorService>()
   {
@@ -86,6 +88,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       {
         final BaseWorkerBehaviorConfig newConfig = workerBehaviorConfigSupplier.get();
         if (newConfig != lastWorkerBehaviorConfig) {
+          log.info("New workerBehaviourConfig: [%s]", newConfig);
           if (newConfig instanceof TwoCloudConfig) {
             updateTwoCloudProvisioners((TwoCloudConfig) newConfig);
           } else if (newConfig instanceof WorkerBehaviorConfig) {
@@ -160,9 +163,18 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       public boolean doTerminate()
       {
         updateDelegateProvisioners();
-        // Always try to terminate in both clouds before returning from this method
+        log.info("Try terminate in the 1st cloud");
         boolean terminated1 = provisioner1.doTerminate();
-        boolean terminated2 = provisioner2 != null && provisioner2.doTerminate();
+        log.info("Terminated in the 1st cloud: %s", terminated1);
+        boolean terminated2;
+        if (provisioner2 != null) {
+          log.info("Try terminate in the 2nd cloud");
+          terminated2 = provisioner2 != null && provisioner2.doTerminate();
+          log.info("Terminated in the 2nd cloud: %s", terminated2);
+        } else {
+          log.info("No config for the 2nd cloud");
+          terminated2 = false;
+        }
         return terminated1 || terminated2;
       }
 
@@ -170,9 +182,18 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
       public boolean doProvision()
       {
         updateDelegateProvisioners();
-        // Always try to provision in both clouds before returning from this method
+        log.info("Try provision in the 1st cloud");
         boolean provisioned1 = provisioner1.doProvision();
-        boolean provisioned2 = provisioner2 != null && provisioner2.doProvision();
+        log.info("Provisioned in the 1st cloud: %s", provisioned1);
+        boolean provisioned2;
+        if (provisioner2 != null) {
+          log.info("Try provision in the 2nd cloud");
+          provisioned2 = provisioner2.doProvision();
+          log.info("Provisioned in the 2nd cloud: %s", provisioned2);
+        } else {
+          log.info("No config for the 2nd cloud");
+          provisioned2 = false;
+        }
         return provisioned1 || provisioned2;
       }
 
