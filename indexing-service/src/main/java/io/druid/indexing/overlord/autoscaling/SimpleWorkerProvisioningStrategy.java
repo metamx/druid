@@ -228,14 +228,7 @@ public class SimpleWorkerProvisioningStrategy extends AbstractWorkerProvisioning
           )
       );
 
-      final Set<String> stillExisting = Sets.newHashSet();
-      for (String s : currentlyTerminating) {
-        if (workerNodeIds.contains(s)) {
-          stillExisting.add(s);
-        }
-      }
-      currentlyTerminating.clear();
-      currentlyTerminating.addAll(stillExisting);
+      currentlyTerminating.retainAll(workerNodeIds);
 
       Collection<ImmutableWorkerInfo> workers = runner.getWorkers();
       updateTargetWorkerCount(workerConfig, pendingTasks, workers);
