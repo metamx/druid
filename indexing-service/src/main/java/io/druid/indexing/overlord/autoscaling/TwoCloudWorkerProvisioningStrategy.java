@@ -21,6 +21,7 @@ package io.druid.indexing.overlord.autoscaling;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.inject.Inject;
 import com.metamx.common.ISE;
 import com.metamx.common.logger.Logger;
@@ -81,18 +82,24 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
     {
       private final ScalingStats scalingStats = new ScalingStats(pendingProvisioningConfig.getNumEventsToTrack() * 2);
       private BaseWorkerBehaviorConfig lastWorkerBehaviorConfig;
-      private Provisioner provisioner1;
-      private Provisioner provisioner2;
+      private Provisioner delegateProvisioner;
 
-      private void updateDelegateProvisioners()
+      private void updateDelegateProvisioner()
       {
         final BaseWorkerBehaviorConfig newConfig = workerBehaviorConfigSupplier.get();
         if (newConfig != lastWorkerBehaviorConfig) {
           log.info("New workerBehaviourConfig: [%s]", newConfig);
           if (newConfig instanceof TwoCloudConfig) {
-            updateTwoCloudProvisioners((TwoCloudConfig) newConfig);
+            delegateProvisioner = new TwoCloudDelegateProvisioner(runner, (TwoCloudConfig) newConfig, scalingStats);
           } else if (newConfig instanceof WorkerBehaviorConfig) {
-            updateOneCloudProvisioner((WorkerBehaviorConfig) newConfig);
+            delegateProvisioner = makeDelegateProvisioner(
+                runner,
+                scalingStats,
+                (WorkerBehaviorConfig) newConfig,
+                PendingTaskBasedWorkerProvisioningStrategy.DEFAULT_DUMMY_WORKER_IP,
+                null,
+                false
+            );
           } else {
             throw new ISE("Unknown type of BaseWorkerBehaviorConfig: [%s]", newConfig);
           }
@@ -100,101 +107,24 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
         }
       }
 
-      private void updateOneCloudProvisioner(WorkerBehaviorConfig newWorkerBehaviorConfig)
-      {
-        provisioner1 = makeDelegateProvisioner(
-            newWorkerBehaviorConfig,
-            PendingTaskBasedWorkerProvisioningStrategy.DEFAULT_DUMMY_WORKER_IP,
-            null,
-            false
-        );
-        provisioner2 = null;
-      }
-
-      private void updateTwoCloudProvisioners(TwoCloudConfig newConfig)
-      {
-        provisioner1 = makeDelegateProvisioner(
-            newConfig.getCloud1Config(),
-            newConfig.getIpPrefix1(),
-            newConfig.getTaskLabel1(),
-            true
-        );
-        provisioner2 = makeDelegateProvisioner(
-            newConfig.getCloud2Config(),
-            newConfig.getIpPrefix2(),
-            newConfig.getTaskLabel2(),
-            false
-        );
-      }
-
-      private Provisioner makeDelegateProvisioner(
-          final WorkerBehaviorConfig workerBehaviorConfig,
-          String ipPrefix,
-          @Nullable String taskLabel,
-          boolean acceptNullLabel
-      )
-      {
-        PendingTaskBasedWorkerProvisioningStrategy delegateProvisioningStrategy = new
-            PendingTaskBasedWorkerProvisioningStrategy(
-            pendingProvisioningConfig,
-            new Supplier<BaseWorkerBehaviorConfig>()
-            {
-              @Override
-              public WorkerBehaviorConfig get()
-              {
-                return workerBehaviorConfig;
-              }
-            },
-            getProvisioningSchedulerConfig(),
-            DUMMY_EXEC_FACTORY,
-            ipPrefix
-        );
-        TasksAndWorkers tasksAndWorkers;
-        if (taskLabel != null) {
-          TaskPredicate taskPredicate = new TaskPredicate(taskLabel, acceptNullLabel);
-          tasksAndWorkers = new TasksAndWorkersFilteredByIp((WorkerTaskRunner) runner, ipPrefix, taskPredicate);
-        } else {
-          tasksAndWorkers = runner;
-        }
-        return delegateProvisioningStrategy.makeProvisioner(tasksAndWorkers, scalingStats);
-      }
-
       @Override
       public boolean doTerminate()
       {
-        updateDelegateProvisioners();
-        log.info("Try terminate in the 1st cloud");
-        boolean terminated1 = provisioner1.doTerminate();
-        log.info("Terminated in the 1st cloud: %s", terminated1);
-        boolean terminated2;
-        if (provisioner2 != null) {
-          log.info("Try terminate in the 2nd cloud");
-          terminated2 = provisioner2 != null && provisioner2.doTerminate();
-          log.info("Terminated in the 2nd cloud: %s", terminated2);
-        } else {
-          log.info("No config for the 2nd cloud");
-          terminated2 = false;
-        }
-        return terminated1 || terminated2;
+        updateDelegateProvisioner();
+        log.info("Try terminate");
+        boolean terminated = delegateProvisioner.doTerminate();
+        log.info("Terminated: %s", terminated);
+        return terminated;
       }
 
       @Override
       public boolean doProvision()
       {
-        updateDelegateProvisioners();
-        log.info("Try provision in the 1st cloud");
-        boolean provisioned1 = provisioner1.doProvision();
-        log.info("Provisioned in the 1st cloud: %s", provisioned1);
-        boolean provisioned2;
-        if (provisioner2 != null) {
-          log.info("Try provision in the 2nd cloud");
-          provisioned2 = provisioner2.doProvision();
-          log.info("Provisioned in the 2nd cloud: %s", provisioned2);
-        } else {
-          log.info("No config for the 2nd cloud");
-          provisioned2 = false;
-        }
-        return provisioned1 || provisioned2;
+        updateDelegateProvisioner();
+        log.info("Try provision");
+        boolean provisioned = delegateProvisioner.doProvision();
+        log.info("Provisioned: %s", provisioned);
+        return provisioned;
       }
 
       @Override
@@ -205,7 +135,89 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
     };
   }
 
-  private class TaskPredicate implements Predicate<Task> {
+  private class TwoCloudDelegateProvisioner implements Provisioner
+  {
+    private final Provisioner provisioner1;
+    private final Provisioner provisioner2;
+
+    TwoCloudDelegateProvisioner(TasksAndWorkers runner, TwoCloudConfig twoCloudConfig, ScalingStats scalingStats)
+    {
+      provisioner1 = makeDelegateProvisioner(
+          runner,
+          scalingStats,
+          twoCloudConfig.getCloud1Config(),
+          twoCloudConfig.getIpPrefix1(),
+          twoCloudConfig.getTaskLabel1(),
+          true
+      );
+      provisioner2 = makeDelegateProvisioner(
+          runner,
+          scalingStats,
+          twoCloudConfig.getCloud2Config(),
+          twoCloudConfig.getIpPrefix2(),
+          twoCloudConfig.getTaskLabel2(),
+          false
+      );
+    }
+
+    @Override
+    public boolean doTerminate()
+    {
+      log.info("Try terminate in the 1st cloud");
+      boolean terminated1 = provisioner1.doTerminate();
+      log.info("Terminated in the 1st cloud: %s", terminated1);
+      log.info("Try terminate in the 2nd cloud");
+      boolean terminated2 = provisioner2.doTerminate();
+      log.info("Terminated in the 2nd cloud: %s", terminated2);
+      return terminated1 || terminated2;
+    }
+
+    @Override
+    public boolean doProvision()
+    {
+      log.info("Try provision in the 1st cloud");
+      boolean provisioned1 = provisioner1.doProvision();
+      log.info("Provisioned in the 1st cloud: %s", provisioned1);
+      log.info("Try provision in the 2nd cloud");
+      boolean provisioned2 = provisioner2.doProvision();
+      log.info("Provisioned in the 2nd cloud: %s", provisioned2);
+      return provisioned1 || provisioned2;
+    }
+
+    @Override
+    public ScalingStats getStats()
+    {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private Provisioner makeDelegateProvisioner(
+      TasksAndWorkers runner,
+      ScalingStats scalingStats,
+      WorkerBehaviorConfig workerBehaviorConfig,
+      String ipPrefix,
+      @Nullable String taskLabel,
+      boolean acceptNullLabel
+  )
+  {
+    PendingTaskBasedWorkerProvisioningStrategy delegateStrategy = new PendingTaskBasedWorkerProvisioningStrategy(
+        pendingProvisioningConfig,
+        Suppliers.<BaseWorkerBehaviorConfig>ofInstance(workerBehaviorConfig),
+        getProvisioningSchedulerConfig(),
+        DUMMY_EXEC_FACTORY,
+        ipPrefix
+    );
+    TasksAndWorkers tasksAndWorkers;
+    if (taskLabel != null) {
+      TaskPredicate taskPredicate = new TaskPredicate(taskLabel, acceptNullLabel);
+      tasksAndWorkers = new TasksAndWorkersFilteredByIp((WorkerTaskRunner) runner, ipPrefix, taskPredicate);
+    } else {
+      tasksAndWorkers = runner;
+    }
+    return delegateStrategy.makeProvisioner(tasksAndWorkers, scalingStats);
+  }
+
+  private static class TaskPredicate implements Predicate<Task> {
     private final String taskLabel;
     private final boolean acceptNullLabel;
 
