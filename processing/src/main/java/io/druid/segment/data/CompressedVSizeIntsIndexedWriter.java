@@ -119,7 +119,7 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   protected void addValue(int val) throws IOException
   {
     if (!endBuffer.hasRemaining()) {
-      endBuffer.rewind();
+      endBuffer.clear(); // write the whole buffer, including padding
       flattener.write(endBuffer);
       endBuffer.clear();
       endBuffer.limit(numBytes * chunkFactor);
@@ -161,7 +161,10 @@ public class CompressedVSizeIntsIndexedWriter extends SingleValueIndexedIntsWrit
   {
     if (endBuffer != null && numInserted > 0) {
       endBuffer.flip();
-      flattener.write(endBuffer);
+      if (endBuffer.remaining() > 0) {
+        endBuffer.limit(endBuffer.limit() + CompressedVSizeIntsIndexedSupplier.bufferPadding(numBytes));
+        flattener.write(endBuffer);
+      }
       endBuffer = null;
     }
   }

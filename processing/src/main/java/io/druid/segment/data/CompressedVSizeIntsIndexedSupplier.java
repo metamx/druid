@@ -232,7 +232,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
                   {
                     retVal.clear();
                     int elementCount = Math.min(list.size() - position, chunkFactor);
-                    retVal.limit(numBytes * elementCount);
+                    retVal.limit(numBytes * elementCount + bufferPadding(numBytes));
 
                     for (int limit = position + elementCount; position < limit; position++) {
                       writeIntToRetVal(list.getInt(position));
