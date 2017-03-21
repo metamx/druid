@@ -54,7 +54,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
   private final GenericIndexed<ResourceHolder<ByteBuffer>> baseBuffers;
   private final CompressionStrategy compression;
 
-  CompressedVSizeIntsIndexedSupplier(
+  private CompressedVSizeIntsIndexedSupplier(
       int totalSize,
       int sizePer,
       int numBytes,
@@ -83,7 +83,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
     return Integer.highestOneBit(maxSizePer);
   }
 
-  public static int bufferPadding(int numBytes)
+  private static int bufferPadding(int numBytes)
   {
     // when numBytes == 3 we need to pad the buffer to allow reading an extra byte
     // beyond the end of the last value, since we use buffer.getInt() to read values.
@@ -195,7 +195,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
   )
   {
     final int numBytes = VSizeIndexedInts.getNumBytesForMax(maxValue);
-    final int chunkBytes = chunkFactor * numBytes + bufferPadding(numBytes);
+    final int chunkBytes = chunkFactor * numBytes;
 
     Preconditions.checkArgument(
         chunkFactor <= maxIntsInBufferForBytes(numBytes),
@@ -232,7 +232,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
                   {
                     retVal.clear();
                     int elementCount = Math.min(list.size() - position, chunkFactor);
-                    retVal.limit(numBytes * elementCount + bufferPadding(numBytes));
+                    retVal.limit(numBytes * elementCount);
 
                     for (int limit = position + elementCount; position < limit; position++) {
                       writeIntToRetVal(list.getInt(position));
