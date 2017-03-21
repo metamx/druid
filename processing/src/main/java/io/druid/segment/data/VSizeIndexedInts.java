@@ -21,6 +21,7 @@ package io.druid.segment.data;
 
 import com.google.common.primitives.Ints;
 import io.druid.io.Channels;
+import io.druid.io.OutputBytes;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.io.smoosh.FileSmoosher;
 import io.druid.query.monomorphicprocessing.RuntimeShapeInspector;
@@ -130,12 +131,16 @@ public class VSizeIndexedInts implements IndexedInts, Comparable<VSizeIndexedInt
     return buffer.getInt(buffer.position() + (index * numBytes)) >>> bitsToShift;
   }
 
-  public byte[] getBytesNoPadding()
+  public int getNumBytesNoPadding()
   {
-    int bytesToTake = buffer.remaining() - (4 - numBytes);
-    byte[] bytes = new byte[bytesToTake];
-    buffer.asReadOnlyBuffer().get(bytes);
-    return bytes;
+    return buffer.remaining() - (Ints.BYTES - numBytes);
+  }
+
+  public void writeBytesNoPaddingTo(OutputBytes out)
+  {
+    ByteBuffer toWrite = buffer.slice();
+    toWrite.limit(toWrite.limit() - (Ints.BYTES - numBytes));
+    out.write(toWrite);
   }
 
   public byte[] getBytes()

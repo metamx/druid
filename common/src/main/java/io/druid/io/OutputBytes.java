@@ -141,7 +141,7 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
   }
 
   @Override
-  public int write(ByteBuffer src) throws IOException
+  public int write(ByteBuffer src)
   {
     int len = src.remaining();
     if (headBuffer.remaining() < len) {

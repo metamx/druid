@@ -80,7 +80,7 @@ public class CompressedVSizeIntsIndexedSupplier implements WritableSupplier<Inde
   {
     int maxSizePer = (CompressedPools.BUFFER_SIZE - bufferPadding(numBytes)) / numBytes;
     // round down to the nearest power of 2
-    return 1 << (Integer.SIZE - 1 - Integer.numberOfLeadingZeros(maxSizePer));
+    return Integer.highestOneBit(maxSizePer);
   }
 
   public static int bufferPadding(int numBytes)
