@@ -16,24 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
-package io.druid.metadata.storage.postgresql;
-
-import com.google.common.base.Suppliers;
-import io.druid.metadata.MetadataStorageConnectorConfig;
-import io.druid.metadata.MetadataStorageTablesConfig;
-import org.junit.Assert;
-import org.junit.Test;
+package io.druid.metadata.storage.sqlserver;
 
 import java.sql.SQLException;
 
-public class PostgreSQLConnectorTest
+import org.junit.Assert;
+import org.junit.Test;
+
+import com.google.common.base.Suppliers;
+
+import io.druid.metadata.MetadataStorageConnectorConfig;
+import io.druid.metadata.MetadataStorageTablesConfig;
+
+@SuppressWarnings("nls")
+public class SQLServerConnectorTest
 {
 
   @Test
   public void testIsTransientException() throws Exception
   {
-    PostgreSQLConnector connector = new PostgreSQLConnector(
+    SQLServerConnector connector = new SQLServerConnector(
         Suppliers.ofInstance(new MetadataStorageConnectorConfig()),
         Suppliers.ofInstance(
             new MetadataStorageTablesConfig(
@@ -53,12 +55,15 @@ public class PostgreSQLConnectorTest
         )
     );
 
-    Assert.assertTrue(connector.isTransientException(new SQLException("bummer, connection problem", "08DIE")));
-    Assert.assertTrue(connector.isTransientException(new SQLException("bummer, too many things going on", "53RES")));
-    Assert.assertFalse(connector.isTransientException(new SQLException("oh god, no!", "58000")));
-    Assert.assertFalse(connector.isTransientException(new SQLException("help!")));
+    Assert.assertTrue(connector.isTransientException(new SQLException("Resource Failure!", "08DIE")));
+    Assert.assertTrue(connector.isTransientException(new SQLException("Resource Failure as well!", "53RES")));
+    Assert.assertTrue(connector.isTransientException(new SQLException("Transient Failures", "JW001")));
+    Assert.assertTrue(connector.isTransientException(new SQLException("Transient Rollback", "40001")));
+
+    Assert.assertFalse(connector.isTransientException(new SQLException("SQLException with reason only")));
     Assert.assertFalse(connector.isTransientException(new SQLException()));
-    Assert.assertFalse(connector.isTransientException(new Exception("I'm not happy")));
-    Assert.assertFalse(connector.isTransientException(new Throwable("I give up")));
+    Assert.assertFalse(connector.isTransientException(new Exception("Exception with reason only")));
+    Assert.assertFalse(connector.isTransientException(new Throwable("Throwable with reason only")));
   }
+
 }

@@ -63,6 +63,7 @@ import io.druid.indexing.common.config.TaskConfig;
 import io.druid.indexing.common.config.TaskStorageConfig;
 import io.druid.indexing.overlord.HeapMemoryTaskStorage;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
+import io.druid.indexing.overlord.LocalTaskLockbox;
 import io.druid.indexing.overlord.TaskLockbox;
 import io.druid.indexing.overlord.TaskStorage;
 import io.druid.indexing.test.TestDataSegmentAnnouncer;
@@ -663,7 +664,7 @@ public class RealtimeIndexTaskTest
   @Test(timeout = 60_000L)
   public void testRestoreAfterHandoffAttemptDuringShutdown() throws Exception
   {
-    final TaskStorage taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(null));
+    final TaskStorage taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(null, null));
     final TestIndexerMetadataStorageCoordinator mdc = new TestIndexerMetadataStorageCoordinator();
     final File directory = tempFolder.newFolder();
     final RealtimeIndexTask task1 = makeRealtimeTask(null);
@@ -936,7 +937,7 @@ public class RealtimeIndexTaskTest
   {
     return makeToolbox(
         task,
-        new HeapMemoryTaskStorage(new TaskStorageConfig(null)),
+        new HeapMemoryTaskStorage(new TaskStorageConfig(null, null)),
         mdc,
         directory
     );
@@ -950,7 +951,7 @@ public class RealtimeIndexTaskTest
   )
   {
     final TaskConfig taskConfig = new TaskConfig(directory.getPath(), null, null, 50000, null, false, null, null);
-    final TaskLockbox taskLockbox = new TaskLockbox(taskStorage);
+    final TaskLockbox taskLockbox = new LocalTaskLockbox(taskStorage);
     try {
       taskStorage.insert(task, TaskStatus.running(task.getId()));
     }

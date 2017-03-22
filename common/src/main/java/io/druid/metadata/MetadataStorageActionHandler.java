@@ -33,7 +33,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
   /**
    * Creates a new entry.
    * 
-   * @param id entry id
+   * @param entryId entry id
    * @param timestamp timestamp this entry was created
    * @param dataSource datasource associated with this entry
    * @param entry object representing this entry
@@ -41,13 +41,14 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param status status object associated wit this object, can be null
    * @throws EntryExistsException
    */
-  public void insert(
-      @NotNull String id,
+  void insert(
+      @NotNull String entryId,
       @NotNull DateTime timestamp,
       @NotNull String dataSource,
       @NotNull EntryType entry,
       boolean active,
-      @Nullable StatusType status
+      @Nullable StatusType status,
+      @Nullable String ownerId
   ) throws EntryExistsException;
 
 
@@ -60,7 +61,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param status status
    * @return true if the status was updated, false if the entry did not exist of if the entry was inactive
    */
-  public boolean setStatus(String entryId, boolean active, StatusType status);
+  boolean setStatus(String entryId, boolean active, StatusType status);
 
   /**
    * Retrieves the entry with the given id.
@@ -68,7 +69,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param entryId entry id
    * @return optional entry, absent if the given id does not exist
    */
-  public Optional<EntryType> getEntry(String entryId);
+  Optional<EntryType> getEntry(String entryId);
 
   /**
    * Retrieve the status for the entry with the given id.
@@ -76,14 +77,22 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param entryId entry id
    * @return optional status, absent if entry does not exist or status is not set
    */
-  public Optional<StatusType> getStatus(String entryId);
+  Optional<StatusType> getStatus(String entryId);
 
   /**
    * Return all active entries with their respective status
    *
    * @return list of (entry, status) pairs
    */
-  public List<Pair<EntryType, StatusType>> getActiveEntriesWithStatus();
+  List<Pair<EntryType, StatusType>> getActiveEntriesWithStatus();
+
+  /**
+   * Return active entries with their respective status for the provided ownerId
+   *
+   * @param ownerId owner id
+   * @return list of (entry, status) pairs
+   */
+  List<Pair<EntryType, StatusType>> getActiveEntriesWithStatus(String ownerId);
 
   /**
    * Return all statuses for inactive entries created on or later than the given timestamp
@@ -91,7 +100,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param timestamp timestamp
    * @return list of statuses
    */
-  public List<StatusType> getInactiveStatusesSince(DateTime timestamp);
+  List<StatusType> getInactiveStatusesSince(DateTime timestamp);
 
   /**
    * Add a lock to the given entry
@@ -100,14 +109,14 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param lock lock to add
    * @return true if the lock was added
    */
-  public boolean addLock(String entryId, LockType lock);
+  boolean addLock(String entryId, LockType lock);
 
   /**
    * Remove the lock with the given lock id.
    *
    * @param lockId lock id
    */
-  public void removeLock(long lockId);
+  void removeLock(long lockId);
 
   /**
    * Add a log to the entry with the given id.
@@ -116,7 +125,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param log log to add
    * @return true if the log was added
    */
-  public boolean addLog(String entryId, LogType log);
+  boolean addLog(String entryId, LogType log);
 
   /**
    * Returns the logs for the entry with the given id.
@@ -124,7 +133,7 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param entryId entry id
    * @return list of logs
    */
-  public List<LogType> getLogs(String entryId);
+  List<LogType> getLogs(String entryId);
 
   /**
    * Returns the locks for the given entry
@@ -132,5 +141,21 @@ public interface MetadataStorageActionHandler<EntryType, StatusType, LogType, Lo
    * @param entryId entry id
    * @return map of lockId to lock
    */
-  public Map<Long, LockType> getLocks(String entryId);
+  Map<Long, LockType> getLocks(String entryId);
+
+  /**
+   * Returns owner for the given entry
+   */
+  Optional<String> getOwner(String entryId);
+
+  /**
+   * Returns all locks acquired by active tasks with ownerId not equals to
+   * the given ownerId
+   */
+  Map<Long, LockType> getRemoteActiveLocks(String ownerId);
+
+  /**
+   * Take ownership of all tasks that does not have owner
+   */
+  void takeTasksOwnership(String ownerId);
 }

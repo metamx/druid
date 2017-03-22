@@ -31,7 +31,7 @@ public class MetadataStorageTablesConfig
 {
   public static MetadataStorageTablesConfig fromBase(String base)
   {
-    return new MetadataStorageTablesConfig(base, null, null, null, null, null, null, null, null, null, null);
+    return new MetadataStorageTablesConfig(base, null, null, null, null, null, null, null, null, null, null, null);
   }
 
   public static final String TASK_ENTRY_TYPE = "task";
@@ -41,6 +41,7 @@ public class MetadataStorageTablesConfig
   private final Map<String, String> entryTables = Maps.newHashMap();
   private final Map<String, String> logTables = Maps.newHashMap();
   private final Map<String, String> lockTables = Maps.newHashMap();
+  private final Map<String, String> ownerTables = Maps.newHashMap();
 
   @JsonProperty("base")
   private final String base;
@@ -69,6 +70,9 @@ public class MetadataStorageTablesConfig
   @JsonProperty("taskLock")
   private final String taskLockTable;
 
+  @JsonProperty("taskOwner")
+  private final String taskOwnerTable;
+
   @JsonProperty("audit")
   private final String auditTable;
 
@@ -86,6 +90,7 @@ public class MetadataStorageTablesConfig
       @JsonProperty("tasks") String tasksTable,
       @JsonProperty("taskLog") String taskLogTable,
       @JsonProperty("taskLock") String taskLockTable,
+      @JsonProperty("taskOwner") String taskOwnerTable,
       @JsonProperty("audit") String auditTable,
       @JsonProperty("supervisors") String supervisorTable
   )
@@ -100,9 +105,11 @@ public class MetadataStorageTablesConfig
     this.tasksTable = makeTableName(tasksTable, "tasks");
     this.taskLogTable = makeTableName(taskLogTable, "tasklogs");
     this.taskLockTable = makeTableName(taskLockTable, "tasklocks");
+    this.taskOwnerTable = makeTableName(taskOwnerTable, "taskowners");
     entryTables.put(TASK_ENTRY_TYPE, this.tasksTable);
     logTables.put(TASK_ENTRY_TYPE, this.taskLogTable);
     lockTables.put(TASK_ENTRY_TYPE, this.taskLockTable);
+    ownerTables.put(TASK_ENTRY_TYPE, this.taskOwnerTable);
     this.auditTable = makeTableName(auditTable, "audit");
     this.supervisorTable = makeTableName(supervisorTable, "supervisors");
   }
@@ -162,6 +169,10 @@ public class MetadataStorageTablesConfig
   public String getLockTable(final String entryType)
   {
     return lockTables.get(entryType);
+  }
+
+  public String getOwnerTable(final String entryType) {
+    return ownerTables.get(entryType);
   }
 
   public String getTaskEntryType()

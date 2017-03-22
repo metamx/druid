@@ -30,9 +30,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.List;
 
-public class TaskLockboxTest
+public class LocalTaskLockboxTest
 {
   private TaskStorage taskStorage;
 
@@ -41,8 +40,8 @@ public class TaskLockboxTest
   @Before
   public void setUp()
   {
-    taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(null));
-    lockbox = new TaskLockbox(taskStorage);
+    taskStorage = new HeapMemoryTaskStorage(new TaskStorageConfig(null, null));
+    lockbox = new LocalTaskLockbox(taskStorage);
   }
 
   @Test
@@ -125,6 +124,5 @@ public class TaskLockboxTest
     lockbox.remove(task);
     Assert.assertFalse(lockbox.tryLock(task, new Interval("2015-01-01/2015-01-02")).isPresent());
   }
-
 
 }

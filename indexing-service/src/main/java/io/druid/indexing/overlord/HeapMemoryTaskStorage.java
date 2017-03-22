@@ -38,6 +38,7 @@ import io.druid.indexing.common.task.Task;
 import io.druid.metadata.EntryExistsException;
 import org.joda.time.DateTime;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
@@ -246,6 +247,12 @@ public class HeapMemoryTaskStorage implements TaskStorage
     } finally {
       giant.unlock();
     }
+  }
+
+  @Override
+  public List<TaskLock> getRemoteActiveLocks()
+  {
+    return Collections.emptyList();
   }
 
   private static class TaskStuff

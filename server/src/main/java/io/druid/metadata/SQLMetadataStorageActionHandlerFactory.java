@@ -52,7 +52,8 @@ public class SQLMetadataStorageActionHandlerFactory implements MetadataStorageAc
         entryType,
         config.getEntryTable(entryType),
         config.getLogTable(entryType),
-        config.getLockTable(entryType)
+        config.getLockTable(entryType),
+        config.getOwnerTable(entryType)
     );
   }
 }

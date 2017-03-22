@@ -367,6 +367,22 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
     );
   }
 
+  public void createOwnerTable(final String tableName, final String entryTypeName) {
+    createTable(
+        tableName,
+        ImmutableList.of(
+            String.format(
+                "CREATE TABLE %1$s (\n"
+                + "  %2$s_id VARCHAR(255) NOT NULL,\n"
+                + "  owner_id VARCHAR(255) NOT NULL,\n"
+                + "  PRIMARY KEY (%2$s_id)\n"
+                + ")",
+                tableName, entryTypeName
+            )
+        )
+    );
+  }
+
   public void createSupervisorsTable(final String tableName)
   {
     createTable(
@@ -486,6 +502,7 @@ public abstract class SQLMetadataConnector implements MetadataStorageConnector
       createEntryTable(tablesConfig.getEntryTable(entryType));
       createLogTable(tablesConfig.getLogTable(entryType), entryType);
       createLockTable(tablesConfig.getLockTable(entryType), entryType);
+      createOwnerTable(tablesConfig.getOwnerTable(entryType), entryType);
     }
   }
 

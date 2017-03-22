@@ -70,6 +70,7 @@ import io.druid.indexing.common.config.TaskStorageConfig;
 import io.druid.indexing.common.task.Task;
 import io.druid.indexing.kafka.test.TestBroker;
 import io.druid.indexing.overlord.IndexerMetadataStorageCoordinator;
+import io.druid.indexing.overlord.LocalTaskLockbox;
 import io.druid.indexing.overlord.MetadataTaskStorage;
 import io.druid.indexing.overlord.TaskLockbox;
 import io.druid.indexing.overlord.TaskStorage;
@@ -1368,7 +1369,7 @@ public class KafkaIndexTaskTest
     derbyConnector.createAuditTable();
     taskStorage = new MetadataTaskStorage(
         derbyConnector,
-        new TaskStorageConfig(null),
+        new TaskStorageConfig(null, null),
         new SQLMetadataStorageActionHandlerFactory(
             derbyConnector,
             derby.metadataTablesConfigSupplier().get(),
@@ -1380,7 +1381,7 @@ public class KafkaIndexTaskTest
         derby.metadataTablesConfigSupplier().get(),
         derbyConnector
     );
-    taskLockbox = new TaskLockbox(taskStorage);
+    taskLockbox = new LocalTaskLockbox(taskStorage);
     final TaskActionToolbox taskActionToolbox = new TaskActionToolbox(
         taskLockbox,
         metadataStorageCoordinator,
