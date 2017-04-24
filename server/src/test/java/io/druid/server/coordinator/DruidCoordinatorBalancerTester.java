@@ -31,7 +31,7 @@ public class DruidCoordinatorBalancerTester extends DruidCoordinatorBalancer
   }
 
   @Override
-  protected void moveSegment(
+  protected boolean moveSegment(
       final BalancerSegmentHolder segment,
       final ImmutableDruidServer toServer,
       final DruidCoordinatorRuntimeParams params
@@ -66,6 +66,7 @@ public class DruidCoordinatorBalancerTester extends DruidCoordinatorBalancer
         });
 
         currentlyMovingSegments.get("normal").put(segmentName, segment);
+        return true;
       }
       catch (Exception e) {
         log.info(e, String.format("[%s] : Moving exception", segmentName));
@@ -73,5 +74,6 @@ public class DruidCoordinatorBalancerTester extends DruidCoordinatorBalancer
     } else {
       currentlyMovingSegments.get("normal").remove(segment);
     }
+    return false;
   }
 }
