@@ -25,14 +25,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import io.druid.indexing.common.task.Task;
+import io.druid.indexing.common.task.TaskLabels;
 import io.druid.indexing.overlord.config.WorkerTaskRunnerConfig;
 import io.druid.indexing.overlord.setup.TwoCloudConfig;
 import io.druid.indexing.overlord.setup.WorkerBehaviorConfig;
 import io.druid.indexing.overlord.setup.WorkerSelectStrategy;
 
 import java.util.Map;
-
-import static io.druid.indexing.common.task.TaskLabels.getTaskLabel;
 
 public class TwoCloudWorkerSelectStrategy implements WorkerSelectStrategy
 {
@@ -57,7 +56,7 @@ public class TwoCloudWorkerSelectStrategy implements WorkerSelectStrategy
       WorkerTaskRunnerConfig config, ImmutableMap<String, ImmutableWorkerInfo> zkWorkers, Task task
   )
   {
-    String taskLabel = getTaskLabel(task);
+    String taskLabel = TaskLabels.getTaskLabel(task);
     String ipFilter = twoCloudConfig.getIpFilter(taskLabel);
     WorkerBehaviorConfig workerBehaviorConfig = twoCloudConfig.getWorkerBehaviorConfig(taskLabel);
     WorkerSelectStrategy workerSelectStrategy = workerBehaviorConfig.getSelectStrategy();
