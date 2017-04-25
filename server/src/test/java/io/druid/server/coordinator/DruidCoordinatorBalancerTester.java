@@ -45,7 +45,7 @@ public class DruidCoordinatorBalancerTester extends DruidCoordinatorBalancer
     final String segmentName = segmentToMove.getIdentifier();
 
     if (!toPeon.getSegmentsToLoad().contains(segmentToMove) &&
-        !currentlyMovingSegments.get("normal").containsKey(segmentName) &&
+        !currentlyMovingSegments.get(toServer.getTier()).containsKey(segmentName) &&
         !toServer.getSegments().containsKey(segmentName) &&
         new ServerHolder(toServer, toPeon).getAvailableSize() > segmentToMove.getSize()) {
       log.info(
@@ -65,14 +65,14 @@ public class DruidCoordinatorBalancerTester extends DruidCoordinatorBalancer
           }
         });
 
-        currentlyMovingSegments.get("normal").put(segmentName, segment);
+        currentlyMovingSegments.get(toServer.getTier()).put(segmentName, segment);
         return true;
       }
       catch (Exception e) {
         log.info(e, String.format("[%s] : Moving exception", segmentName));
       }
     } else {
-      currentlyMovingSegments.get("normal").remove(segment);
+      currentlyMovingSegments.get(toServer.getTier()).remove(segment);
     }
     return false;
   }

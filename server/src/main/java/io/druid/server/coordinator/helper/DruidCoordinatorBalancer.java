@@ -103,7 +103,7 @@ public class DruidCoordinatorBalancer implements DruidCoordinatorHelper
       final int segmentsToMove = maxSegmentsToMove - numberOfMovingSegments;
 
       if (segmentsToMove <= 0) {
-        log.info("[%s]: Too many segments are currently moving. Waiting.");
+        log.info("[%s]: Too many segments are currently moving. Waiting.", tier);
         continue;
       }
 
