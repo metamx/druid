@@ -17,12 +17,13 @@
  * under the License.
  */
 
-package io.druid.segment.data;
+package io.druid.segment.historical;
 
-import java.io.Closeable;
+import io.druid.query.monomorphicprocessing.CalledFromHotLoop;
+import io.druid.segment.FloatColumnSelector;
 
-public interface IndexedMultivalue<T extends IndexedInts> extends Indexed<T>, Closeable
+public interface HistoricalFloatColumnSelector extends FloatColumnSelector
 {
-  @Override
-  T get(int index);
+  @CalledFromHotLoop
+  float get(int offset);
 }

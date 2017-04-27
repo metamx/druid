@@ -327,6 +327,11 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
       {
         return IndexedIterable.create(this).iterator();
       }
+
+      @Override
+      public void inspectRuntimeShape(RuntimeShapeInspector inspector)
+      {
+      }
     };
   }
 
@@ -469,6 +474,12 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
                 }
                 return false;
               }
+
+              @Override
+              public void inspectRuntimeShape(RuntimeShapeInspector inspector)
+              {
+                // nothing to inspect
+              }
             };
           } else {
             return BooleanValueMatcher.of(false);
@@ -505,6 +516,12 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
               }
             }
             return false;
+          }
+
+          @Override
+          public void inspectRuntimeShape(RuntimeShapeInspector inspector)
+          {
+            // nothing to inspect
           }
         };
       }

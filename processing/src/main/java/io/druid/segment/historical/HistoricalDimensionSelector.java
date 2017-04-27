@@ -17,12 +17,17 @@
  * under the License.
  */
 
-package io.druid.segment.data;
+package io.druid.segment.historical;
 
-import java.io.Closeable;
+import io.druid.query.monomorphicprocessing.CalledFromHotLoop;
+import io.druid.segment.DimensionSelector;
+import io.druid.segment.data.IndexedInts;
 
-public interface IndexedMultivalue<T extends IndexedInts> extends Indexed<T>, Closeable
+/**
+ * Specialization for {@link DimensionSelector} queryable via offsets from {@link HistoricalCursor}.
+ */
+public interface HistoricalDimensionSelector extends DimensionSelector
 {
-  @Override
-  T get(int index);
+  @CalledFromHotLoop
+  IndexedInts getRow(int offset);
 }

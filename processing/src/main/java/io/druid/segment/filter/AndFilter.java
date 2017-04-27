@@ -28,6 +28,7 @@ import io.druid.query.filter.BooleanFilter;
 import io.druid.query.filter.Filter;
 import io.druid.query.filter.RowOffsetMatcherFactory;
 import io.druid.query.filter.ValueMatcher;
+import io.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import io.druid.segment.ColumnSelector;
 import io.druid.segment.ColumnSelectorFactory;
 
@@ -42,10 +43,9 @@ public class AndFilter implements BooleanFilter
 
   private final List<Filter> filters;
 
-  public AndFilter(
-      List<Filter> filters
-  )
+  public AndFilter(List<Filter> filters)
   {
+    Preconditions.checkArgument(filters.size() > 0, "Can't construct empty AndFilter");
     this.filters = filters;
   }
 
@@ -80,10 +80,6 @@ public class AndFilter implements BooleanFilter
   @Override
   public ValueMatcher makeMatcher(ColumnSelectorFactory factory)
   {
-    if (filters.size() == 0) {
-      return BooleanValueMatcher.of(false);
-    }
-
     final ValueMatcher[] matchers = new ValueMatcher[filters.size()];
 
     for (int i = 0; i < filters.size(); i++) {
@@ -117,19 +113,7 @@ public class AndFilter implements BooleanFilter
       matchers.add(0, offsetMatcher);
     }
 
-    return new ValueMatcher()
-    {
-      @Override
-      public boolean matches()
-      {
-        for (ValueMatcher valueMatcher : matchers) {
-          if (!valueMatcher.matches()) {
-            return false;
-          }
-        }
-        return true;
-      }
-    };
+    return makeMatcher(matchers.toArray(new ValueMatcher[0]));
   }
 
   @Override
@@ -181,6 +165,7 @@ public class AndFilter implements BooleanFilter
 
   private ValueMatcher makeMatcher(final ValueMatcher[] baseMatchers)
   {
+    Preconditions.checkState(baseMatchers.length > 0);
     if (baseMatchers.length == 1) {
       return baseMatchers[0];
     }
@@ -196,6 +181,15 @@ public class AndFilter implements BooleanFilter
           }
         }
         return true;
+      }
+
+      @Override
+      public void inspectRuntimeShape(RuntimeShapeInspector inspector)
+      {
+        inspector.visit("firstBaseMatcher", baseMatchers[0]);
+        inspector.visit("secondBaseMatcher", baseMatchers[1]);
+        // Don't inspect the 3rd and all consequent baseMatchers, cut runtime shape combinations at this point.
+        // Anyway if the filter is so complex, Hotspot won't inline all calls because of the inline limit.
       }
     };
   }
