@@ -199,7 +199,7 @@ public class PooledTopNAlgorithm
   }
 
   @Override
-  protected void scanAndAggregate(
+  protected long scanAndAggregate(
       final PooledTopNParams params,
       final int[] positions,
       final BufferAggregator[] theAggregators,
@@ -213,7 +213,7 @@ public class PooledTopNAlgorithm
         if (specializeHistoricalSingleValueDimSelector1SimpleDoubleAggPooledTopN &&
             params.getDimSelector() instanceof SingleValueHistoricalDimensionSelector &&
             ((SimpleDoubleBufferAggregator) aggregator).getSelector() instanceof HistoricalFloatColumnSelector) {
-          scanAndAggregateHistorical1SimpleDoubleAgg(
+          long processedRows = scanAndAggregateHistorical1SimpleDoubleAgg(
               params,
               positions,
               (SimpleDoubleBufferAggregator) aggregator,
@@ -221,12 +221,12 @@ public class PooledTopNAlgorithm
               defaultHistoricalSingleValueDimSelector1SimpleDoubleAggScanner
           );
           BaseQuery.checkInterrupted();
-          return;
+          return processedRows;
         }
         if (specializeHistorical1SimpleDoubleAggPooledTopN &&
             params.getDimSelector() instanceof HistoricalDimensionSelector &&
             ((SimpleDoubleBufferAggregator) aggregator).getSelector() instanceof HistoricalFloatColumnSelector) {
-          scanAndAggregateHistorical1SimpleDoubleAgg(
+          long processedRows = scanAndAggregateHistorical1SimpleDoubleAgg(
               params,
               positions,
               (SimpleDoubleBufferAggregator) aggregator,
@@ -234,25 +234,26 @@ public class PooledTopNAlgorithm
               defaultHistorical1SimpleDoubleAggScanner
           );
           BaseQuery.checkInterrupted();
-          return;
+          return processedRows;
         }
       }
       if (specializeGeneric1AggPooledTopN) {
-        scanAndAggregateGeneric1Agg(params, positions, aggregator, cursor);
+        long processedRows = scanAndAggregateGeneric1Agg(params, positions, aggregator, cursor);
         BaseQuery.checkInterrupted();
-        return;
+        return processedRows;
       }
     }
     if (specializeGeneric2AggPooledTopN && theAggregators.length == 2) {
-      scanAndAggregateGeneric2Agg(params, positions, theAggregators, cursor);
+      long processedRows = scanAndAggregateGeneric2Agg(params, positions, theAggregators, cursor);
       BaseQuery.checkInterrupted();
-      return;
+      return processedRows;
     }
-    scanAndAggregateDefault(params, positions, theAggregators);
+    long processedRows = scanAndAggregateDefault(params, positions, theAggregators);
     BaseQuery.checkInterrupted();
+    return processedRows;
   }
 
-  private static void scanAndAggregateHistorical1SimpleDoubleAgg(
+  private static long scanAndAggregateHistorical1SimpleDoubleAgg(
       PooledTopNParams params,
       int[] positions,
       SimpleDoubleBufferAggregator aggregator,
@@ -270,7 +271,7 @@ public class PooledTopNAlgorithm
         );
     Historical1AggPooledTopNScanner scanner = specializationState.getSpecializedOrDefault(prototypeScanner);
 
-    long scannedRows = scanner.scanAndAggregate(
+    long processedRows = scanner.scanAndAggregate(
         (HistoricalDimensionSelector) params.getDimSelector(),
         aggregator.getSelector(),
         aggregator,
@@ -279,10 +280,11 @@ public class PooledTopNAlgorithm
         positions,
         params.getResultsBuf()
     );
-    specializationState.accountLoopIterations(scannedRows);
+    specializationState.accountLoopIterations(processedRows);
+    return processedRows;
   }
 
-  private static void scanAndAggregateGeneric1Agg(
+  private static long scanAndAggregateGeneric1Agg(
       PooledTopNParams params,
       int[] positions,
       BufferAggregator aggregator,
@@ -294,7 +296,7 @@ public class PooledTopNAlgorithm
     SpecializationState<Generic1AggPooledTopNScanner> specializationState = SpecializationService
         .getSpecializationState(prototypeClass, runtimeShape);
     Generic1AggPooledTopNScanner scanner = specializationState.getSpecializedOrDefault(defaultGeneric1AggScanner);
-    long scannedRows = scanner.scanAndAggregate(
+    long processedRows = scanner.scanAndAggregate(
         params.getDimSelector(),
         aggregator,
         params.getAggregatorSizes()[0],
@@ -302,10 +304,11 @@ public class PooledTopNAlgorithm
         positions,
         params.getResultsBuf()
     );
-    specializationState.accountLoopIterations(scannedRows);
+    specializationState.accountLoopIterations(processedRows);
+    return processedRows;
   }
 
-  private static void scanAndAggregateGeneric2Agg(
+  private static long scanAndAggregateGeneric2Agg(
       PooledTopNParams params,
       int[] positions,
       BufferAggregator[] theAggregators,
@@ -318,7 +321,7 @@ public class PooledTopNAlgorithm
         .getSpecializationState(prototypeClass, runtimeShape);
     Generic2AggPooledTopNScanner scanner = specializationState.getSpecializedOrDefault(defaultGeneric2AggScanner);
     int[] aggregatorSizes = params.getAggregatorSizes();
-    long scannedRows = scanner.scanAndAggregate(
+    long processedRows = scanner.scanAndAggregate(
         params.getDimSelector(),
         theAggregators[0],
         aggregatorSizes[0],
@@ -328,7 +331,8 @@ public class PooledTopNAlgorithm
         positions,
         params.getResultsBuf()
     );
-    specializationState.accountLoopIterations(scannedRows);
+    specializationState.accountLoopIterations(processedRows);
+    return processedRows;
   }
 
   /**
@@ -349,7 +353,7 @@ public class PooledTopNAlgorithm
    * still optimizes the high quantity of aggregate queries which benefit greatly from any speed improvements
    * (they simply take longer to start with).
    */
-  private static void scanAndAggregateDefault(
+  private static long scanAndAggregateDefault(
       final PooledTopNParams params,
       final int[] positions,
       final BufferAggregator[] theAggregators
@@ -374,6 +378,7 @@ public class PooledTopNAlgorithm
     final int aggSize = theAggregators.length;
     final int aggExtra = aggSize % AGG_UNROLL_COUNT;
     int currentPosition = 0;
+    long processedRows = 0;
     while (!cursor.isDoneOrInterrupted()) {
       final IndexedInts dimValues = dimSelector.getRow();
 
@@ -556,7 +561,9 @@ public class PooledTopNAlgorithm
         );
       }
       cursor.advanceUninterruptibly();
+      processedRows++;
     }
+    return processedRows;
   }
 
   /**

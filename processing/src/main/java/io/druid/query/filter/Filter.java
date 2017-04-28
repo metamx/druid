@@ -20,6 +20,8 @@
 package io.druid.query.filter;
 
 import io.druid.collections.bitmap.ImmutableBitmap;
+import io.druid.query.BitmapResultFactory;
+import io.druid.query.DefaultBitmapResultFactory;
 import io.druid.segment.ColumnSelector;
 import io.druid.segment.ColumnSelectorFactory;
 
@@ -36,8 +38,15 @@ public interface Filter
    *
    * @see Filter#estimateSelectivity(BitmapIndexSelector)
    */
-  ImmutableBitmap getBitmapIndex(BitmapIndexSelector selector);
+  default ImmutableBitmap getBitmapIndex(BitmapIndexSelector selector)
+  {
+    return getBitmapResult(selector, new DefaultBitmapResultFactory(selector.getBitmapFactory()));
+  }
 
+  default <T> T getBitmapResult(BitmapIndexSelector selector, BitmapResultFactory<T> bitmapResultFactory)
+  {
+    return bitmapResultFactory.wrapUnknown(getBitmapIndex(selector));
+  }
 
   /**
    * Estimate selectivity of this filter.

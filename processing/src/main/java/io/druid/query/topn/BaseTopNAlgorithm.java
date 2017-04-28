@@ -30,6 +30,7 @@ import io.druid.segment.Cursor;
 import io.druid.segment.DimensionSelector;
 import io.druid.segment.IdLookup;
 
+import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -72,11 +73,12 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
   public void run(
       Parameters params,
       TopNResultBuilder resultBuilder,
-      DimValSelector dimValSelector
+      DimValSelector dimValSelector,
+      @Nullable TopNQueryMetrics queryMetrics
   )
   {
     if (params.getCardinality() != TopNColumnSelectorStrategy.CARDINALITY_UNKNOWN) {
-      runWithCardinalityKnown(params, resultBuilder, dimValSelector);
+      runWithCardinalityKnown(params, resultBuilder, dimValSelector, queryMetrics);
     } else {
       runWithCardinalityUnknown(params, resultBuilder);
     }
@@ -85,13 +87,16 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
   private void runWithCardinalityKnown(
       Parameters params,
       TopNResultBuilder resultBuilder,
-      DimValSelector dimValSelector
+      DimValSelector dimValSelector,
+      @Nullable TopNQueryMetrics queryMetrics
   )
   {
+    long scanRecordStart = queryMetrics != null ? queryMetrics.startRecordingScanTime() : 0;
     boolean hasDimValSelector = (dimValSelector != null);
 
     int cardinality = params.getCardinality();
     int numProcessed = 0;
+    long processedRows = 0;
     while (numProcessed < cardinality) {
       final int numToProcess;
       int maxNumToProcess = Math.min(params.getNumValuesPerPass(), cardinality - numProcessed);
@@ -108,7 +113,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
 
       DimValAggregateStore aggregatesStore = makeDimValAggregateStore(params);
 
-      scanAndAggregate(params, theDimValSelector, aggregatesStore, numProcessed);
+      processedRows = scanAndAggregate(params, theDimValSelector, aggregatesStore, numProcessed);
 
       updateResults(params, theDimValSelector, aggregatesStore, resultBuilder);
 
@@ -116,6 +121,10 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
 
       numProcessed += numToProcess;
       params.getCursor().reset();
+    }
+    if (queryMetrics != null) {
+      queryMetrics.addProcessedRows(processedRows);
+      queryMetrics.stopRecordingScanTime(scanRecordStart);
     }
   }
 
@@ -162,7 +171,10 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
 
   protected abstract DimValAggregateStore makeDimValAggregateStore(Parameters params);
 
-  protected abstract void scanAndAggregate(
+  /**
+   * Returns the number of rows scanned.
+   */
+  protected abstract long scanAndAggregate(
       Parameters params,
       DimValSelector dimValSelector,
       DimValAggregateStore dimValAggregateStore,

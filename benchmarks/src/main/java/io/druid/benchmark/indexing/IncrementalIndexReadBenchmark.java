@@ -204,7 +204,8 @@ public class IncrementalIndexReadBenchmark
         schemaInfo.getDataInterval(),
         VirtualColumns.EMPTY,
         Granularities.ALL,
-        false
+        false,
+        null
     );
   }
 }

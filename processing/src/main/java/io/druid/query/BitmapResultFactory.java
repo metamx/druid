@@ -17,26 +17,29 @@
  * under the License.
  */
 
-package io.druid.segment;
+package io.druid.query;
 
-import io.druid.java.util.common.granularity.Granularity;
-import io.druid.java.util.common.guava.Sequence;
-import io.druid.query.QueryMetrics;
-import io.druid.query.filter.Filter;
-import org.joda.time.Interval;
+import io.druid.collections.bitmap.ImmutableBitmap;
 
-import javax.annotation.Nullable;
-
-/**
- */
-public interface CursorFactory
+public interface BitmapResultFactory<T>
 {
-  public Sequence<Cursor> makeCursors(
-      Filter filter,
-      Interval interval,
-      VirtualColumns virtualColumns,
-      Granularity gran,
-      boolean descending,
-      @Nullable QueryMetrics<?> queryMetrics
-  );
+  T wrapUnknown(ImmutableBitmap bitmap);
+
+  T wrapDimensionValue(ImmutableBitmap bitmap);
+
+  T wrapAllFalse(ImmutableBitmap allFalseBitmap);
+
+  T wrapAllTrue(ImmutableBitmap allTrueBitmap);
+
+  boolean isEmpty(T bitmapResult);
+
+  T intersection(Iterable<T> bitmapResults);
+
+  T union(Iterable<T> bitmapResults);
+
+  T unionDimensionValueBitmaps(Iterable<ImmutableBitmap> dimensionValueBitmaps);
+
+  T complement(T bitmapResult, int numRows);
+
+  ImmutableBitmap toImmutableBitmap(T bitmapResult);
 }
