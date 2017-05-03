@@ -106,13 +106,13 @@ public class DefaultTopNQueryMetrics extends DefaultQueryMetrics<TopNQuery> impl
   }
 
   @Override
-  public long startRecordingScanTime()
+  public void startRecordingScanTime()
   {
-    return 0;
+    // Don't record scan time by default.
   }
 
   @Override
-  public TopNQueryMetrics stopRecordingScanTime(long scanRecordStart)
+  public TopNQueryMetrics stopRecordingScanTime()
   {
     // Emit nothing by default.
     return this;

@@ -91,7 +91,9 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
       @Nullable TopNQueryMetrics queryMetrics
   )
   {
-    long scanRecordStart = queryMetrics != null ? queryMetrics.startRecordingScanTime() : 0;
+    if (queryMetrics != null) {
+      queryMetrics.startRecordingScanTime();
+    }
     boolean hasDimValSelector = (dimValSelector != null);
 
     int cardinality = params.getCardinality();
@@ -124,7 +126,7 @@ public abstract class BaseTopNAlgorithm<DimValSelector, DimValAggregateStore, Pa
     }
     if (queryMetrics != null) {
       queryMetrics.addProcessedRows(processedRows);
-      queryMetrics.stopRecordingScanTime(scanRecordStart);
+      queryMetrics.stopRecordingScanTime();
     }
   }
 

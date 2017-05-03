@@ -200,6 +200,12 @@ public interface QueryMetrics<QueryType extends Query<?>>
 
   void postFilters(List<Filter> postFilters);
 
+  /**
+   * Creates a {@link BitmapResultFactory} which may record some information along bitmap construction from {@link
+   * #preFilters(List)}. The returned BitmapResultFactory may add some dimensions to this QueryMetrics from it's {@link
+   * BitmapResultFactory#toImmutableBitmap(Object)} method. See {@link BitmapResultFactory} Javadoc for more
+   * information.
+   */
   BitmapResultFactory<?> makeBitmapResultFactory(BitmapFactory factory);
 
   /**
@@ -264,10 +270,10 @@ public interface QueryMetrics<QueryType extends Query<?>>
   QueryMetrics<QueryType> reportSegmentRows(long numRows);
 
   /**
-   * Reports the number of rows to scan in the segment after applying the bitmap from {@link #preFilters(List)}. If the
-   * are no preFilters, this metric is equal to {@link #reportSegmentRows(long)}.
+   * Reports the number of rows to scan in the segment after applying {@link #preFilters(List)}. If the are no
+   * preFilters, this metric is equal to {@link #reportSegmentRows(long)}.
    */
-  QueryMetrics<QueryType> reportBitmapFilteredRows(long numRows);
+  QueryMetrics<QueryType> reportPreFilteredRows(long numRows);
 
   /**
    * Emits all metrics, registered since the last {@code emit()} call on this QueryMetrics object.

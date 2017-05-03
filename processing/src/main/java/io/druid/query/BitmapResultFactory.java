@@ -19,27 +19,82 @@
 
 package io.druid.query;
 
+import io.druid.collections.bitmap.BitmapFactory;
 import io.druid.collections.bitmap.ImmutableBitmap;
 
+/**
+ * BitmapResultFactory is an abstraction that allows to record something along with preFilter bitmap construction, and
+ * emit this information as dimension(s) of query metrics. BitmapResultFactory is similar to {@link
+ * io.druid.collections.bitmap.BitmapFactory} it has the same methods with the exception that it accepts generic type
+ * T (bitmap wrapper type) instead of {@link ImmutableBitmap}.
+ *
+ * {@link DefaultBitmapResultFactory} is a no-op implementation, where "wrapper" type is {@code ImmutableBitmap} itself.
+ *
+ * BitmapResultFactory delegates actual operations on bitmaps to a {@code BitmapFactory}, which it accepts via
+ * constructor, called from {@link QueryMetrics#makeBitmapResultFactory(BitmapFactory)}.
+ *
+ * Emitting of query metric dimension(s) should be done from {@link #toImmutableBitmap(Object)}, the "unwrapping"
+ * method, called only once to obtain the final preFilter bitmap.
+ *
+ * @param <T> the bitmap result (wrapper) type
+ * @see QueryMetrics#makeBitmapResultFactory(BitmapFactory)
+ * @see QueryMetrics#reportBitmapConstructionTime(long)
+ */
 public interface BitmapResultFactory<T>
 {
+  /**
+   * Wraps a bitmap of unknown nature.
+   */
   T wrapUnknown(ImmutableBitmap bitmap);
 
+  /**
+   * Wraps a bitmap which designates rows in a segment with some specific dimension value.
+   */
   T wrapDimensionValue(ImmutableBitmap bitmap);
 
+  /**
+   * Wraps a bitmap which is a result of {@link BitmapFactory#makeEmptyImmutableBitmap()} call.
+   */
   T wrapAllFalse(ImmutableBitmap allFalseBitmap);
 
+  /**
+   * Wraps a bitmap which is a result of {@link BitmapFactory#complement(ImmutableBitmap)} called with
+   * {@link BitmapFactory#makeEmptyImmutableBitmap()} as argument.
+   */
   T wrapAllTrue(ImmutableBitmap allTrueBitmap);
 
+  /**
+   * Checks that the wrapped bitmap is empty, see {@link ImmutableBitmap#isEmpty()}.
+   */
   boolean isEmpty(T bitmapResult);
 
+  /**
+   * Delegates to {@link BitmapFactory#intersection(Iterable)} on the wrapped bitmaps, and returns a bitmap result
+   * wrapping the resulting intersection ImmutableBitmap.
+   */
   T intersection(Iterable<T> bitmapResults);
 
+  /**
+   * Delegates to {@link BitmapFactory#union(Iterable)} on the wrapped bitmaps, and returns a bitmap result wrapping
+   * the resulting union ImmutableBitmap.
+   */
   T union(Iterable<T> bitmapResults);
 
+  /**
+   * Equivalent of intersection(Iterables.transform(dimensionValueBitmaps, factory::wrapDimensionValue)), but doesn't
+   * create a lot of bitmap result objects.
+   */
   T unionDimensionValueBitmaps(Iterable<ImmutableBitmap> dimensionValueBitmaps);
 
+  /**
+   * Delegates to {@link BitmapFactory#complement(ImmutableBitmap, int)} on the wrapped bitmap, and returns a bitmap
+   * result wrapping the resulting complement ImmutableBitmap.
+   */
   T complement(T bitmapResult, int numRows);
 
+  /**
+   * Unwraps bitmapResult back to ImmutableBitmap. BitmapResultFactory should emit query metric dimension(s) in the
+   * implementation of this method.
+   */
   ImmutableBitmap toImmutableBitmap(T bitmapResult);
 }

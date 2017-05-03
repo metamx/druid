@@ -248,7 +248,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
     final Offset offset;
     final List<Filter> preFilters;
     final List<Filter> postFilters = new ArrayList<>();
-    int bitmapFilteredRows = totalRows;
+    int preFilteredRows = totalRows;
     if (filter == null) {
       preFilters = Collections.emptyList();
       offset = new NoFilterOffset(0, totalRows, descending);
@@ -282,7 +282,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
           long bitmapConstructionStartNs = System.nanoTime();
           // Use AndFilter.getBitmapResult to intersect the preFilters to get its short-circuiting behavior.
           ImmutableBitmap bitmapIndex = AndFilter.getBitmapIndex(selector, bitmapResultFactory, preFilters);
-          bitmapFilteredRows = bitmapIndex.size();
+          preFilteredRows = bitmapIndex.size();
           offset = BitmapOffset.of(bitmapIndex, descending, totalRows);
           queryMetrics.reportBitmapConstructionTime(System.nanoTime() - bitmapConstructionStartNs);
         } else {
@@ -309,7 +309,7 @@ public class QueryableIndexStorageAdapter implements StorageAdapter
       queryMetrics.preFilters(preFilters);
       queryMetrics.postFilters(postFilters);
       queryMetrics.reportSegmentRows(totalRows);
-      queryMetrics.reportBitmapFilteredRows(bitmapFilteredRows);
+      queryMetrics.reportPreFilteredRows(preFilteredRows);
     }
 
     return Sequences.filter(

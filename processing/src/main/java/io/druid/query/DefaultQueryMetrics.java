@@ -251,7 +251,7 @@ public class DefaultQueryMetrics<QueryType extends Query<?>> implements QueryMet
   }
 
   @Override
-  public QueryMetrics<QueryType> reportBitmapFilteredRows(long numRows)
+  public QueryMetrics<QueryType> reportPreFilteredRows(long numRows)
   {
     // Don't emit by default.
     return this;
