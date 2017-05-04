@@ -395,24 +395,28 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
 
   public EnumSet<SegmentMetadataQuery.AnalysisType> getAnalysisTypes(SegmentMetadataQuery query)
   {
-    if(query.getAnalysisTypes().hashCode() == SegmentMetadataQuery.DEFAULT_ANALYSIS_TYPES.hashCode() && config != null) {
+    if (query.getAnalysisTypes() == null) {
+      if (config == null || config.getDefaultAnalysisType() == null) {
+        return SegmentMetadataQuery.DEFAULT_ANALYSIS_TYPES;
+      }
       return config.getDefaultAnalysisType();
+    } else {
+      return query.getAnalysisTypes();
     }
-    return query.getAnalysisTypes();
+
   }
 
   public SegmentAnalyzer getSegmentAnalyzer(SegmentMetadataQuery query)
   {
-    EnumSet<SegmentMetadataQuery.AnalysisType> analysisTypes = getAnalysisTypes(query);
-    return new SegmentAnalyzer(analysisTypes);
+    return new SegmentAnalyzer(getAnalysisTypes(query));
   }
 
   private byte[] getAnalysisTypesCacheKey(SegmentMetadataQuery query)
   {
     int size = 1;
-    EnumSet<SegmentMetadataQuery.AnalysisType> analysisTypes = getAnalysisTypes(query);
+    final EnumSet<SegmentMetadataQuery.AnalysisType> analysisTypes = getAnalysisTypes(query);
 
-    List<byte[]> typeBytesList = Lists.newArrayListWithExpectedSize(analysisTypes.size());
+    final List<byte[]> typeBytesList = Lists.newArrayListWithExpectedSize(analysisTypes.size());
     for (SegmentMetadataQuery.AnalysisType analysisType : analysisTypes) {
       final byte[] bytes = analysisType.getCacheKey();
       typeBytesList.add(bytes);

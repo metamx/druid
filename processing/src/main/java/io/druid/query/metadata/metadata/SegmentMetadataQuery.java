@@ -120,7 +120,7 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
     }
     this.toInclude = toInclude == null ? new AllColumnIncluderator() : toInclude;
     this.merge = merge == null ? false : merge;
-    this.analysisTypes = (analysisTypes == null) ? DEFAULT_ANALYSIS_TYPES : analysisTypes;
+    this.analysisTypes = analysisTypes;
     Preconditions.checkArgument(
         dataSource instanceof TableDataSource || dataSource instanceof UnionDataSource,
         "SegmentMetadataQuery only supports table or union datasource"
