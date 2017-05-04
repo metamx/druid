@@ -87,7 +87,7 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
       public Sequence<SegmentAnalysis> run(Query<SegmentAnalysis> inQ, Map<String, Object> responseContext)
       {
         SegmentMetadataQuery query = (SegmentMetadataQuery) inQ;
-        final SegmentAnalyzer analyzer = new SegmentAnalyzer(query.getAnalysisTypes());
+        final SegmentAnalyzer analyzer = toolChest.getSegmentAnalyzer(query);
         final Map<String, ColumnAnalysis> analyzedColumns = analyzer.analyze(segment);
         final long numRows = analyzer.numRows(segment);
         long totalSize = 0;

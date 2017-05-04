@@ -20,10 +20,12 @@
 package io.druid.query.metadata;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.druid.query.metadata.metadata.SegmentMetadataQuery;
 import org.joda.time.Period;
 import org.joda.time.format.ISOPeriodFormat;
 import org.joda.time.format.PeriodFormatter;
 
+import java.util.EnumSet;
 
 public class SegmentMetadataQueryConfig
 {
@@ -33,8 +35,23 @@ public class SegmentMetadataQueryConfig
   @JsonProperty
   private Period defaultHistory = ISO_FORMATTER.parsePeriod(DEFAULT_PERIOD_STRING);
 
+  @JsonProperty
+  private EnumSet<SegmentMetadataQuery.AnalysisType> defaultAnalysisType = SegmentMetadataQuery.DEFAULT_ANALYSIS_TYPES;
+
+  public SegmentMetadataQueryConfig(String period, EnumSet<SegmentMetadataQuery.AnalysisType> analysisType)
+  {
+    defaultHistory = ISO_FORMATTER.parsePeriod(period);
+    defaultAnalysisType = analysisType;
+  }
+
+  public SegmentMetadataQueryConfig(EnumSet<SegmentMetadataQuery.AnalysisType> analysisType)
+  {
+    defaultAnalysisType = analysisType;
+  }
+
   public SegmentMetadataQueryConfig(String period)
   {
+
     defaultHistory = ISO_FORMATTER.parsePeriod(period);
   }
 
@@ -46,4 +63,6 @@ public class SegmentMetadataQueryConfig
   {
     return defaultHistory;
   }
+
+  public EnumSet<SegmentMetadataQuery.AnalysisType> getDefaultAnalysisType() { return defaultAnalysisType; }
 }
