@@ -49,7 +49,6 @@ import io.druid.query.metadata.metadata.SegmentMetadataQuery;
 import io.druid.segment.IncrementalIndexSegment;
 import io.druid.segment.QueryableIndex;
 import io.druid.segment.QueryableIndexSegment;
-import io.druid.segment.Segment;
 import io.druid.segment.TestHelper;
 import io.druid.segment.TestIndex;
 import io.druid.segment.column.ValueType;
