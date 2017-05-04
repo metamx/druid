@@ -46,7 +46,6 @@ public class SegmentMetadataQueryConfig
 
   public SegmentMetadataQueryConfig(String period)
   {
-
     defaultHistory = ISO_FORMATTER.parsePeriod(period);
   }
 

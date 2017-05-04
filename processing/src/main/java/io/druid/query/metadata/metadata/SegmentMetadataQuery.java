@@ -176,36 +176,6 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
     return lenientAggregatorMerge;
   }
 
-  public boolean analyzingInterval()
-  {
-    return analysisTypes.contains(AnalysisType.INTERVAL);
-  }
-
-  public boolean hasAggregators()
-  {
-    return analysisTypes.contains(AnalysisType.AGGREGATORS);
-  }
-
-  public boolean hasTimestampSpec()
-  {
-    return analysisTypes.contains(AnalysisType.TIMESTAMPSPEC);
-  }
-
-  public boolean hasQueryGranularity()
-  {
-    return analysisTypes.contains(AnalysisType.QUERYGRANULARITY);
-  }
-
-  public boolean hasRollup()
-  {
-    return analysisTypes.contains(AnalysisType.ROLLUP);
-  }
-
-  public boolean hasMinMax()
-  {
-    return analysisTypes.contains(AnalysisType.MINMAX);
-  }
-
   @Override
   public Query<SegmentAnalysis> withOverriddenContext(Map<String, Object> contextOverride)
   {

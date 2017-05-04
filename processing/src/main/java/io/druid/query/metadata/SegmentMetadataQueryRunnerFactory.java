@@ -113,7 +113,7 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
             columns.put(columnName, column);
           }
         }
-        List<Interval> retIntervals = query.analyzingInterval() ? Arrays.asList(segment.getDataInterval()) : null;
+        List<Interval> retIntervals = analysisTypes.contains(AnalysisType.INTERVAL) ? Arrays.asList(segment.getDataInterval()) : null;
 
         final Map<String, AggregatorFactory> aggregators;
         Metadata metadata = null;
