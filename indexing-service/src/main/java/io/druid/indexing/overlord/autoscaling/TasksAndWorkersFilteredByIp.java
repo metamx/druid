@@ -46,7 +46,7 @@ public class TasksAndWorkersFilteredByIp implements TasksAndWorkers
   private final Predicate<ImmutableWorkerInfo> ipFilter;
   private final Predicate<Task> taskPredicate;
 
-  TasksAndWorkersFilteredByIp(WorkerTaskRunner delegate, final String ipPrefix, Predicate<Task> taskPredicate)
+  public TasksAndWorkersFilteredByIp(WorkerTaskRunner delegate, final String ipPrefix, Predicate<Task> taskPredicate)
   {
     this.delegate = delegate;
     this.ipPrefix = Preconditions.checkNotNull(ipPrefix);

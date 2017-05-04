@@ -76,7 +76,7 @@ public class TwoCloudWorkerProvisioningStrategy extends AbstractWorkerProvisioni
   }
 
   @Override
-  Provisioner makeProvisioner(final TasksAndWorkers runner)
+  public Provisioner makeProvisioner(final TasksAndWorkers runner)
   {
     return new Provisioner()
     {
