@@ -40,7 +40,7 @@ public abstract class AbstractWorkerProvisioningStrategy implements Provisioning
   private final ProvisioningSchedulerConfig provisioningSchedulerConfig;
   private final Supplier<ScheduledExecutorService> execFactory;
 
-  public AbstractWorkerProvisioningStrategy(
+  protected AbstractWorkerProvisioningStrategy(
       ProvisioningSchedulerConfig provisioningSchedulerConfig,
       Supplier<ScheduledExecutorService> execFactory
   )
