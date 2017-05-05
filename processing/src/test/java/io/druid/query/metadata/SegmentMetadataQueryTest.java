@@ -1133,7 +1133,6 @@ public class SegmentMetadataQueryTest
     Assert.assertEquals(analysis2, expectedAnalysis2);
     Assert.assertEquals(analysisWCfg1, expectedAnalysisWCfg1);
     Assert.assertEquals(analysisWCfg2, expectedAnalysisWCfg2);
-
   }
 
 }

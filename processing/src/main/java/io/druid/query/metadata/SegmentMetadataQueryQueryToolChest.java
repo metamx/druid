@@ -403,7 +403,6 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
     } else {
       return query.getAnalysisTypes();
     }
-
   }
 
   public SegmentAnalyzer getSegmentAnalyzer(SegmentMetadataQuery query)
