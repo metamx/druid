@@ -820,6 +820,7 @@ public class SegmentMetadataQueryTest
         "failed SegmentMetadata merging query"
     );
     exec.shutdownNow();
+
   }
 
   @Test
