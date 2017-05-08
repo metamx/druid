@@ -25,24 +25,23 @@ import org.joda.time.Period;
 import org.joda.time.format.ISOPeriodFormat;
 import org.joda.time.format.PeriodFormatter;
 
-import javax.annotation.Nullable;
 import java.util.EnumSet;
 
 public class SegmentMetadataQueryConfig
 {
   private static final String DEFAULT_PERIOD_STRING = "P1W";
   private static final PeriodFormatter ISO_FORMATTER = ISOPeriodFormat.standard();
+  static final EnumSet<SegmentMetadataQuery.AnalysisType> DEFAULT_ANALYSIS_TYPES = EnumSet.of(
+      SegmentMetadataQuery.AnalysisType.CARDINALITY,
+      SegmentMetadataQuery.AnalysisType.INTERVAL,
+      SegmentMetadataQuery.AnalysisType.MINMAX
+  );
 
   @JsonProperty
   private Period defaultHistory = ISO_FORMATTER.parsePeriod(DEFAULT_PERIOD_STRING);
 
   @JsonProperty
-  private EnumSet<SegmentMetadataQuery.AnalysisType> defaultAnalysisType = null;
-
-  public SegmentMetadataQueryConfig(EnumSet<SegmentMetadataQuery.AnalysisType> analysisType)
-  {
-    defaultAnalysisType = analysisType;
-  }
+  private EnumSet<SegmentMetadataQuery.AnalysisType> defaultAnalysisType = DEFAULT_ANALYSIS_TYPES;
 
   public SegmentMetadataQueryConfig(String period)
   {
@@ -58,6 +57,15 @@ public class SegmentMetadataQueryConfig
     return defaultHistory;
   }
 
-  @Nullable
+  public void setDefaultHistory(String period)
+  {
+    this.defaultHistory = ISO_FORMATTER.parsePeriod(period);
+  }
+
   public EnumSet<SegmentMetadataQuery.AnalysisType> getDefaultAnalysisType() { return defaultAnalysisType; }
+
+  public void setDefaultAnalysisType(EnumSet<SegmentMetadataQuery.AnalysisType> defaultAnalysisType)
+  {
+    this.defaultAnalysisType = defaultAnalysisType;
+  }
 }

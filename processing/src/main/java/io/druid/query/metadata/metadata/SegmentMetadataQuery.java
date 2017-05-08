@@ -81,12 +81,6 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
       JodaUtils.MIN_INSTANT, JodaUtils.MAX_INSTANT
   );
 
-  public static final EnumSet<AnalysisType> DEFAULT_ANALYSIS_TYPES = EnumSet.of(
-      AnalysisType.CARDINALITY,
-      AnalysisType.INTERVAL,
-      AnalysisType.MINMAX
-  );
-
   private final ColumnIncluderator toInclude;
   private final boolean merge;
   private final boolean usingDefaultInterval;

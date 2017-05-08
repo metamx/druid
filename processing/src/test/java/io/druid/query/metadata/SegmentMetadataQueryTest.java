@@ -1117,14 +1117,15 @@ public class SegmentMetadataQueryTest
                                         .build();
 
     SegmentMetadataQueryConfig emptyCfg = new SegmentMetadataQueryConfig();
-    SegmentMetadataQueryConfig analysisCfg = new SegmentMetadataQueryConfig(EnumSet.of(SegmentMetadataQuery.AnalysisType.CARDINALITY));
+    SegmentMetadataQueryConfig analysisCfg = new SegmentMetadataQueryConfig();
+    analysisCfg.setDefaultAnalysisType(EnumSet.of(SegmentMetadataQuery.AnalysisType.CARDINALITY));
 
     EnumSet<SegmentMetadataQuery.AnalysisType> analysis1 = new SegmentMetadataQueryQueryToolChest(emptyCfg).getAnalysisTypes(query1);
     EnumSet<SegmentMetadataQuery.AnalysisType> analysis2 = new SegmentMetadataQueryQueryToolChest(emptyCfg).getAnalysisTypes(query2);
     EnumSet<SegmentMetadataQuery.AnalysisType> analysisWCfg1 = new SegmentMetadataQueryQueryToolChest(analysisCfg).getAnalysisTypes(query1);
     EnumSet<SegmentMetadataQuery.AnalysisType> analysisWCfg2 = new SegmentMetadataQueryQueryToolChest(analysisCfg).getAnalysisTypes(query2);
 
-    EnumSet<SegmentMetadataQuery.AnalysisType> expectedAnalysis1 = SegmentMetadataQuery.DEFAULT_ANALYSIS_TYPES;
+    EnumSet<SegmentMetadataQuery.AnalysisType> expectedAnalysis1 = SegmentMetadataQueryConfig.DEFAULT_ANALYSIS_TYPES;
     EnumSet<SegmentMetadataQuery.AnalysisType> expectedAnalysis2 = EnumSet.of(SegmentMetadataQuery.AnalysisType.MINMAX);
     EnumSet<SegmentMetadataQuery.AnalysisType> expectedAnalysisWCfg1 = EnumSet.of(SegmentMetadataQuery.AnalysisType.CARDINALITY);
     EnumSet<SegmentMetadataQuery.AnalysisType> expectedAnalysisWCfg2 = EnumSet.of(SegmentMetadataQuery.AnalysisType.MINMAX);

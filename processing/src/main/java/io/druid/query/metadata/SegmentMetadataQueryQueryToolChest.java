@@ -396,10 +396,7 @@ public class SegmentMetadataQueryQueryToolChest extends QueryToolChest<SegmentAn
   public EnumSet<SegmentMetadataQuery.AnalysisType> getAnalysisTypes(SegmentMetadataQuery query)
   {
     if (query.getAnalysisTypes() == null) {
-      if (config == null || config.getDefaultAnalysisType() == null) {
-        return SegmentMetadataQuery.DEFAULT_ANALYSIS_TYPES;
-      }
-      return config.getDefaultAnalysisType();
+      return config != null ? config.getDefaultAnalysisType() : SegmentMetadataQueryConfig.DEFAULT_ANALYSIS_TYPES;
     } else {
       return query.getAnalysisTypes();
     }

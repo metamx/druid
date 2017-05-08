@@ -53,6 +53,7 @@ import org.joda.time.Interval;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -113,7 +114,12 @@ public class SegmentMetadataQueryRunnerFactory implements QueryRunnerFactory<Seg
             columns.put(columnName, column);
           }
         }
-        List<Interval> retIntervals = analysisTypes.contains(AnalysisType.INTERVAL) ? Arrays.asList(segment.getDataInterval()) : null;
+        List<Interval> retIntervals;
+        if (analysisTypes.contains(AnalysisType.INTERVAL)) {
+          retIntervals = Collections.singletonList(segment.getDataInterval());
+        } else {
+          retIntervals = null;
+        }
 
         final Map<String, AggregatorFactory> aggregators;
         Metadata metadata = null;
