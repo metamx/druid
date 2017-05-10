@@ -20,8 +20,12 @@
 package io.druid.client.selector;
 
 import com.google.common.collect.Iterators;
+import com.google.common.collect.Lists;
 import io.druid.timeline.DataSegment;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -33,5 +37,15 @@ public class RandomServerSelectorStrategy implements ServerSelectorStrategy
   public QueryableDruidServer pick(Set<QueryableDruidServer> servers, DataSegment segment)
   {
     return Iterators.get(servers.iterator(), random.nextInt(servers.size()));
+  }
+
+  @Override
+  public List<QueryableDruidServer> pick(
+      Set<QueryableDruidServer> servers, DataSegment segment, int numServersToPick
+  )
+  {
+    List<QueryableDruidServer> list = Lists.newArrayList(servers);
+    Collections.shuffle(list);
+    return list.subList(0, numServersToPick);
   }
 }

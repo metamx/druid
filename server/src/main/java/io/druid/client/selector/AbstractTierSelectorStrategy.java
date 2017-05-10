@@ -19,9 +19,12 @@
 
 package io.druid.client.selector;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import io.druid.java.util.common.ISE;
 import io.druid.timeline.DataSegment;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -42,20 +45,21 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
       TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment
   )
   {
-    final Map.Entry<Integer, Set<QueryableDruidServer>> priorityServers = prioritizedServers.pollFirstEntry();
+    return Iterables.getOnlyElement(pick(prioritizedServers, segment, 1), null);
+  }
 
-    if (priorityServers == null) {
-      return null;
+  @Override
+  public List<QueryableDruidServer> pick(
+      TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment, int numServersToPick
+  )
+  {
+    List<QueryableDruidServer> result = Lists.newArrayList();
+    for (Map.Entry<Integer, Set<QueryableDruidServer>> priorityServers : prioritizedServers.entrySet()) {
+      result.addAll(serverSelectorStrategy.pick(priorityServers.getValue(), segment, numServersToPick - result.size()));
+      if (result.size() == numServersToPick) {
+        break;
+      }
     }
-
-    final Set<QueryableDruidServer> servers = priorityServers.getValue();
-    switch (servers.size()) {
-      case 0:
-        throw new ISE("[%s] Something hella weird going on here. We should not be here", segment.getIdentifier());
-      case 1:
-        return priorityServers.getValue().iterator().next();
-      default:
-        return serverSelectorStrategy.pick(servers, segment);
-    }
+    return result;
   }
 }

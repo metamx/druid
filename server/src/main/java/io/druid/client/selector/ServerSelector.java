@@ -19,17 +19,15 @@
 
 package io.druid.client.selector;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import io.druid.server.coordination.DruidServerMetadata;
 import io.druid.timeline.DataSegment;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  */
@@ -93,28 +91,12 @@ public class ServerSelector implements DiscoverySelector<QueryableDruidServer>
   }
 
   public List<DruidServerMetadata> getCandidates(final int numCandidates) {
-    List<DruidServerMetadata> result = Lists.newArrayList();
     synchronized (this) {
-      final DataSegment target = segment.get();
-      for (Map.Entry<Integer, Set<QueryableDruidServer>> entry : servers.entrySet()) {
-        Set<QueryableDruidServer> priorityServers = entry.getValue();
-        TreeMap<Integer, Set<QueryableDruidServer>> tieredMap = Maps.newTreeMap();
-        while (!priorityServers.isEmpty()) {
-          tieredMap.put(entry.getKey(), priorityServers);   // strategy.pick() removes entry
-          QueryableDruidServer server = strategy.pick(tieredMap, target);
-          if (server == null) {
-            // regard this as any server in tieredMap is not appropriate
-            break;
-          }
-          result.add(server.getServer().getMetadata());
-          if (numCandidates > 0 && result.size() >= numCandidates) {
-            return result;
-          }
-          priorityServers.remove(server);
-        }
-      }
+      return strategy.pick(servers, segment.get(), numCandidates)
+          .stream()
+          .map(server -> server.getServer().getMetadata())
+          .collect(Collectors.toList());
     }
-    return result;
   }
 
   @Override

@@ -19,11 +19,15 @@
 
 package io.druid.client.selector;
 
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
+import io.druid.java.util.common.guava.Comparators;
 import io.druid.timeline.DataSegment;
 
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.PriorityQueue;
 import java.util.Set;
 
 public class ConnectionCountServerSelectorStrategy implements ServerSelectorStrategy
@@ -41,5 +45,27 @@ public class ConnectionCountServerSelectorStrategy implements ServerSelectorStra
   public QueryableDruidServer pick(Set<QueryableDruidServer> servers, DataSegment segment)
   {
     return Collections.min(servers, comparator);
+  }
+
+  @Override
+  public List<QueryableDruidServer> pick(
+      Set<QueryableDruidServer> servers, DataSegment segment, int numServersToPick
+  )
+  {
+    if (servers.size() <= numServersToPick) {
+      return Lists.newArrayList(servers);
+    }
+    PriorityQueue<QueryableDruidServer> maxHeap = new PriorityQueue<>(numServersToPick, Comparators.inverse(comparator));
+    for (QueryableDruidServer server : servers) {
+      if (maxHeap.size() < numServersToPick) {
+        maxHeap.add(server);
+      } else {
+        if (comparator.compare(server, maxHeap.peek()) < 0) {
+          maxHeap.poll();
+          maxHeap.add(server);
+        }
+      }
+    }
+    return Lists.newArrayList(maxHeap);
   }
 }
