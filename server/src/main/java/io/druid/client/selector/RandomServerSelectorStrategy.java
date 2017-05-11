@@ -25,17 +25,15 @@ import io.druid.timeline.DataSegment;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class RandomServerSelectorStrategy implements ServerSelectorStrategy
 {
-  private static final Random random = new Random();
-
   @Override
   public QueryableDruidServer pick(Set<QueryableDruidServer> servers, DataSegment segment)
   {
-    return Iterators.get(servers.iterator(), random.nextInt(servers.size()));
+    return Iterators.get(servers.iterator(), ThreadLocalRandom.current().nextInt(servers.size()));
   }
 
   @Override
@@ -44,7 +42,7 @@ public class RandomServerSelectorStrategy implements ServerSelectorStrategy
   )
   {
     List<QueryableDruidServer> list = Lists.newArrayList(servers);
-    Collections.shuffle(list);
+    Collections.shuffle(list, ThreadLocalRandom.current());
     return list.subList(0, Math.min(list.size(), numServersToPick));
   }
 }

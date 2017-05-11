@@ -63,11 +63,7 @@ public class ServerSelector implements DiscoverySelector<QueryableDruidServer>
     synchronized (this) {
       this.segment.set(segment);
       int priority = server.getServer().getPriority();
-      Set<QueryableDruidServer> priorityServers = servers.get(priority);
-      if (priorityServers == null) {
-        priorityServers = new HashSet<>();
-        servers.put(priority, priorityServers);
-      }
+      Set<QueryableDruidServer> priorityServers = servers.computeIfAbsent(priority, p -> new HashSet<>());
       priorityServers.add(server);
     }
   }

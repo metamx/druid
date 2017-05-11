@@ -19,6 +19,7 @@
 
 package io.druid.client.selector;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import io.druid.java.util.common.guava.Comparators;
@@ -66,6 +67,6 @@ public class ConnectionCountServerSelectorStrategy implements ServerSelectorStra
         }
       }
     }
-    return Lists.newArrayList(maxHeap);
+    return ImmutableList.copyOf(maxHeap);
   }
 }
