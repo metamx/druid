@@ -46,6 +46,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -161,6 +162,19 @@ public class CachingClusteredClientFunctionalityTest {
                     new DruidServer("localhost", "localhost", 100, "historical", "a", 10),
                     EasyMock.createNiceMock(DirectDruidClient.class)
                 );
+              }
+
+              @Override
+              public List<QueryableDruidServer> pick(
+                  TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
+                  DataSegment segment,
+                  int numServerToPick
+              )
+              {
+                return Collections.singletonList(new QueryableDruidServer(
+                    new DruidServer("localhost", "localhost", 100, "historical", "a", 10),
+                    EasyMock.createNiceMock(DirectDruidClient.class)
+                ));
               }
             }
         )

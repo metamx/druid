@@ -21,7 +21,6 @@ package io.druid.client.selector;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import io.druid.java.util.common.ISE;
 import io.druid.timeline.DataSegment;
 
 import java.util.List;

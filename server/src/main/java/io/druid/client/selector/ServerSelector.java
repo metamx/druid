@@ -22,6 +22,7 @@ package io.druid.client.selector;
 import io.druid.server.coordination.DruidServerMetadata;
 import io.druid.timeline.DataSegment;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -79,7 +80,11 @@ public class ServerSelector implements DiscoverySelector<QueryableDruidServer>
       if (priorityServers == null) {
         return false;
       }
-      return priorityServers.remove(server);
+      boolean result = priorityServers.remove(server);
+      if (priorityServers.isEmpty()) {
+        servers.remove(priority);
+      }
+      return result;
     }
   }
 
@@ -92,10 +97,19 @@ public class ServerSelector implements DiscoverySelector<QueryableDruidServer>
 
   public List<DruidServerMetadata> getCandidates(final int numCandidates) {
     synchronized (this) {
-      return strategy.pick(servers, segment.get(), numCandidates)
-          .stream()
-          .map(server -> server.getServer().getMetadata())
-          .collect(Collectors.toList());
+      if (numCandidates > 0) {
+        return strategy.pick(servers, segment.get(), numCandidates)
+                       .stream()
+                       .map(server -> server.getServer().getMetadata())
+                       .collect(Collectors.toList());
+      } else {
+        // return all servers as candidates
+        return servers.values()
+                      .stream()
+                      .flatMap(Collection::stream)
+                      .map(server -> server.getServer().getMetadata())
+                      .collect(Collectors.toList());
+      }
     }
   }
 

@@ -23,7 +23,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import io.druid.timeline.DataSegment;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
@@ -46,6 +45,6 @@ public class RandomServerSelectorStrategy implements ServerSelectorStrategy
   {
     List<QueryableDruidServer> list = Lists.newArrayList(servers);
     Collections.shuffle(list);
-    return list.subList(0, numServersToPick);
+    return list.subList(0, Math.min(list.size(), numServersToPick));
   }
 }
