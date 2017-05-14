@@ -31,8 +31,8 @@ import io.druid.server.coordination.ZkCoordinator;
 import io.druid.timeline.DataSegment;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
 
+import java.util.Iterator;
 import java.util.Map;
 
 public class HistoricalMetricsMonitor extends AbstractMonitor
@@ -64,10 +64,9 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
       pendingDeleteSizes.addTo(segment.getDataSource(), segment.getSize());
     }
 
-    final ObjectIterator<Object2LongMap.Entry<String>> entries =
-        pendingDeleteSizes.object2LongEntrySet().fastIterator();
-
-    while (entries.hasNext()) {
+    for (final Iterator<Object2LongMap.Entry<String>> entries =
+         pendingDeleteSizes.object2LongEntrySet().fastIterator();
+         entries.hasNext();) {
       final Object2LongMap.Entry<String> entry = entries.next();
 
       final String dataSource = entry.getKey();
