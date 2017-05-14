@@ -26,8 +26,8 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
-import io.druid.collections.CountingMap;
 import io.druid.data.input.InputRow;
 import io.druid.indexer.HadoopDruidIndexerConfig;
 import io.druid.indexer.JobHelper;
@@ -219,10 +219,9 @@ public class DatasourceInputFormat extends InputFormat<NullWritable, InputRow>
 
   private static String[] getFrequentLocations(Iterable<String> hosts)
   {
-
-    final CountingMap<String> counter = new CountingMap<>();
+    final Object2LongOpenHashMap<String> counter = new Object2LongOpenHashMap<>();
     for (String location : hosts) {
-      counter.add(location, 1);
+      counter.addTo(location, 1);
     }
 
     final TreeSet<Pair<Long, String>> sorted = Sets.<Pair<Long, String>>newTreeSet(
@@ -240,8 +239,8 @@ public class DatasourceInputFormat extends InputFormat<NullWritable, InputRow>
         }
     );
 
-    for (Map.Entry<String, AtomicLong> entry : counter.entrySet()) {
-      sorted.add(Pair.of(entry.getValue().get(), entry.getKey()));
+    for (Map.Entry<String, Long> entry : counter.entrySet()) {
+      sorted.add(Pair.of(entry.getValue(), entry.getKey()));
     }
 
     // use default replication factor, if possible
