@@ -29,6 +29,9 @@ import io.druid.query.DruidMetrics;
 import io.druid.server.coordination.ServerManager;
 import io.druid.server.coordination.ZkCoordinator;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectIterator;
 
 import java.util.Map;
 
@@ -55,13 +58,18 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
   {
     emitter.emit(new ServiceMetricEvent.Builder().build("segment/max", serverConfig.getMaxSize()));
 
-    final CountingMap<String> pendingDeleteSizes = new CountingMap<String>();
+    final Object2LongOpenHashMap<String> pendingDeleteSizes = new Object2LongOpenHashMap<>();
 
     for (DataSegment segment : zkCoordinator.getPendingDeleteSnapshot()) {
-      pendingDeleteSizes.add(segment.getDataSource(), segment.getSize());
+      pendingDeleteSizes.addTo(segment.getDataSource(), segment.getSize());
     }
 
-    for (Map.Entry<String, Long> entry : pendingDeleteSizes.entrySet()) {
+    final ObjectIterator<Object2LongMap.Entry<String>> entries =
+        pendingDeleteSizes.object2LongEntrySet().fastIterator();
+
+    while (entries.hasNext()) {
+      final Object2LongMap.Entry<String> entry = entries.next();
+
       final String dataSource = entry.getKey();
       final long pendingDeleteSize = entry.getValue();
       emitter.emit(
@@ -80,11 +88,16 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
       final ServiceMetricEvent.Builder builder =
           new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
                                           .setDimension("tier", serverConfig.getTier())
-                                          .setDimension("priority", String.valueOf(serverConfig.getPriority()));
+                                          .setDimension(
+                                              "priority",
+                                              String.valueOf(serverConfig.getPriority())
+                                          );
 
 
       emitter.emit(builder.build("segment/used", used));
-      final double usedPercent = serverConfig.getMaxSize() == 0 ? 0 : used / (double) serverConfig.getMaxSize();
+      final double usedPercent = serverConfig.getMaxSize() == 0
+                                 ? 0
+                                 : used / (double) serverConfig.getMaxSize();
       emitter.emit(builder.build("segment/usedPercent", usedPercent));
     }
 
