@@ -29,7 +29,6 @@ import com.metamx.emitter.service.ServiceEmitter;
 import io.druid.client.CachingQueryRunner;
 import io.druid.client.cache.Cache;
 import io.druid.client.cache.CacheConfig;
-import io.druid.collections.CountingMap;
 import io.druid.guice.annotations.BackgroundCaching;
 import io.druid.guice.annotations.Processing;
 import io.druid.guice.annotations.Smile;
@@ -63,6 +62,8 @@ import io.druid.timeline.TimelineObjectHolder;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.PartitionChunk;
 import io.druid.timeline.partition.PartitionHolder;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -86,8 +87,8 @@ public class ServerManager implements QuerySegmentWalker
   private final ExecutorService exec;
   private final ExecutorService cachingExec;
   private final Map<String, VersionedIntervalTimeline<String, ReferenceCountingSegment>> dataSources;
-  private final CountingMap<String> dataSourceSizes = new CountingMap<String>();
-  private final CountingMap<String> dataSourceCounts = new CountingMap<String>();
+  private final Object2LongOpenHashMap<String> dataSourceSizes = new Object2LongOpenHashMap<>();
+  private final Object2LongOpenHashMap<String> dataSourceCounts = new Object2LongOpenHashMap<>();
   private final Cache cache;
   private final ObjectMapper objectMapper;
   private final CacheConfig cacheConfig;
@@ -120,14 +121,14 @@ public class ServerManager implements QuerySegmentWalker
   public Map<String, Long> getDataSourceSizes()
   {
     synchronized (dataSourceSizes) {
-      return dataSourceSizes.snapshot();
+      return dataSourceSizes.clone();
     }
   }
 
   public Map<String, Long> getDataSourceCounts()
   {
     synchronized (dataSourceCounts) {
-      return dataSourceCounts.snapshot();
+      return dataSourceCounts.clone();
     }
   }
 
@@ -189,10 +190,10 @@ public class ServerManager implements QuerySegmentWalker
           segment.getShardSpec().createChunk(new ReferenceCountingSegment(adapter))
       );
       synchronized (dataSourceSizes) {
-        dataSourceSizes.add(dataSource, segment.getSize());
+        dataSourceSizes.addTo(dataSource, segment.getSize());
       }
       synchronized (dataSourceCounts) {
-        dataSourceCounts.add(dataSource, 1L);
+        dataSourceCounts.addTo(dataSource, 1L);
       }
       return true;
     }
@@ -218,10 +219,10 @@ public class ServerManager implements QuerySegmentWalker
 
       if (oldQueryable != null) {
         synchronized (dataSourceSizes) {
-          dataSourceSizes.add(dataSource, -segment.getSize());
+          dataSourceSizes.addTo(dataSource, -segment.getSize());
         }
         synchronized (dataSourceCounts) {
-          dataSourceCounts.add(dataSource, -1L);
+          dataSourceCounts.addTo(dataSource, -1L);
         }
 
         try {
