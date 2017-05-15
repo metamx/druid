@@ -26,6 +26,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
 import io.druid.data.input.InputRow;
@@ -54,10 +55,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class DatasourceInputFormat extends InputFormat<NullWritable, InputRow>
 {
@@ -239,7 +239,10 @@ public class DatasourceInputFormat extends InputFormat<NullWritable, InputRow>
         }
     );
 
-    for (Map.Entry<String, Long> entry : counter.entrySet()) {
+    for (final Iterator<Object2LongMap.Entry<String>> entries =
+         counter.object2LongEntrySet().fastIterator();
+         entries.hasNext(); ) {
+      final Object2LongMap.Entry<String> entry = entries.next();
       sorted.add(Pair.of(entry.getValue(), entry.getKey()));
     }
 
