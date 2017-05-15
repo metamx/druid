@@ -66,7 +66,7 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
 
     for (final Iterator<Object2LongMap.Entry<String>> entries =
          pendingDeleteSizes.object2LongEntrySet().fastIterator();
-         entries.hasNext();) {
+         entries.hasNext(); ) {
       final Object2LongMap.Entry<String> entry = entries.next();
 
       final String dataSource = entry.getKey();

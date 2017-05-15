@@ -35,8 +35,10 @@ import io.druid.server.coordinator.DruidCoordinatorRuntimeParams;
 import io.druid.server.coordinator.LoadQueuePeon;
 import io.druid.server.coordinator.ServerHolder;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
@@ -278,7 +280,11 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
         segmentCounts.addTo(dataSource.getName(), 1L);
       }
     }
-    for (Map.Entry<String, Long> entry : segmentSizes.entrySet()) {
+    for (final Iterator<Object2LongMap.Entry<String>> entries =
+         segmentSizes.object2LongEntrySet().fastIterator();
+         entries.hasNext(); ) {
+      final Object2LongMap.Entry<String> entry = entries.next();
+
       String dataSource = entry.getKey();
       Long size = entry.getValue();
       emitter.emit(
@@ -288,7 +294,11 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
           )
       );
     }
-    for (Map.Entry<String, Long> entry : segmentCounts.entrySet()) {
+    for (final Iterator<Object2LongMap.Entry<String>> entries =
+         segmentCounts.object2LongEntrySet().fastIterator();
+         entries.hasNext();) {
+      final Object2LongMap.Entry<String> entry = entries.next();
+
       String dataSource = entry.getKey();
       Long count = entry.getValue();
       emitter.emit(
@@ -298,7 +308,6 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
           )
       );
     }
-
 
     return params;
   }
