@@ -19,6 +19,7 @@
 
 package io.druid.client.selector;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import io.druid.timeline.DataSegment;
@@ -41,8 +42,11 @@ public class RandomServerSelectorStrategy implements ServerSelectorStrategy
       Set<QueryableDruidServer> servers, DataSegment segment, int numServersToPick
   )
   {
+    if (servers.size() <= numServersToPick) {
+      return ImmutableList.copyOf(servers);
+    }
     List<QueryableDruidServer> list = Lists.newArrayList(servers);
     Collections.shuffle(list, ThreadLocalRandom.current());
-    return list.subList(0, Math.min(list.size(), numServersToPick));
+    return ImmutableList.copyOf(list.subList(0, Math.min(list.size(), numServersToPick)));
   }
 }

@@ -52,7 +52,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
+import java.util.SortedMap;
 import java.util.concurrent.Executor;
 
 /**
@@ -157,7 +157,7 @@ public class CachingClusteredClientFunctionalityTest {
               }
 
               @Override
-              public QueryableDruidServer pick(TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment) {
+              public QueryableDruidServer pick(SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment) {
                 return new QueryableDruidServer(
                     new DruidServer("localhost", "localhost", 100, "historical", "a", 10),
                     EasyMock.createNiceMock(DirectDruidClient.class)
@@ -166,7 +166,7 @@ public class CachingClusteredClientFunctionalityTest {
 
               @Override
               public List<QueryableDruidServer> pick(
-                  TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
+                  SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
                   DataSegment segment,
                   int numServerToPick
               )

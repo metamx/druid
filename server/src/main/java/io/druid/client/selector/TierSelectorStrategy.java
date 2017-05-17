@@ -26,7 +26,7 @@ import io.druid.timeline.DataSegment;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeMap;
+import java.util.SortedMap;
 
 /**
  */
@@ -40,11 +40,11 @@ public interface TierSelectorStrategy
 {
   Comparator<Integer> getComparator();
 
-  QueryableDruidServer pick(TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment);
+  QueryableDruidServer pick(SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment);
 
   List<QueryableDruidServer> pick(
-      TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
+      SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
       DataSegment segment,
-      int numServerToPick
+      int numServersToPick
   );
 }

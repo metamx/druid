@@ -21,12 +21,12 @@ package io.druid.client.selector;
 
 import io.druid.server.coordination.DruidServerMetadata;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 public class ServerSelector implements DiscoverySelector<QueryableDruidServer>
 {
 
-  private final TreeMap<Integer, Set<QueryableDruidServer>> servers;
+  private final Int2ObjectRBTreeMap<Set<QueryableDruidServer>> servers;
 
   private final TierSelectorStrategy strategy;
 
@@ -48,7 +48,7 @@ public class ServerSelector implements DiscoverySelector<QueryableDruidServer>
   {
     this.segment = new AtomicReference<>(segment);
     this.strategy = strategy;
-    this.servers = new TreeMap<>(strategy.getComparator());
+    this.servers = new Int2ObjectRBTreeMap<>(strategy.getComparator());
   }
 
   public DataSegment getSegment()

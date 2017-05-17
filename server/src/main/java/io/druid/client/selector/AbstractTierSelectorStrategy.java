@@ -20,13 +20,13 @@
 package io.druid.client.selector;
 
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import io.druid.timeline.DataSegment;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
+import java.util.SortedMap;
 
 /**
  */
@@ -41,7 +41,7 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
 
   @Override
   public QueryableDruidServer pick(
-      TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment
+      SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment
   )
   {
     return Iterables.getOnlyElement(pick(prioritizedServers, segment, 1), null);
@@ -49,10 +49,10 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
 
   @Override
   public List<QueryableDruidServer> pick(
-      TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment, int numServersToPick
+      SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment, int numServersToPick
   )
   {
-    List<QueryableDruidServer> result = Lists.newArrayList();
+    List<QueryableDruidServer> result = new ArrayList<>();
     for (Map.Entry<Integer, Set<QueryableDruidServer>> priorityServers : prioritizedServers.entrySet()) {
       result.addAll(serverSelectorStrategy.pick(priorityServers.getValue(), segment, numServersToPick - result.size()));
       if (result.size() == numServersToPick) {
