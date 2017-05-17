@@ -20,63 +20,86 @@
 package io.druid.server.coordinator;
 
 import com.google.common.collect.Maps;
-import io.druid.collections.CountingMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
+import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
 public class CoordinatorStats
 {
-  private final Map<String, CountingMap<String>> perTierStats;
-  private final CountingMap<String> globalStats;
+  private final Map<String, Object2LongOpenHashMap<String>> perTierStats;
+  private final Object2LongOpenHashMap<String> globalStats;
+
+  private static class DefaultingObject2LongOpenHashMap<K>
+      extends Object2LongOpenHashMap<K>
+  {
+    // to behave like DefaultingHashMap
+    @Override
+    public Long get(
+        final Object key
+    )
+    {
+      return getLong(key);
+    }
+  }
 
   public CoordinatorStats()
   {
     perTierStats = Maps.newHashMap();
-    globalStats = new CountingMap<String>();
+    globalStats = new DefaultingObject2LongOpenHashMap<>();
   }
 
-  public Map<String, CountingMap<String>> getPerTierStats()
+  public Map<String, ? extends Object2LongMap<String>> getPerTierStats()
   {
     return perTierStats;
   }
 
-  public CountingMap<String> getGlobalStats()
+  public Object2LongMap<String> getGlobalStats()
   {
     return globalStats;
   }
 
   public void addToTieredStat(String statName, String tier, long value)
   {
-    CountingMap<String> theStat = perTierStats.get(statName);
+    Object2LongOpenHashMap<String> theStat = perTierStats.get(statName);
     if (theStat == null) {
-      theStat = new CountingMap<String>();
+      theStat = new Object2LongOpenHashMap<>();
       perTierStats.put(statName, theStat);
     }
-    theStat.add(tier, value);
+    theStat.addTo(tier, value);
   }
 
   public void addToGlobalStat(String statName, long value)
   {
-    globalStats.add(statName, value);
+    globalStats.addTo(statName, value);
   }
 
   public CoordinatorStats accumulate(CoordinatorStats stats)
   {
-    for (Map.Entry<String, CountingMap<String>> entry : stats.perTierStats.entrySet()) {
-      CountingMap<String> theStat = perTierStats.get(entry.getKey());
+    for (final Map.Entry<String, Object2LongOpenHashMap<String>> entry :
+        stats.perTierStats.entrySet()) {
+      Object2LongOpenHashMap<String> theStat = perTierStats.get(entry.getKey());
       if (theStat == null) {
-        theStat = new CountingMap<String>();
+        theStat = new DefaultingObject2LongOpenHashMap<>();
         perTierStats.put(entry.getKey(), theStat);
       }
-      for (Map.Entry<String, AtomicLong> tiers : entry.getValue().entrySet()) {
-        theStat.add(tiers.getKey(), tiers.getValue().get());
+
+      for (final Iterator<Object2LongMap.Entry<String>> tiers =
+           entry.getValue().object2LongEntrySet().fastIterator();
+           tiers.hasNext(); ) {
+        final Object2LongMap.Entry<String> tier = tiers.next();
+        theStat.addTo(tier.getKey(), tier.getLongValue());
       }
     }
-    for (Map.Entry<String, AtomicLong> entry : stats.globalStats.entrySet()) {
-      globalStats.add(entry.getKey(), entry.getValue().get());
+
+    for (final Iterator<Object2LongMap.Entry<String>> entries =
+         stats.globalStats.object2LongEntrySet().fastIterator();
+         entries.hasNext(); ) {
+      final Object2LongMap.Entry<String> entry = entries.next();
+      globalStats.addTo(entry.getKey(), entry.getLongValue());
     }
     return this;
   }

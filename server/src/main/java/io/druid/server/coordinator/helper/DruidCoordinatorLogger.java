@@ -81,12 +81,12 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
     CoordinatorStats stats = params.getCoordinatorStats();
     ServiceEmitter emitter = params.getEmitter();
 
-    Map<String, AtomicLong> assigned = stats.getPerTierStats().get("assignedCount");
+    Map<String, Long> assigned = stats.getPerTierStats().get("assignedCount");
     if (assigned != null) {
-      for (Map.Entry<String, AtomicLong> entry : assigned.entrySet()) {
+      for (Map.Entry<String, Long> entry : assigned.entrySet()) {
         log.info(
             "[%s] : Assigned %s segments among %,d servers",
-            entry.getKey(), entry.getValue().get(), cluster.get(entry.getKey()).size()
+            entry.getKey(), entry.getValue(), cluster.get(entry.getKey()).size()
         );
       }
     }
@@ -96,12 +96,12 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
         assigned
     );
 
-    Map<String, AtomicLong> dropped = stats.getPerTierStats().get("droppedCount");
+    Map<String, Long> dropped = stats.getPerTierStats().get("droppedCount");
     if (dropped != null) {
-      for (Map.Entry<String, AtomicLong> entry : dropped.entrySet()) {
+      for (Map.Entry<String, Long> entry : dropped.entrySet()) {
         log.info(
             "[%s] : Dropped %s segments among %,d servers",
-            entry.getKey(), entry.getValue().get(), cluster.get(entry.getKey()).size()
+            entry.getKey(), entry.getValue(), cluster.get(entry.getKey()).size()
         );
       }
     }
@@ -131,16 +131,16 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
         stats.getPerTierStats().get("deletedCount")
     );
 
-    Map<String, AtomicLong> normalized = stats.getPerTierStats().get("normalizedInitialCostTimesOneThousand");
+    Map<String, Long> normalized = stats.getPerTierStats().get("normalizedInitialCostTimesOneThousand");
     if (normalized != null) {
       emitTieredStats(
           emitter, "segment/cost/normalized",
           Maps.transformEntries(
               normalized,
-              new Maps.EntryTransformer<String, AtomicLong, Number>()
+              new Maps.EntryTransformer<String, Long, Number>()
               {
                 @Override
-                public Number transformEntry(String key, AtomicLong value)
+                public Number transformEntry(String key, Long value)
                 {
                   return value.doubleValue() / 1000d;
                 }
@@ -149,12 +149,12 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
       );
     }
 
-    Map<String, AtomicLong> unneeded = stats.getPerTierStats().get("unneededCount");
+    Map<String, Long> unneeded = stats.getPerTierStats().get("unneededCount");
     if (unneeded != null) {
-      for (Map.Entry<String, AtomicLong> entry : unneeded.entrySet()) {
+      for (Map.Entry<String, Long> entry : unneeded.entrySet()) {
         log.info(
             "[%s] : Removed %s unneeded segments among %,d servers",
-            entry.getKey(), entry.getValue().get(), cluster.get(entry.getKey()).size()
+            entry.getKey(), entry.getValue(), cluster.get(entry.getKey()).size()
         );
       }
     }
@@ -170,21 +170,21 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
         )
     );
 
-    Map<String, AtomicLong> moved = stats.getPerTierStats().get("movedCount");
+    Map<String, Long> moved = stats.getPerTierStats().get("movedCount");
     if (moved != null) {
-      for (Map.Entry<String, AtomicLong> entry : moved.entrySet()) {
+      for (Map.Entry<String, Long> entry : moved.entrySet()) {
         log.info(
             "[%s] : Moved %,d segment(s)",
-            entry.getKey(), entry.getValue().get()
+            entry.getKey(), entry.getValue()
         );
       }
     }
-    final Map<String, AtomicLong> unmoved = stats.getPerTierStats().get("unmovedCount");
+    final Map<String, Long> unmoved = stats.getPerTierStats().get("unmovedCount");
     if (unmoved != null) {
-      for(Map.Entry<String, AtomicLong> entry : unmoved.entrySet()) {
+      for(Map.Entry<String, Long> entry : unmoved.entrySet()) {
         log.info(
             "[%s] : Let alone %,d segment(s)",
-            entry.getKey(), entry.getValue().get()
+            entry.getKey(), entry.getValue()
         );
       }
     }

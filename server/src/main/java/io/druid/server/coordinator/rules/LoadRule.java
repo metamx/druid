@@ -84,7 +84,7 @@ public abstract class LoadRule implements Rule
             segment
         );
         stats.accumulate(assignStats);
-        totalReplicantsInCluster += assignStats.getPerTierStats().get(ASSIGNED_COUNT).get(tier).get();
+        totalReplicantsInCluster += assignStats.getPerTierStats().get(ASSIGNED_COUNT).getLong(tier);
       }
 
       loadStatus.put(tier, expectedReplicantsInTier - loadedReplicantsInTier);
