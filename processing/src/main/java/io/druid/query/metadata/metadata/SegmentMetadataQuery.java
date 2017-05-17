@@ -32,6 +32,7 @@ import io.druid.query.Query;
 import io.druid.query.TableDataSource;
 import io.druid.query.UnionDataSource;
 import io.druid.query.filter.DimFilter;
+import io.druid.query.metadata.SegmentMetadataQueryConfig;
 import io.druid.query.spec.MultipleIntervalSegmentSpec;
 import io.druid.query.spec.QuerySegmentSpec;
 import org.joda.time.Interval;
@@ -86,12 +87,6 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
       JodaUtils.MIN_INSTANT, JodaUtils.MAX_INSTANT
   );
 
-  public static final EnumSet<AnalysisType> DEFAULT_ANALYSIS_TYPES = EnumSet.of(
-      AnalysisType.CARDINALITY,
-      AnalysisType.INTERVAL,
-      AnalysisType.MINMAX
-  );
-
   private final ColumnIncluderator toInclude;
   private final boolean merge;
   private final boolean usingDefaultInterval;
@@ -106,6 +101,7 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
       @JsonProperty("merge") Boolean merge,
       @JsonProperty("context") Map<String, Object> context,
       @JsonProperty("analysisTypes") EnumSet<AnalysisType> analysisTypes,
+      // useDefaultInterval will be removed, but is left for now for compatibility
       @JsonProperty("usingDefaultInterval") Boolean useDefaultInterval,
       @JsonProperty("lenientAggregatorMerge") Boolean lenientAggregatorMerge
   )
@@ -121,11 +117,12 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
     if (querySegmentSpec == null) {
       this.usingDefaultInterval = true;
     } else {
-      this.usingDefaultInterval = useDefaultInterval == null ? false : useDefaultInterval;
+      this.usingDefaultInterval = (querySegmentSpec.getIntervals().size() == 1 &&
+                                   querySegmentSpec.getIntervals().get(0).equals(DEFAULT_INTERVAL));
     }
     this.toInclude = toInclude == null ? new AllColumnIncluderator() : toInclude;
     this.merge = merge == null ? false : merge;
-    this.analysisTypes = (analysisTypes == null) ? DEFAULT_ANALYSIS_TYPES : analysisTypes;
+    this.analysisTypes = analysisTypes;
     Preconditions.checkArgument(
         dataSource instanceof TableDataSource || dataSource instanceof UnionDataSource,
         "SegmentMetadataQuery only supports table or union datasource"
@@ -252,6 +249,23 @@ public class SegmentMetadataQuery extends BaseQuery<SegmentAnalysis>
   public Query<SegmentAnalysis> withColumns(ColumnIncluderator includerator)
   {
     return Druids.SegmentMetadataQueryBuilder.copy(this).toInclude(includerator).build();
+  }
+
+  public SegmentMetadataQuery withFinalizedAnalysisTypes(SegmentMetadataQueryConfig config)
+  {
+    if (analysisTypes != null) {
+      return this;
+    }
+    return Druids.SegmentMetadataQueryBuilder
+        .copy(this)
+        .analysisTypes(config.getDefaultAnalysisTypes())
+        .build();
+  }
+
+  @Override
+  public List<Interval> getIntervals()
+  {
+    return this.getQuerySegmentSpec().getIntervals();
   }
 
   @Override
