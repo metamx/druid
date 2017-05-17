@@ -25,7 +25,6 @@ import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import io.druid.client.DruidDataSource;
 import io.druid.client.ImmutableDruidServer;
-import io.druid.collections.CountingMap;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.query.DruidMetrics;
 import io.druid.server.coordinator.CoordinatorStats;
@@ -245,28 +244,35 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
           )
       );
     }
-    for (Map.Entry<String, AtomicLong> entry : coordinator.getSegmentAvailability().entrySet()) {
-      String datasource = entry.getKey();
-      Long count = entry.getValue().get();
+    for (final Iterator<Object2LongMap.Entry<String>> entries =
+         coordinator.getSegmentAvailability().object2LongEntrySet().fastIterator();
+         entries.hasNext(); ) {
+      final Object2LongMap.Entry<String> entry = entries.next();
+      final String dataSource = entry.getKey();
+      final long count = entry.getLongValue();
       emitter.emit(
-              new ServiceMetricEvent.Builder()
-                      .setDimension(DruidMetrics.DATASOURCE, datasource).build(
-                      "segment/unavailable/count", count
-              )
+          new ServiceMetricEvent.Builder()
+              .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
+              "segment/unavailable/count", count
+          )
       );
     }
-    for (Map.Entry<String, CountingMap<String>> entry : coordinator.getReplicationStatus().entrySet()) {
+    for (Map.Entry<String, Object2LongOpenHashMap<String>> entry :
+        coordinator.getReplicationStatus().entrySet()) {
       String tier = entry.getKey();
-      CountingMap<String> datasourceAvailabilities = entry.getValue();
-      for (Map.Entry<String, AtomicLong> datasourceAvailability : datasourceAvailabilities.entrySet()) {
-        String datasource = datasourceAvailability.getKey();
-        Long count = datasourceAvailability.getValue().get();
+      for (final Iterator<Object2LongMap.Entry<String>> dataSourceAbilities =
+           entry.getValue().object2LongEntrySet().fastIterator();
+           dataSourceAbilities.hasNext(); ) {
+        final Object2LongMap.Entry<String> dataSourceAvailability = dataSourceAbilities.next();
+
+        final String dataSource = dataSourceAvailability.getKey();
+        final long count = dataSourceAvailability.getLongValue();
         emitter.emit(
-                new ServiceMetricEvent.Builder()
-                        .setDimension(DruidMetrics.TIER, tier)
-                        .setDimension(DruidMetrics.DATASOURCE, datasource).build(
-                        "segment/underReplicated/count", count
-                )
+            new ServiceMetricEvent.Builder()
+                .setDimension(DruidMetrics.TIER, tier)
+                .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
+                "segment/underReplicated/count", count
+            )
         );
       }
     }

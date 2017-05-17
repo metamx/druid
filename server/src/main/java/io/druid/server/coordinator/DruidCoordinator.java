@@ -39,7 +39,6 @@ import io.druid.client.ImmutableDruidDataSource;
 import io.druid.client.ImmutableDruidServer;
 import io.druid.client.ServerInventoryView;
 import io.druid.client.indexing.IndexingServiceClient;
-import io.druid.collections.CountingMap;
 import io.druid.common.config.JacksonConfigManager;
 import io.druid.concurrent.Execs;
 import io.druid.curator.discovery.ServiceAnnouncer;
@@ -70,6 +69,7 @@ import io.druid.server.coordinator.rules.Rule;
 import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.server.lookup.cache.LookupCoordinatorManager;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.leader.LeaderLatch;
 import org.apache.curator.framework.recipes.leader.LeaderLatchListener;
@@ -230,9 +230,9 @@ public class DruidCoordinator
     return loadManagementPeons;
   }
 
-  public Map<String, CountingMap<String>> getReplicationStatus()
+  public Map<String, Object2LongOpenHashMap<String>> getReplicationStatus()
   {
-    final Map<String, CountingMap<String>> retVal = Maps.newHashMap();
+    final Map<String, Object2LongOpenHashMap<String>> retVal = Maps.newHashMap();
 
     if (segmentReplicantLookup == null) {
       return retVal;
@@ -243,18 +243,23 @@ public class DruidCoordinator
       List<Rule> rules = metadataRuleManager.getRulesWithDefault(segment.getDataSource());
       for (Rule rule : rules) {
         if (rule instanceof LoadRule && rule.appliesTo(segment, now)) {
-          for (Map.Entry<String, Integer> entry : ((LoadRule) rule).getTieredReplicants().entrySet()) {
-            CountingMap<String> dataSourceMap = retVal.get(entry.getKey());
+          for (Map.Entry<String, Integer> entry : ((LoadRule) rule).getTieredReplicants()
+                                                                   .entrySet()) {
+            Object2LongOpenHashMap<String> dataSourceMap = retVal.get(entry.getKey());
             if (dataSourceMap == null) {
-              dataSourceMap = new CountingMap<>();
+              dataSourceMap = new Object2LongOpenHashMap<>();
               retVal.put(entry.getKey(), dataSourceMap);
             }
 
             int diff = Math.max(
-                entry.getValue() - segmentReplicantLookup.getTotalReplicants(segment.getIdentifier(), entry.getKey()),
+                entry.getValue() -
+                segmentReplicantLookup.getTotalReplicants(
+                    segment.getIdentifier(),
+                    entry.getKey()
+                ),
                 0
             );
-            dataSourceMap.add(segment.getDataSource(), diff);
+            dataSourceMap.addTo(segment.getDataSource(), diff);
           }
           break;
         }
@@ -264,28 +269,31 @@ public class DruidCoordinator
     return retVal;
   }
 
-  public CountingMap<String> getSegmentAvailability()
+
+  public Object2LongOpenHashMap<String> getSegmentAvailability()
   {
-    final CountingMap<String> retVal = new CountingMap<>();
+    final Object2LongOpenHashMap<String> retVal = new Object2LongOpenHashMap<>();
 
     if (segmentReplicantLookup == null) {
       return retVal;
     }
 
     for (DataSegment segment : getAvailableDataSegments()) {
-      int available = (segmentReplicantLookup.getTotalReplicants(segment.getIdentifier()) == 0) ? 0 : 1;
-      retVal.add(segment.getDataSource(), 1 - available);
+      int available = (segmentReplicantLookup.getTotalReplicants(segment.getIdentifier()) == 0)
+                      ? 0
+                      : 1;
+      retVal.addTo(segment.getDataSource(), 1 - available);
     }
 
     return retVal;
   }
 
-  CountingMap<String> getLoadPendingDatasources()
+  Object2LongOpenHashMap<String> getLoadPendingDatasources()
   {
-    final CountingMap<String> retVal = new CountingMap<>();
+    final Object2LongOpenHashMap<String> retVal = new Object2LongOpenHashMap<>();
     for (LoadQueuePeon peon : loadManagementPeons.values()) {
       for (DataSegment segment : peon.getSegmentsToLoad()) {
-        retVal.add(segment.getDataSource(), 1);
+        retVal.addTo(segment.getDataSource(), 1);
       }
     }
     return retVal;
