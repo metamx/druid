@@ -1357,7 +1357,7 @@ public class DruidCoordinatorRuleRunnerTest
     CoordinatorStats stats = afterParams.getCoordinatorStats();
 
     Assert.assertEquals(1, stats.getPerTierStats().get("assignedCount").size());
-    Assert.assertEquals(1, stats.getPerTierStats().get("assignedCount").get("_default_tier").get());
+    Assert.assertEquals(1, stats.getPerTierStats().get("assignedCount").getLong("_default_tier"));
     Assert.assertNull(stats.getPerTierStats().get("unassignedCount"));
     Assert.assertNull(stats.getPerTierStats().get("unassignedSize"));
 

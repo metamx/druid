@@ -24,7 +24,6 @@ import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
 import com.metamx.metrics.AbstractMonitor;
 import io.druid.client.DruidServerConfig;
-import io.druid.java.util.common.collect.CountingMap;
 import io.druid.query.DruidMetrics;
 import io.druid.server.coordination.ServerManager;
 import io.druid.server.coordination.ZkCoordinator;
@@ -70,7 +69,7 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
       final Object2LongMap.Entry<String> entry = entries.next();
 
       final String dataSource = entry.getKey();
-      final long pendingDeleteSize = entry.getValue();
+      final long pendingDeleteSize = entry.getLongValue();
       emitter.emit(
           new ServiceMetricEvent.Builder()
               .setDimension(DruidMetrics.DATASOURCE, dataSource)

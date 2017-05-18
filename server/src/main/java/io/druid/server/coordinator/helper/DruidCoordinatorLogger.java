@@ -40,7 +40,6 @@ import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
@@ -291,8 +290,8 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
          entries.hasNext(); ) {
       final Object2LongMap.Entry<String> entry = entries.next();
 
-      String dataSource = entry.getKey();
-      Long size = entry.getValue();
+      final String dataSource = entry.getKey();
+      final long size = entry.getLongValue();
       emitter.emit(
           new ServiceMetricEvent.Builder()
               .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
@@ -305,8 +304,8 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
          entries.hasNext();) {
       final Object2LongMap.Entry<String> entry = entries.next();
 
-      String dataSource = entry.getKey();
-      Long count = entry.getValue();
+      final String dataSource = entry.getKey();
+      final long count = entry.getLongValue();
       emitter.emit(
           new ServiceMetricEvent.Builder()
               .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
