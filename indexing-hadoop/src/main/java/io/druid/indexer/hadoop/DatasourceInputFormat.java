@@ -228,13 +228,15 @@ public class DatasourceInputFormat extends InputFormat<NullWritable, InputRow>
         Collectors.groupingBy(location -> location, Collectors.counting())
     );
 
-    Comparator<Map.Entry<String, Long>> comparator =
+    final Comparator<Map.Entry<String, Long>> valueComparator =
         Map.Entry.comparingByValue(Comparator.reverseOrder());
-    comparator = comparator.thenComparing(Map.Entry.comparingByKey());
+
+    final Comparator<Map.Entry<String, Long>> keyComparator =
+        Map.Entry.comparingByKey();
 
     return locationCountMap
         .entrySet().stream()
-        .sorted(comparator)
+        .sorted(valueComparator.thenComparing(keyComparator))
         .limit(3)
         .map(Map.Entry::getKey)
         .toArray(String[]::new);
