@@ -35,6 +35,7 @@ import org.easymock.Capture;
 import org.easymock.CaptureType;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
+import org.easymock.IAnswer;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Before;
@@ -44,6 +45,7 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ObjLongConsumer;
 
 public class HistoricalMetricsMonitorTest extends EasyMockSupport
 {
@@ -85,11 +87,40 @@ public class HistoricalMetricsMonitorTest extends EasyMockSupport
     EasyMock.expect(zkCoordinator.getPendingDeleteSnapshot()).andReturn(ImmutableList.of(dataSegment)).once();
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
-    EasyMock.expect(serverManager.getDataSourceSizes()).andReturn(ImmutableMap.of(dataSource, size));
+
+
+    final Capture<ObjLongConsumer<String>> sizeCapture = EasyMock.newCapture();
+    serverManager.forEachDataSourceSize(EasyMock.capture(sizeCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            sizeCapture.getValue().accept(dataSource, size);
+            return null;
+          }
+        }
+    ).once();
+
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
     EasyMock.expect(druidServerConfig.getMaxSize()).andReturn(maxSize).times(2);
-    EasyMock.expect(serverManager.getDataSourceCounts()).andReturn(ImmutableMap.of(dataSource, 1L));
+
+    final Capture<ObjLongConsumer<String>> countCapture = EasyMock.newCapture();
+    serverManager.forEachDataSourceCount(EasyMock.capture(countCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            countCapture.getValue().accept(dataSource, 1L);
+            return null;
+          }
+        }
+    ).once();
+
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
 
@@ -225,14 +256,21 @@ public class HistoricalMetricsMonitorTest extends EasyMockSupport
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
 
-    EasyMock
-        .expect(serverManager.getDataSourceSizes())
-        .andReturn(
-            ImmutableMap.of(
-                segment1.getDataSource(), size1,
-                segment2.getDataSource(), size2
-            )
-        ).once();
+    final Capture<ObjLongConsumer<String>> sizeCapture= EasyMock.newCapture();
+    serverManager.forEachDataSourceSize(EasyMock.capture(sizeCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            final ObjLongConsumer<String> consumer = sizeCapture.getValue();
+            consumer.accept(segment1.getDataSource(), size1);
+            consumer.accept(segment2.getDataSource(), size2);
+            return null;
+          }
+        }
+    ).once();
 
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
@@ -242,14 +280,20 @@ public class HistoricalMetricsMonitorTest extends EasyMockSupport
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
     EasyMock.expect(druidServerConfig.getMaxSize()).andReturn(maxSize).times(2);
 
-    EasyMock
-        .expect(serverManager.getDataSourceCounts())
-        .andReturn(
-            ImmutableMap.of(
-                segment1.getDataSource(), 2L,
-                segment2.getDataSource(), 1L
-            )
-        ).once();
+    final Capture<ObjLongConsumer<String>> countCapture = EasyMock.newCapture();
+    serverManager.forEachDataSourceCount(EasyMock.capture(countCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            countCapture.getValue().accept(segment1.getDataSource(), 2L);
+            countCapture.getValue().accept(segment2.getDataSource(), 1L);
+            return null;
+          }
+        }
+    ).once();
 
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();

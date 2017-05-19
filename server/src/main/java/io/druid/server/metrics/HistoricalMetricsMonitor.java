@@ -32,7 +32,6 @@ import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
 import java.util.Iterator;
-import java.util.Map;
 
 public class HistoricalMetricsMonitor extends AbstractMonitor
 {
@@ -79,39 +78,38 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
       );
     }
 
-    for (Map.Entry<String, Long> entry : serverManager.getDataSourceSizes().entrySet()) {
-      String dataSource = entry.getKey();
-      long used = entry.getValue();
-
-      final ServiceMetricEvent.Builder builder =
-          new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
-                                          .setDimension("tier", serverConfig.getTier())
-                                          .setDimension(
-                                              "priority",
-                                              String.valueOf(serverConfig.getPriority())
-                                          );
+    serverManager.forEachDataSourceSize(
+        (final String dataSource, final long used) -> {
+          final ServiceMetricEvent.Builder builder =
+              new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
+                                              .setDimension("tier", serverConfig.getTier())
+                                              .setDimension(
+                                                  "priority",
+                                                  String.valueOf(serverConfig.getPriority())
+                                              );
 
 
-      emitter.emit(builder.build("segment/used", used));
-      final double usedPercent = serverConfig.getMaxSize() == 0
-                                 ? 0
-                                 : used / (double) serverConfig.getMaxSize();
-      emitter.emit(builder.build("segment/usedPercent", usedPercent));
-    }
+          emitter.emit(builder.build("segment/used", used));
+          final double usedPercent = serverConfig.getMaxSize() == 0
+                                     ? 0
+                                     : used / (double) serverConfig.getMaxSize();
+          emitter.emit(builder.build("segment/usedPercent", usedPercent));
+        }
+    );
 
-    for (Map.Entry<String, Long> entry : serverManager.getDataSourceCounts().entrySet()) {
-      String dataSource = entry.getKey();
-      long count = entry.getValue();
-      final ServiceMetricEvent.Builder builder =
-          new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
-                                          .setDimension("tier", serverConfig.getTier())
-                                          .setDimension(
-                                              "priority",
-                                              String.valueOf(serverConfig.getPriority())
-                                          );
+    serverManager.forEachDataSourceCount(
+        (final String dataSource, final long count) -> {
+          final ServiceMetricEvent.Builder builder =
+              new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
+                                              .setDimension("tier", serverConfig.getTier())
+                                              .setDimension(
+                                                  "priority",
+                                                  String.valueOf(serverConfig.getPriority())
+                                              );
 
-      emitter.emit(builder.build("segment/count", count));
-    }
+          emitter.emit(builder.build("segment/count", count));
+        }
+    );
 
     return true;
   }

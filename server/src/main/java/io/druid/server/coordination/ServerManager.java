@@ -62,6 +62,7 @@ import io.druid.timeline.TimelineObjectHolder;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.PartitionChunk;
 import io.druid.timeline.partition.PartitionHolder;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.joda.time.Interval;
 
@@ -70,9 +71,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.ObjLongConsumer;
 
 /**
  */
@@ -117,17 +120,31 @@ public class ServerManager implements QuerySegmentWalker
     this.cacheConfig = cacheConfig;
   }
 
-  public Map<String, Long> getDataSourceSizes()
+  public void forEachDataSourceSize(
+      final ObjLongConsumer<String> consumer
+  )
   {
     synchronized (dataSourceSizes) {
-      return dataSourceSizes.clone();
+      for (final Iterator<Object2LongMap.Entry<String>> entries =
+           dataSourceSizes.object2LongEntrySet().fastIterator();
+           entries.hasNext(); ) {
+        final Object2LongMap.Entry<String> entry = entries.next();
+        consumer.accept(entry.getKey(), entry.getLongValue());
+      }
     }
   }
 
-  public Map<String, Long> getDataSourceCounts()
+  public void forEachDataSourceCount(
+      final ObjLongConsumer<String> consumer
+  )
   {
     synchronized (dataSourceCounts) {
-      return dataSourceCounts.clone();
+      for (final Iterator<Object2LongMap.Entry<String>> entries =
+           dataSourceCounts.object2LongEntrySet().fastIterator();
+           entries.hasNext(); ) {
+        final Object2LongMap.Entry<String> entry = entries.next();
+        consumer.accept(entry.getKey(), entry.getLongValue());
+      }
     }
   }
 

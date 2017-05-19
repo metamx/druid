@@ -49,6 +49,8 @@ import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.server.metrics.NoopServiceEmitter;
 import io.druid.timeline.DataSegment;
 import io.druid.timeline.partition.NoneShardSpec;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.apache.curator.framework.CuratorFramework;
 import org.joda.time.Interval;
 import org.junit.After;
@@ -392,12 +394,25 @@ public class ZkCoordinatorTest extends CuratorTestBase
     }
 
     checkCache(segments);
-    Assert.assertTrue(serverManager.getDataSourceCounts().isEmpty());
+
+    final Object2LongMap<String> dataSourceCounts = new Object2LongOpenHashMap<>();
+    final Object2LongMap<String> dataSourceSizes = new Object2LongOpenHashMap<>();
+
+    serverManager.forEachDataSourceCount(dataSourceCounts::put);
+    serverManager.forEachDataSourceSize(dataSourceSizes::put);
+    Assert.assertTrue(dataSourceCounts.isEmpty());
+    Assert.assertTrue(dataSourceSizes.isEmpty());
+
     zkCoordinator.start();
-    Assert.assertTrue(!serverManager.getDataSourceCounts().isEmpty());
+    serverManager.forEachDataSourceCount(dataSourceCounts::put);
+    serverManager.forEachDataSourceSize(dataSourceSizes::put);
+    Assert.assertTrue(!dataSourceCounts.isEmpty());
+    Assert.assertTrue(!dataSourceSizes.isEmpty());
     for (int i = 0; i < COUNT; ++i) {
-      Assert.assertEquals(11L, serverManager.getDataSourceCounts().get("test" + i).longValue());
-      Assert.assertEquals(2L, serverManager.getDataSourceCounts().get("test_two" + i).longValue());
+      Assert.assertEquals(11L, dataSourceCounts.getLong("test" + i));
+      Assert.assertEquals(11 * DEFAULT_SIZE, dataSourceSizes.getLong("test" + i));
+      Assert.assertEquals(2L, dataSourceCounts.getLong("test_two" + i));
+      Assert.assertEquals(2 * DEFAULT_SIZE, dataSourceSizes.getLong("test_two" + i));
     }
     Assert.assertEquals(13 * COUNT, announceCount.get());
     zkCoordinator.stop();
@@ -410,6 +425,8 @@ public class ZkCoordinatorTest extends CuratorTestBase
     Assert.assertTrue(infoDir.delete());
   }
 
+  private static final long DEFAULT_SIZE = 123L;
+
   private DataSegment makeSegment(String dataSource, String version, Interval interval)
   {
     return new DataSegment(
@@ -421,7 +438,7 @@ public class ZkCoordinatorTest extends CuratorTestBase
         Arrays.asList("metric1", "metric2"),
         NoneShardSpec.instance(),
         IndexIO.CURRENT_VERSION_ID,
-        123L
+        DEFAULT_SIZE
     );
   }
 
@@ -543,13 +560,25 @@ public class ZkCoordinatorTest extends CuratorTestBase
     }
 
     checkCache(segments);
-    Assert.assertTrue(serverManager.getDataSourceCounts().isEmpty());
+
+    final Object2LongMap<String> dataSourceCounts = new Object2LongOpenHashMap<>();
+    final Object2LongMap<String> dataSourceSizes = new Object2LongOpenHashMap<>();
+
+    serverManager.forEachDataSourceCount(dataSourceCounts::put);
+    serverManager.forEachDataSourceSize(dataSourceSizes::put);
+    Assert.assertTrue(dataSourceCounts.isEmpty());
+    Assert.assertTrue(dataSourceSizes.isEmpty());
 
     zkCoordinator.start();
-    Assert.assertTrue(!serverManager.getDataSourceCounts().isEmpty());
+    serverManager.forEachDataSourceCount(dataSourceCounts::put);
+    serverManager.forEachDataSourceSize(dataSourceSizes::put);
+    Assert.assertTrue(!dataSourceCounts.isEmpty());
+    Assert.assertTrue(!dataSourceSizes.isEmpty());
     for (int i = 0; i < COUNT; ++i) {
-      Assert.assertEquals(3L, serverManager.getDataSourceCounts().get("test" + i).longValue());
-      Assert.assertEquals(2L, serverManager.getDataSourceCounts().get("test_two" + i).longValue());
+      Assert.assertEquals(3L, dataSourceCounts.getLong("test" + i));
+      Assert.assertEquals(3 * DEFAULT_SIZE, dataSourceSizes.getLong("test" + i));
+      Assert.assertEquals(2L, dataSourceCounts.getLong("test_two" + i));
+      Assert.assertEquals(2 * DEFAULT_SIZE, dataSourceSizes.getLong("test_two" + i));
     }
     Assert.assertEquals(5 * COUNT, announceCount.get());
     zkCoordinator.stop();
