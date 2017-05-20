@@ -71,7 +71,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
@@ -125,10 +124,7 @@ public class ServerManager implements QuerySegmentWalker
   )
   {
     synchronized (dataSourceSizes) {
-      for (final Iterator<Object2LongMap.Entry<String>> entries =
-           dataSourceSizes.object2LongEntrySet().fastIterator();
-           entries.hasNext(); ) {
-        final Object2LongMap.Entry<String> entry = entries.next();
+      for (final Object2LongMap.Entry<String> entry : dataSourceSizes.object2LongEntrySet()) {
         consumer.accept(entry.getKey(), entry.getLongValue());
       }
     }
@@ -139,10 +135,7 @@ public class ServerManager implements QuerySegmentWalker
   )
   {
     synchronized (dataSourceCounts) {
-      for (final Iterator<Object2LongMap.Entry<String>> entries =
-           dataSourceCounts.object2LongEntrySet().fastIterator();
-           entries.hasNext(); ) {
-        final Object2LongMap.Entry<String> entry = entries.next();
+      for (final Object2LongMap.Entry<String> entry : dataSourceCounts.object2LongEntrySet()) {
         consumer.accept(entry.getKey(), entry.getLongValue());
       }
     }
@@ -184,12 +177,11 @@ public class ServerManager implements QuerySegmentWalker
 
     synchronized (lock) {
       String dataSource = segment.getDataSource();
-      VersionedIntervalTimeline<String, ReferenceCountingSegment> loadedIntervals = dataSources.get(dataSource);
-
-      if (loadedIntervals == null) {
-        loadedIntervals = new VersionedIntervalTimeline<>(Ordering.natural());
-        dataSources.put(dataSource, loadedIntervals);
-      }
+      final VersionedIntervalTimeline<String, ReferenceCountingSegment> loadedIntervals =
+          dataSources.computeIfAbsent(
+              dataSource,
+              ignored -> new VersionedIntervalTimeline<>(Ordering.natural())
+          );
 
       PartitionHolder<ReferenceCountingSegment> entry = loadedIntervals.findEntry(
           segment.getInterval(),
@@ -226,7 +218,7 @@ public class ServerManager implements QuerySegmentWalker
         return;
       }
 
-      PartitionChunk<ReferenceCountingSegment> removed = loadedIntervals.remove(
+      final PartitionChunk<ReferenceCountingSegment> removed = loadedIntervals.remove(
           segment.getInterval(),
           segment.getVersion(),
           segment.getShardSpec().createChunk((ReferenceCountingSegment) null)

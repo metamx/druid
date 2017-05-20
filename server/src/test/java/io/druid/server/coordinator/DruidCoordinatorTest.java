@@ -48,6 +48,7 @@ import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.server.lookup.cache.LookupCoordinatorManager;
 import io.druid.server.metrics.NoopServiceEmitter;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.cache.PathChildrenCache;
@@ -353,7 +354,7 @@ public class DruidCoordinatorTest extends CuratorTestBase
     Assert.assertEquals(1, segmentAvailability.size());
     Assert.assertEquals(0L, segmentAvailability.get(dataSource));
 
-    while (coordinator.getLoadPendingDatasources().getLong(dataSource) > 0) {
+    while (coordinator.hasLoadPending(dataSource)) {
       Thread.sleep(50);
     }
 
@@ -364,12 +365,12 @@ public class DruidCoordinatorTest extends CuratorTestBase
       Thread.sleep(100);
     }
 
-    Map<String, Object2LongOpenHashMap<String>> replicationStatus =
+    Map<String, ? extends Object2LongMap<String>> replicationStatus =
         coordinator.getReplicationStatus();
     Assert.assertNotNull(replicationStatus);
     Assert.assertEquals(1, replicationStatus.entrySet().size());
 
-    Object2LongOpenHashMap<String> dataSourceMap = replicationStatus.get(tier);
+    Object2LongMap<String> dataSourceMap = replicationStatus.get(tier);
     Assert.assertNotNull(dataSourceMap);
     Assert.assertEquals(1, dataSourceMap.size());
     Assert.assertNotNull(dataSourceMap.get(dataSource));

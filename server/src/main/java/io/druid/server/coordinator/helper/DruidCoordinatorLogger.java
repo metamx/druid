@@ -19,7 +19,6 @@
 
 package io.druid.server.coordinator.helper;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.MinMaxPriorityQueue;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceMetricEvent;
@@ -35,11 +34,9 @@ import io.druid.server.coordinator.LoadQueuePeon;
 import io.druid.server.coordinator.ServerHolder;
 import io.druid.timeline.DataSegment;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  */
@@ -48,29 +45,38 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
   private static final Logger log = new Logger(DruidCoordinatorLogger.class);
   private final DruidCoordinator coordinator;
 
-  public DruidCoordinatorLogger(DruidCoordinator coordinator) {
+  public DruidCoordinatorLogger(DruidCoordinator coordinator)
+  {
     this.coordinator = coordinator;
   }
 
-  private <T extends Number> void emitTieredStats(
+  private void emitTieredStat(
       final ServiceEmitter emitter,
       final String metricName,
-      final Map<String, T> statMap
+      final String tier,
+      final double value
   )
   {
-    if (statMap != null) {
-      for (Map.Entry<String, T> entry : statMap.entrySet()) {
-        String tier = entry.getKey();
-        Number value = entry.getValue();
-        emitter.emit(
-            new ServiceMetricEvent.Builder()
-                .setDimension(DruidMetrics.TIER, tier)
-                .build(
-                    metricName, value.doubleValue()
-                )
-        );
-      }
-    }
+    emitter.emit(
+        new ServiceMetricEvent.Builder()
+            .setDimension(DruidMetrics.TIER, tier)
+            .build(metricName, value)
+    );
+  }
+
+  private void emitTieredStats(
+      final ServiceEmitter emitter,
+      final String metricName,
+      final CoordinatorStats stats,
+      final String statName
+  )
+  {
+    stats.forEachTieredStat(
+        statName,
+        (final String tier, final long count) -> {
+          emitTieredStat(emitter, metricName, tier, count);
+        }
+    );
   }
 
   @Override
@@ -80,113 +86,89 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
     CoordinatorStats stats = params.getCoordinatorStats();
     ServiceEmitter emitter = params.getEmitter();
 
-    Map<String, Long> assigned = stats.getPerTierStats().get("assignedCount");
-    if (assigned != null) {
-      for (Map.Entry<String, Long> entry : assigned.entrySet()) {
-        log.info(
-            "[%s] : Assigned %s segments among %,d servers",
-            entry.getKey(), entry.getValue(), cluster.get(entry.getKey()).size()
-        );
-      }
-    }
+    stats.forEachTieredStat(
+        "assignedCount",
+        (final String tier, final long count) -> {
+          log.info(
+              "[%s] : Assigned %s segments among %,d servers",
+              tier, count, cluster.get(tier).size()
+          );
 
-    emitTieredStats(
-        emitter, "segment/assigned/count",
-        assigned
+          emitTieredStat(emitter, "segment/assigned/count", tier, count);
+        }
     );
 
-    Map<String, Long> dropped = stats.getPerTierStats().get("droppedCount");
-    if (dropped != null) {
-      for (Map.Entry<String, Long> entry : dropped.entrySet()) {
-        log.info(
-            "[%s] : Dropped %s segments among %,d servers",
-            entry.getKey(), entry.getValue(), cluster.get(entry.getKey()).size()
-        );
-      }
-    }
+    stats.forEachTieredStat(
+        "droppedCount",
+        (final String tier, final long count) -> {
+          log.info(
+              "[%s] : Dropped %s segments among %,d servers",
+              tier, count, cluster.get(tier).size()
+          );
 
-    emitTieredStats(
-        emitter, "segment/dropped/count",
-        dropped
+          emitTieredStat(emitter, "segment/dropped/count", tier, count);
+        }
     );
 
     emitTieredStats(
         emitter, "segment/cost/raw",
-        stats.getPerTierStats().get("initialCost")
+        stats, "initialCost"
     );
 
     emitTieredStats(
         emitter, "segment/cost/normalization",
-        stats.getPerTierStats().get("normalization")
+        stats, "normalization"
     );
 
     emitTieredStats(
         emitter, "segment/moved/count",
-        stats.getPerTierStats().get("movedCount")
+        stats, "movedCount"
     );
 
     emitTieredStats(
         emitter, "segment/deleted/count",
-        stats.getPerTierStats().get("deletedCount")
+        stats, "deletedCount"
     );
 
-    Map<String, Long> normalized = stats.getPerTierStats().get("normalizedInitialCostTimesOneThousand");
-    if (normalized != null) {
-      emitTieredStats(
-          emitter, "segment/cost/normalized",
-          Maps.transformEntries(
-              normalized,
-              new Maps.EntryTransformer<String, Long, Number>()
-              {
-                @Override
-                public Number transformEntry(String key, Long value)
-                {
-                  return value.doubleValue() / 1000d;
-                }
-              }
-          )
-      );
-    }
+    stats.forEachTieredStat(
+        "normalizedInitialCostTimesOneThousand",
+        (final String tier, final long count) -> {
+          emitTieredStat(emitter, "segment/cost/normalized", tier, count / 1000d);
+        }
+    );
 
-    Map<String, Long> unneeded = stats.getPerTierStats().get("unneededCount");
-    if (unneeded != null) {
-      for (Map.Entry<String, Long> entry : unneeded.entrySet()) {
-        log.info(
-            "[%s] : Removed %s unneeded segments among %,d servers",
-            entry.getKey(), entry.getValue(), cluster.get(entry.getKey()).size()
-        );
-      }
-    }
-
-    emitTieredStats(
-        emitter, "segment/unneeded/count",
-        stats.getPerTierStats().get("unneededCount")
+    stats.forEachTieredStat(
+        "unneededCount",
+        (final String tier, final long count) -> {
+          log.info(
+              "[%s] : Removed %s unneeded segments among %,d servers",
+              tier, count, cluster.get(tier).size()
+          );
+          emitTieredStat(emitter, "segment/unneeded/count", tier, count);
+        }
     );
 
     emitter.emit(
         new ServiceMetricEvent.Builder().build(
-            "segment/overShadowed/count", stats.getGlobalStats().get("overShadowedCount")
+            "segment/overShadowed/count",
+            stats.getGlobalStat("overShadowedCount")
         )
     );
 
-    Map<String, Long> moved = stats.getPerTierStats().get("movedCount");
-    if (moved != null) {
-      for (Map.Entry<String, Long> entry : moved.entrySet()) {
-        log.info(
-            "[%s] : Moved %,d segment(s)",
-            entry.getKey(), entry.getValue()
-        );
-      }
-    }
-    final Map<String, Long> unmoved = stats.getPerTierStats().get("unmovedCount");
-    if (unmoved != null) {
-      for(Map.Entry<String, Long> entry : unmoved.entrySet()) {
-        log.info(
-            "[%s] : Let alone %,d segment(s)",
-            entry.getKey(), entry.getValue()
-        );
-      }
-    }
+    stats.forEachTieredStat(
+        "movedCount",
+        (final String tier, final long count) -> {
+          log.info("[%s] : Moved %,d segment(s)", tier, count);
+        }
+    );
+
+    stats.forEachTieredStat(
+        "unmovedCount",
+        (final String tier, final long count) -> {
+          log.info("[%s] : Let alone %,d segment(s)", tier, count);
+        }
+    );
+
     log.info("Load Queues:");
     for (MinMaxPriorityQueue<ServerHolder> serverHolders : cluster.getSortedServersByTier()) {
       for (ServerHolder serverHolder : serverHolders) {
@@ -214,105 +196,94 @@ public class DruidCoordinatorLogger implements DruidCoordinatorHelper
     }
 
     // Emit coordinator metrics
-    final Set<Map.Entry<String, LoadQueuePeon>> peonEntries = params.getLoadManagementPeons().entrySet();
-    for (Map.Entry<String, LoadQueuePeon> entry : peonEntries) {
-      String serverName = entry.getKey();
-      LoadQueuePeon queuePeon = entry.getValue();
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.SERVER, serverName).build(
-              "segment/loadQueue/size", queuePeon.getLoadQueueSize()
-          )
-      );
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.SERVER, serverName).build(
-              "segment/loadQueue/failed", queuePeon.getAndResetFailedAssignCount()
-          )
-      );
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.SERVER, serverName).build(
-              "segment/loadQueue/count", queuePeon.getSegmentsToLoad().size()
-          )
-      );
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.SERVER, serverName).build(
-              "segment/dropQueue/count", queuePeon.getSegmentsToDrop().size()
-          )
-      );
-    }
-    for (final Iterator<Object2LongMap.Entry<String>> entries =
-         coordinator.getSegmentAvailability().object2LongEntrySet().fastIterator();
-         entries.hasNext(); ) {
-      final Object2LongMap.Entry<String> entry = entries.next();
-      final String dataSource = entry.getKey();
-      final long count = entry.getLongValue();
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
-              "segment/unavailable/count", count
-          )
-      );
-    }
-    for (Map.Entry<String, Object2LongOpenHashMap<String>> entry :
-        coordinator.getReplicationStatus().entrySet()) {
-      String tier = entry.getKey();
-      for (final Iterator<Object2LongMap.Entry<String>> dataSourceAbilities =
-           entry.getValue().object2LongEntrySet().fastIterator();
-           dataSourceAbilities.hasNext(); ) {
-        final Object2LongMap.Entry<String> dataSourceAvailability = dataSourceAbilities.next();
-
-        final String dataSource = dataSourceAvailability.getKey();
-        final long count = dataSourceAvailability.getLongValue();
-        emitter.emit(
-            new ServiceMetricEvent.Builder()
-                .setDimension(DruidMetrics.TIER, tier)
-                .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
-                "segment/underReplicated/count", count
-            )
+    params
+        .getLoadManagementPeons()
+        .forEach(
+            (final String serverName, final LoadQueuePeon queuePeon) -> {
+              emitter.emit(
+                  new ServiceMetricEvent.Builder()
+                      .setDimension(DruidMetrics.SERVER, serverName).build(
+                      "segment/loadQueue/size", queuePeon.getLoadQueueSize()
+                  )
+              );
+              emitter.emit(
+                  new ServiceMetricEvent.Builder()
+                      .setDimension(DruidMetrics.SERVER, serverName).build(
+                      "segment/loadQueue/failed", queuePeon.getAndResetFailedAssignCount()
+                  )
+              );
+              emitter.emit(
+                  new ServiceMetricEvent.Builder()
+                      .setDimension(DruidMetrics.SERVER, serverName).build(
+                      "segment/loadQueue/count", queuePeon.getSegmentsToLoad().size()
+                  )
+              );
+              emitter.emit(
+                  new ServiceMetricEvent.Builder()
+                      .setDimension(DruidMetrics.SERVER, serverName).build(
+                      "segment/dropQueue/count", queuePeon.getSegmentsToDrop().size()
+                  )
+              );
+            }
         );
-      }
-    }
+
+    coordinator.getSegmentAvailability().object2LongEntrySet().forEach(
+        (final Object2LongMap.Entry<String> entry) -> {
+          final String dataSource = entry.getKey();
+          final long count = entry.getLongValue();
+          emitter.emit(
+              new ServiceMetricEvent.Builder()
+                  .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
+                  "segment/unavailable/count", count
+              )
+          );
+        }
+    );
+
+    coordinator.getReplicationStatus().forEach(
+        (final String tier, final Object2LongMap<String> status) -> {
+          for (final Object2LongMap.Entry<String> entry : status.object2LongEntrySet()) {
+            final String dataSource = entry.getKey();
+            final long count = entry.getLongValue();
+
+            emitter.emit(
+                new ServiceMetricEvent.Builder()
+                    .setDimension(DruidMetrics.TIER, tier)
+                    .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
+                    "segment/underReplicated/count", count
+                )
+            );
+          }
+        }
+    );
 
     // Emit segment metrics
-    final Object2LongOpenHashMap<String> segmentSizes = new Object2LongOpenHashMap<>();
-    final Object2LongOpenHashMap<String> segmentCounts = new Object2LongOpenHashMap<>();
-    for (DruidDataSource dataSource : params.getDataSources()) {
-      for (DataSegment segment : dataSource.getSegments()) {
-        segmentSizes.addTo(dataSource.getName(), segment.getSize());
-        segmentCounts.addTo(dataSource.getName(), 1L);
-      }
-    }
-    for (final Iterator<Object2LongMap.Entry<String>> entries =
-         segmentSizes.object2LongEntrySet().fastIterator();
-         entries.hasNext(); ) {
-      final Object2LongMap.Entry<String> entry = entries.next();
+    final List<DataSegment> allSegments = params
+        .getDataSources()
+        .stream()
+        .flatMap((final DruidDataSource dataSource) -> dataSource.getSegments().stream())
+        .collect(Collectors.toList());
 
-      final String dataSource = entry.getKey();
-      final long size = entry.getLongValue();
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
-              "segment/size", size
-          )
-      );
-    }
-    for (final Iterator<Object2LongMap.Entry<String>> entries =
-         segmentCounts.object2LongEntrySet().fastIterator();
-         entries.hasNext();) {
-      final Object2LongMap.Entry<String> entry = entries.next();
-
-      final String dataSource = entry.getKey();
-      final long count = entry.getLongValue();
-      emitter.emit(
-          new ServiceMetricEvent.Builder()
-              .setDimension(DruidMetrics.DATASOURCE, dataSource).build(
-              "segment/count", count
-          )
-      );
-    }
+    allSegments
+        .stream()
+        .collect(Collectors.groupingBy(DataSegment::getDataSource))
+        .forEach(
+            (final String name, final List<DataSegment> segments) -> {
+              final long size = segments.stream().mapToLong(DataSegment::getSize).sum();
+              emitter.emit(
+                  new ServiceMetricEvent.Builder()
+                      .setDimension(DruidMetrics.DATASOURCE, name).build(
+                      "segment/size", size
+                  )
+              );
+              emitter.emit(
+                  new ServiceMetricEvent.Builder()
+                      .setDimension(DruidMetrics.DATASOURCE, name).build(
+                      "segment/count", segments.size()
+                  )
+              );
+            }
+        );
 
     return params;
   }

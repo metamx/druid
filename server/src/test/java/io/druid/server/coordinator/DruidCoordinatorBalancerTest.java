@@ -202,9 +202,8 @@ public class DruidCoordinatorBalancerTest
             .build();
 
     params = new DruidCoordinatorBalancerTester(coordinator).run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal") > 0);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal")
-                      < segments.size());
+    Assert.assertTrue(params.getCoordinatorStats().getTieredStat("movedCount", "normal") > 0);
+    Assert.assertTrue(params.getCoordinatorStats().getTieredStat("movedCount", "normal") < segments.size());
     exec.shutdown();
   }
 
@@ -262,7 +261,7 @@ public class DruidCoordinatorBalancerTest
             .build();
 
     params = new DruidCoordinatorBalancerTester(coordinator).run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal") > 0);
+    Assert.assertTrue(params.getCoordinatorStats().getTieredStat("movedCount", "normal") > 0);
     exec.shutdown();
   }
 
@@ -325,7 +324,7 @@ public class DruidCoordinatorBalancerTest
             .build();
 
     params = new DruidCoordinatorBalancerTester(coordinator).run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal") > 0);
+    Assert.assertTrue(params.getCoordinatorStats().getTieredStat("movedCount", "normal") > 0);
     exec.shutdown();
   }
 
@@ -393,8 +392,8 @@ public class DruidCoordinatorBalancerTest
 
     DruidCoordinatorBalancerTester balancerTester = new DruidCoordinatorBalancerTester(coordinator);
     params = balancerTester.run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal") == 1);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("extra") == 1);
+    Assert.assertEquals(1L, params.getCoordinatorStats().getTieredStat("movedCount", "normal"));
+    Assert.assertEquals(1L, params.getCoordinatorStats().getTieredStat("movedCount", "extra"));
 
     exec.shutdown();
   }
@@ -454,7 +453,7 @@ public class DruidCoordinatorBalancerTest
 
     DruidCoordinatorBalancerTester balancerTester = new DruidCoordinatorBalancerTester(coordinator);
     params = balancerTester.run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal") == 1);
+    Assert.assertEquals(1L, params.getCoordinatorStats().getTieredStat("movedCount", "normal"));
 
     params = params.buildFromExisting()
                    .withDynamicConfigs(
@@ -465,7 +464,7 @@ public class DruidCoordinatorBalancerTest
                    .build();
 
     params = balancerTester.run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getPerTierStats().get("movedCount").getLong("normal") == 2);
+    Assert.assertEquals(2L, params.getCoordinatorStats().getTieredStat("movedCount", "normal"));
     exec.shutdown();
   }
 

@@ -23,8 +23,10 @@ import com.google.common.collect.Maps;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.ObjLongConsumer;
 
 /**
  */
@@ -33,74 +35,103 @@ public class CoordinatorStats
   private final Map<String, Object2LongOpenHashMap<String>> perTierStats;
   private final Object2LongOpenHashMap<String> globalStats;
 
-  private static class DefaultingObject2LongOpenHashMap<K>
-      extends Object2LongOpenHashMap<K>
-  {
-    // to behave like DefaultingHashMap
-    @Override
-    public Long get(
-        final Object key
-    )
-    {
-      return getLong(key);
-    }
-  }
-
   public CoordinatorStats()
   {
     perTierStats = Maps.newHashMap();
-    globalStats = new DefaultingObject2LongOpenHashMap<>();
+    globalStats = new Object2LongOpenHashMap<>();
   }
 
-  public Map<String, ? extends Object2LongMap<String>> getPerTierStats()
+  public boolean hasPerTierStats(
+  )
   {
-    return perTierStats;
+    return !perTierStats.isEmpty();
   }
 
-  public Object2LongMap<String> getGlobalStats()
+  public Set<String> getTiers(
+      final String statName
+  )
   {
-    return globalStats;
-  }
-
-  public void addToTieredStat(String statName, String tier, long value)
-  {
-    Object2LongOpenHashMap<String> theStat = perTierStats.get(statName);
+    final Object2LongOpenHashMap<String> theStat = perTierStats.get(statName);
     if (theStat == null) {
-      theStat = new Object2LongOpenHashMap<>();
-      perTierStats.put(statName, theStat);
+      return Collections.emptySet();
     }
-    theStat.addTo(tier, value);
+    return Collections.unmodifiableSet(theStat.keySet());
   }
 
-  public void addToGlobalStat(String statName, long value)
+  /**
+   *
+   * @param statName the name of the statistics
+   * @param tier the tier
+   * @return the value for the statistics {@code statName} under {@code tier} tier
+   * @throws NullPointerException if {@code statName} is not found
+   */
+  public long getTieredStat(
+      final String statName,
+      final String tier
+  )
+  {
+    return perTierStats.get(statName).getLong(tier);
+  }
+
+  public void forEachTieredStat(
+      final String statName,
+      final ObjLongConsumer<String> consumer
+  )
+  {
+    final Object2LongOpenHashMap<String> theStat = perTierStats.get(statName);
+    if (theStat != null) {
+      for (final Object2LongMap.Entry<String> entry : theStat.object2LongEntrySet()) {
+        consumer.accept(entry.getKey(), entry.getLongValue());
+      }
+    }
+  }
+
+  public long getGlobalStat(
+      final String statName
+  )
+  {
+    return globalStats.getLong(statName);
+  }
+
+  public void addToTieredStat(
+      final String statName,
+      final String tier,
+      final long value
+  )
+  {
+    perTierStats.computeIfAbsent(statName, ignored -> new Object2LongOpenHashMap<>())
+                .addTo(tier, value);
+  }
+
+  public void addToGlobalStat(
+      final String statName,
+      final long value
+  )
   {
     globalStats.addTo(statName, value);
   }
 
-  public CoordinatorStats accumulate(CoordinatorStats stats)
+  public CoordinatorStats accumulate(
+      final CoordinatorStats stats
+  )
   {
-    for (final Map.Entry<String, Object2LongOpenHashMap<String>> entry :
-        stats.perTierStats.entrySet()) {
-      Object2LongOpenHashMap<String> theStat = perTierStats.get(entry.getKey());
-      if (theStat == null) {
-        theStat = new DefaultingObject2LongOpenHashMap<>();
-        perTierStats.put(entry.getKey(), theStat);
-      }
+    stats.perTierStats.forEach(
+        (final String statName, final Object2LongOpenHashMap<String> urStat) -> {
 
-      for (final Iterator<Object2LongMap.Entry<String>> tiers =
-           entry.getValue().object2LongEntrySet().fastIterator();
-           tiers.hasNext(); ) {
-        final Object2LongMap.Entry<String> tier = tiers.next();
-        theStat.addTo(tier.getKey(), tier.getLongValue());
-      }
-    }
+          final Object2LongOpenHashMap<String> myStat = perTierStats.computeIfAbsent(
+              statName, ignored -> new Object2LongOpenHashMap<>()
+          );
 
-    for (final Iterator<Object2LongMap.Entry<String>> entries =
-         stats.globalStats.object2LongEntrySet().fastIterator();
-         entries.hasNext(); ) {
-      final Object2LongMap.Entry<String> entry = entries.next();
+          for (final Object2LongMap.Entry<String> entry : urStat.object2LongEntrySet()) {
+            myStat.addTo(entry.getKey(), entry.getLongValue());
+          }
+        }
+    );
+
+    for (final Object2LongMap.Entry<String> entry : stats.globalStats.object2LongEntrySet()) {
       globalStats.addTo(entry.getKey(), entry.getLongValue());
     }
+
     return this;
   }
 }

@@ -31,7 +31,8 @@ import io.druid.timeline.DataSegment;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
-import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class HistoricalMetricsMonitor extends AbstractMonitor
 {
@@ -62,10 +63,7 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
       pendingDeleteSizes.addTo(segment.getDataSource(), segment.getSize());
     }
 
-    for (final Iterator<Object2LongMap.Entry<String>> entries =
-         pendingDeleteSizes.object2LongEntrySet().fastIterator();
-         entries.hasNext(); ) {
-      final Object2LongMap.Entry<String> entry = entries.next();
+    for (final Object2LongMap.Entry<String> entry : pendingDeleteSizes.object2LongEntrySet()) {
 
       final String dataSource = entry.getKey();
       final long pendingDeleteSize = entry.getLongValue();
@@ -81,12 +79,10 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
     serverManager.forEachDataSourceSize(
         (final String dataSource, final long used) -> {
           final ServiceMetricEvent.Builder builder =
-              new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
-                                              .setDimension("tier", serverConfig.getTier())
-                                              .setDimension(
-                                                  "priority",
-                                                  String.valueOf(serverConfig.getPriority())
-                                              );
+              new ServiceMetricEvent.Builder()
+                  .setDimension(DruidMetrics.DATASOURCE, dataSource)
+                  .setDimension("tier", serverConfig.getTier())
+                  .setDimension("priority", String.valueOf(serverConfig.getPriority()));
 
 
           emitter.emit(builder.build("segment/used", used));
@@ -100,12 +96,10 @@ public class HistoricalMetricsMonitor extends AbstractMonitor
     serverManager.forEachDataSourceCount(
         (final String dataSource, final long count) -> {
           final ServiceMetricEvent.Builder builder =
-              new ServiceMetricEvent.Builder().setDimension(DruidMetrics.DATASOURCE, dataSource)
-                                              .setDimension("tier", serverConfig.getTier())
-                                              .setDimension(
-                                                  "priority",
-                                                  String.valueOf(serverConfig.getPriority())
-                                              );
+              new ServiceMetricEvent.Builder()
+                  .setDimension(DruidMetrics.DATASOURCE, dataSource)
+                  .setDimension("tier", serverConfig.getTier())
+                  .setDimension("priority", String.valueOf(serverConfig.getPriority()));
 
           emitter.emit(builder.build("segment/count", count));
         }
