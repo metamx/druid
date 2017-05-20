@@ -85,7 +85,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentMap;
@@ -245,29 +244,26 @@ public class DruidCoordinator
     for (final DataSegment segment : getAvailableDataSegments()) {
       final List<Rule> rules = metadataRuleManager.getRulesWithDefault(segment.getDataSource());
 
-      final Optional<Rule> rule = rules
-          .stream()
-          .filter((final Rule r) -> r instanceof LoadRule && r.appliesTo(segment, now))
-          .findFirst();
+      for (final Rule rule : rules) {
+        if (!(rule instanceof LoadRule && rule.appliesTo(segment, now))) {
+          continue;
+        }
 
-      rule.map((final Rule r) -> (LoadRule) r)
-          .ifPresent(
-              (final LoadRule r) -> {
-                r.getTieredReplicants()
-                 .forEach(
-                     (final String tier, final Integer numReplicants) -> {
-                       final int diff =
-                           numReplicants -
-                           segmentReplicantLookup.getTotalReplicants(
-                               segment.getIdentifier(), tier
-                           );
-                       retVal
-                           .computeIfAbsent(tier, ignored -> new Object2LongOpenHashMap<>())
-                           .addTo(segment.getDataSource(), Math.max(diff, 0));
-                     }
-                 );
-              }
-          );
+        ((LoadRule) rule)
+            .getTieredReplicants()
+            .forEach(
+                (final String tier, final Integer numReplicants) -> {
+                  final int diff =
+                      numReplicants -
+                      segmentReplicantLookup.getTotalReplicants(
+                          segment.getIdentifier(), tier
+                      );
+                  retVal
+                      .computeIfAbsent(tier, ignored -> new Object2LongOpenHashMap<>())
+                      .addTo(segment.getDataSource(), Math.max(diff, 0));
+                }
+            );
+      }
     }
 
     return retVal;
