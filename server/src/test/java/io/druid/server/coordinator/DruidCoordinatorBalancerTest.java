@@ -202,8 +202,16 @@ public class DruidCoordinatorBalancerTest
             .build();
 
     params = new DruidCoordinatorBalancerTester(coordinator).run(params);
-    Assert.assertTrue(params.getCoordinatorStats().getTieredStat("movedCount", "normal") > 0);
-    Assert.assertTrue(params.getCoordinatorStats().getTieredStat("movedCount", "normal") < segments.size());
+
+    final long numMoved = params.getCoordinatorStats().getTieredStat("movedCount", "normal");
+
+    Assert.assertTrue(numMoved > 0);
+    Assert.assertTrue(numMoved <= segments.size());
+    Assert.assertEquals(numMoved,
+                        fromPeon.getSegmentsToLoad().size() +
+                        toPeon.getSegmentsToLoad().size());
+    Assert.assertTrue(toPeon.getSegmentsToLoad().size() > 0);
+    Assert.assertTrue(toPeon.getSegmentsToLoad().size() < segments.size());
     exec.shutdown();
   }
 

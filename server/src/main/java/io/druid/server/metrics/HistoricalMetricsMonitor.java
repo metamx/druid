@@ -31,9 +31,6 @@ import io.druid.timeline.DataSegment;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
 public class HistoricalMetricsMonitor extends AbstractMonitor
 {
   private final DruidServerConfig serverConfig;
