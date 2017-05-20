@@ -231,8 +231,8 @@ public class BroadcastDistributionRuleTest
         smallSegment
     );
 
-    assertEquals(3, stats.getGlobalStats().get(LoadRule.ASSIGNED_COUNT).intValue());
-    assertTrue(stats.getPerTierStats().isEmpty());
+    assertEquals(3L, stats.getGlobalStat(LoadRule.ASSIGNED_COUNT));
+    assertFalse(stats.hasPerTierStats());
 
     assertTrue(
         holdersOfLargeSegments.stream()
@@ -271,8 +271,8 @@ public class BroadcastDistributionRuleTest
         smallSegment
     );
 
-    assertEquals(5, stats.getGlobalStats().get(LoadRule.ASSIGNED_COUNT).intValue());
-    assertTrue(stats.getPerTierStats().isEmpty());
+    assertEquals(5L, stats.getGlobalStat(LoadRule.ASSIGNED_COUNT));
+    assertFalse(stats.hasPerTierStats());
 
     assertTrue(
         holdersOfLargeSegments.stream()
@@ -309,8 +309,8 @@ public class BroadcastDistributionRuleTest
         smallSegment
     );
 
-    assertEquals(6, stats.getGlobalStats().get(LoadRule.ASSIGNED_COUNT).intValue());
-    assertTrue(stats.getPerTierStats().isEmpty());
+    assertEquals(6L, stats.getGlobalStat(LoadRule.ASSIGNED_COUNT));
+    assertFalse(stats.hasPerTierStats());
 
     assertTrue(
         druidCluster.getAllServers().stream()

@@ -22,6 +22,7 @@ package io.druid.server.metrics;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.emitter.service.ServiceEventBuilder;
@@ -34,6 +35,7 @@ import org.easymock.Capture;
 import org.easymock.CaptureType;
 import org.easymock.EasyMock;
 import org.easymock.EasyMockSupport;
+import org.easymock.IAnswer;
 import org.joda.time.Interval;
 import org.junit.Assert;
 import org.junit.Before;
@@ -43,6 +45,7 @@ import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.ObjLongConsumer;
 
 public class HistoricalMetricsMonitorTest extends EasyMockSupport
 {
@@ -84,11 +87,40 @@ public class HistoricalMetricsMonitorTest extends EasyMockSupport
     EasyMock.expect(zkCoordinator.getPendingDeleteSnapshot()).andReturn(ImmutableList.of(dataSegment)).once();
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
-    EasyMock.expect(serverManager.getDataSourceSizes()).andReturn(ImmutableMap.of(dataSource, size));
+
+
+    final Capture<ObjLongConsumer<String>> sizeCapture = EasyMock.newCapture();
+    serverManager.forEachDataSourceSize(EasyMock.capture(sizeCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            sizeCapture.getValue().accept(dataSource, size);
+            return null;
+          }
+        }
+    ).once();
+
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
     EasyMock.expect(druidServerConfig.getMaxSize()).andReturn(maxSize).times(2);
-    EasyMock.expect(serverManager.getDataSourceCounts()).andReturn(ImmutableMap.of(dataSource, 1L));
+
+    final Capture<ObjLongConsumer<String>> countCapture = EasyMock.newCapture();
+    serverManager.forEachDataSourceCount(EasyMock.capture(countCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            countCapture.getValue().accept(dataSource, 1L);
+            return null;
+          }
+        }
+    ).once();
+
     EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
     EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
 
@@ -165,5 +197,231 @@ public class HistoricalMetricsMonitorTest extends EasyMockSupport
         "priority", String.valueOf(priority),
         "dataSource", dataSource
     ), events.get(4));
+  }
+
+  @Test
+  public void testPendingDeleteSizeCounts()
+  {
+    final DataSegment segment1 = new DataSegment(
+        "dataSource1",
+        Interval.parse("2014/2015"),
+        "version",
+        ImmutableMap.<String, Object>of(),
+        ImmutableList.<String>of(),
+        ImmutableList.<String>of(),
+        null,
+        1,
+        13
+    );
+
+    final DataSegment segment2 = new DataSegment(
+        "dataSource2",
+        Interval.parse("2014/2015"),
+        "version",
+        ImmutableMap.<String, Object>of(),
+        ImmutableList.<String>of(),
+        ImmutableList.<String>of(),
+        null,
+        1,
+        47
+    );
+
+    final DataSegment segment3 = new DataSegment(
+        "dataSource1",
+        Interval.parse("2014/2015"),
+        "version",
+        ImmutableMap.<String, Object>of(),
+        ImmutableList.<String>of(),
+        ImmutableList.<String>of(),
+        null,
+        1,
+        17
+    );
+
+    final long size1 = segment1.getSize() + segment3.getSize();
+    final long size2 = segment2.getSize();
+
+    final List<DataSegment> dataSegments = ImmutableList.of(segment1, segment2, segment3);
+
+    final long maxSize = 64L;
+    final int priority = 0;
+    final String tier = "some_tier";
+
+    EasyMock.expect(druidServerConfig.getMaxSize()).andReturn(maxSize).once();
+    EasyMock.expect(zkCoordinator.getPendingDeleteSnapshot()).andReturn(dataSegments).once();
+
+    EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
+    EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
+
+    EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
+    EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
+
+    final Capture<ObjLongConsumer<String>> sizeCapture= EasyMock.newCapture();
+    serverManager.forEachDataSourceSize(EasyMock.capture(sizeCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            final ObjLongConsumer<String> consumer = sizeCapture.getValue();
+            consumer.accept(segment1.getDataSource(), size1);
+            consumer.accept(segment2.getDataSource(), size2);
+            return null;
+          }
+        }
+    ).once();
+
+    EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
+    EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
+    EasyMock.expect(druidServerConfig.getMaxSize()).andReturn(maxSize).times(2);
+
+    EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
+    EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
+    EasyMock.expect(druidServerConfig.getMaxSize()).andReturn(maxSize).times(2);
+
+    final Capture<ObjLongConsumer<String>> countCapture = EasyMock.newCapture();
+    serverManager.forEachDataSourceCount(EasyMock.capture(countCapture));
+    EasyMock.expectLastCall().andAnswer(
+        new IAnswer<Object>()
+        {
+          @Override
+          public Object answer() throws Throwable
+          {
+            countCapture.getValue().accept(segment1.getDataSource(), 2L);
+            countCapture.getValue().accept(segment2.getDataSource(), 1L);
+            return null;
+          }
+        }
+    ).once();
+
+    EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
+    EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
+
+    EasyMock.expect(druidServerConfig.getTier()).andReturn(tier).once();
+    EasyMock.expect(druidServerConfig.getPriority()).andReturn(priority).once();
+
+    final HistoricalMetricsMonitor monitor = new HistoricalMetricsMonitor(
+        druidServerConfig,
+        serverManager,
+        zkCoordinator
+    );
+
+    final Capture<ServiceEventBuilder<ServiceMetricEvent>> eventCapture =
+        EasyMock.newCapture(CaptureType.ALL);
+    serviceEmitter.emit(EasyMock.capture(eventCapture));
+    EasyMock.expectLastCall().times(9);
+
+    EasyMock.replay(druidServerConfig, serverManager, zkCoordinator, serviceEmitter);
+    monitor.doMonitor(serviceEmitter);
+    //EasyMock.verify(druidServerConfig, serverManager, zkCoordinator, serviceEmitter);
+
+    Assert.assertTrue(eventCapture.hasCaptured());
+    final List<Map<String, Object>> events = Lists.transform(
+        eventCapture.getValues(),
+        new Function<ServiceEventBuilder<ServiceMetricEvent>, Map<String, Object>>()
+        {
+          @Nullable
+          @Override
+          public Map<String, Object> apply(
+              @Nullable ServiceEventBuilder<ServiceMetricEvent> input
+          )
+          {
+            final HashMap<String, Object> map =
+                new HashMap<>(input.build("host", "service").toMap());
+            Assert.assertNotNull(map.remove("feed"));
+            Assert.assertNotNull(map.remove("timestamp"));
+            Assert.assertNotNull(map.remove("service"));
+            Assert.assertNotNull(map.remove("host"));
+            return map;
+          }
+        }
+    );
+
+    Assert.assertEquals(ImmutableMap.<String, Object>of(
+        "metric", "segment/max",
+        "value", maxSize
+    ), events.get(0));
+
+    Assert.assertEquals(
+        ImmutableSet.of(
+            ImmutableMap.<String, Object>of(
+                "dataSource", segment1.getDataSource(),
+                "metric", "segment/pendingDelete",
+                "priority", String.valueOf(priority),
+                "tier", tier,
+                "value", size1
+            ),
+            ImmutableMap.<String, Object>of(
+                "dataSource", segment2.getDataSource(),
+                "metric", "segment/pendingDelete",
+                "priority", String.valueOf(priority),
+                "tier", tier,
+                "value", size2
+            )
+        ),
+        ImmutableSet.of(events.get(1), events.get(2))
+    );
+
+    Assert.assertEquals(
+        ImmutableSet.of(
+            ImmutableMap.<String, Object>of(
+                "metric", "segment/used",
+                "value", size1,
+                "tier", tier,
+                "priority", String.valueOf(priority),
+                "dataSource", segment1.getDataSource()
+            ),
+            ImmutableMap.<String, Object>of(
+                "metric", "segment/used",
+                "value", size2,
+                "tier", tier,
+                "priority", String.valueOf(priority),
+                "dataSource", segment2.getDataSource()
+            )
+        ),
+        ImmutableSet.of(events.get(3), events.get(5))
+    );
+
+    Assert.assertEquals(
+        ImmutableSet.of(
+            ImmutableMap.<String, Object>of(
+                "metric", "segment/usedPercent",
+                "value",  size1 * 1.0D / maxSize,
+                "tier", tier,
+                "priority", String.valueOf(priority),
+                "dataSource", segment1.getDataSource()
+            ),
+            ImmutableMap.<String, Object>of(
+                "metric", "segment/usedPercent",
+                "value",  size2 * 1.0D / maxSize,
+                "tier", tier,
+                "priority", String.valueOf(priority),
+                "dataSource", segment2.getDataSource()
+            )
+        ),
+        ImmutableSet.of(events.get(4), events.get(6))
+    );
+
+    Assert.assertEquals(
+        ImmutableSet.of(
+            ImmutableMap.<String, Object>of(
+                "metric", "segment/count",
+                "value", 2L,
+                "tier", tier,
+                "priority", String.valueOf(priority),
+                "dataSource", segment1.getDataSource()
+            ),
+            ImmutableMap.<String, Object>of(
+                "metric", "segment/count",
+                "value", 1L,
+                "tier", tier,
+                "priority", String.valueOf(priority),
+                "dataSource", segment2.getDataSource()
+            )
+        ),
+        ImmutableSet.of(events.get(7), events.get(8))
+    );
+
   }
 }

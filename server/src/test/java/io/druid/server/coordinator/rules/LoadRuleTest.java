@@ -211,8 +211,8 @@ public class LoadRuleTest
         segment
     );
 
-    Assert.assertTrue(stats.getPerTierStats().get(LoadRule.ASSIGNED_COUNT).get("hot").get() == 1);
-    Assert.assertTrue(stats.getPerTierStats().get(LoadRule.ASSIGNED_COUNT).get(DruidServer.DEFAULT_TIER).get() == 2);
+    Assert.assertEquals(1L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, "hot"));
+    Assert.assertEquals(2L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, DruidServer.DEFAULT_TIER));
     exec.shutdown();
   }
 
@@ -321,8 +321,8 @@ public class LoadRuleTest
         segment
     );
 
-    Assert.assertTrue(stats.getPerTierStats().get("droppedCount").get("hot").get() == 1);
-    Assert.assertTrue(stats.getPerTierStats().get("droppedCount").get(DruidServer.DEFAULT_TIER).get() == 1);
+    Assert.assertEquals(1L, stats.getTieredStat("droppedCount", "hot"));
+    Assert.assertEquals(1L, stats.getTieredStat("droppedCount", DruidServer.DEFAULT_TIER));
     exec.shutdown();
   }
 
@@ -411,7 +411,7 @@ public class LoadRuleTest
         segment
     );
 
-    Assert.assertTrue(stats.getPerTierStats().get(LoadRule.ASSIGNED_COUNT).get("hot").get() == 1);
+    Assert.assertEquals(1L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, "hot"));
     exec.shutdown();
   }
 
@@ -516,7 +516,7 @@ public class LoadRuleTest
         segment
     );
 
-    Assert.assertTrue(stats.getPerTierStats().get("droppedCount").get("hot").get() == 1);
+    Assert.assertEquals(1L, stats.getTieredStat("droppedCount", "hot"));
     exec.shutdown();
   }
 }

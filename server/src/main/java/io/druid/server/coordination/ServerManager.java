@@ -29,7 +29,6 @@ import com.metamx.emitter.service.ServiceEmitter;
 import io.druid.client.CachingQueryRunner;
 import io.druid.client.cache.Cache;
 import io.druid.client.cache.CacheConfig;
-import io.druid.collections.CountingMap;
 import io.druid.guice.annotations.BackgroundCaching;
 import io.druid.guice.annotations.Processing;
 import io.druid.guice.annotations.Smile;
@@ -63,6 +62,8 @@ import io.druid.timeline.TimelineObjectHolder;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.PartitionChunk;
 import io.druid.timeline.partition.PartitionHolder;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.joda.time.Interval;
 
 import javax.annotation.Nullable;
@@ -73,6 +74,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.ObjLongConsumer;
 
 /**
  */
@@ -86,8 +88,8 @@ public class ServerManager implements QuerySegmentWalker
   private final ExecutorService exec;
   private final ExecutorService cachingExec;
   private final Map<String, VersionedIntervalTimeline<String, ReferenceCountingSegment>> dataSources;
-  private final CountingMap<String> dataSourceSizes = new CountingMap<String>();
-  private final CountingMap<String> dataSourceCounts = new CountingMap<String>();
+  private final Object2LongOpenHashMap<String> dataSourceSizes = new Object2LongOpenHashMap<>();
+  private final Object2LongOpenHashMap<String> dataSourceCounts = new Object2LongOpenHashMap<>();
   private final Cache cache;
   private final ObjectMapper objectMapper;
   private final CacheConfig cacheConfig;
@@ -117,17 +119,21 @@ public class ServerManager implements QuerySegmentWalker
     this.cacheConfig = cacheConfig;
   }
 
-  public Map<String, Long> getDataSourceSizes()
+  public void forEachDataSourceSize(final ObjLongConsumer<String> consumer)
   {
     synchronized (dataSourceSizes) {
-      return dataSourceSizes.snapshot();
+      for (final Object2LongMap.Entry<String> entry : dataSourceSizes.object2LongEntrySet()) {
+        consumer.accept(entry.getKey(), entry.getLongValue());
+      }
     }
   }
 
-  public Map<String, Long> getDataSourceCounts()
+  public void forEachDataSourceCount(final ObjLongConsumer<String> consumer)
   {
     synchronized (dataSourceCounts) {
-      return dataSourceCounts.snapshot();
+      for (final Object2LongMap.Entry<String> entry : dataSourceCounts.object2LongEntrySet()) {
+        consumer.accept(entry.getKey(), entry.getLongValue());
+      }
     }
   }
 
@@ -167,12 +173,11 @@ public class ServerManager implements QuerySegmentWalker
 
     synchronized (lock) {
       String dataSource = segment.getDataSource();
-      VersionedIntervalTimeline<String, ReferenceCountingSegment> loadedIntervals = dataSources.get(dataSource);
-
-      if (loadedIntervals == null) {
-        loadedIntervals = new VersionedIntervalTimeline<>(Ordering.natural());
-        dataSources.put(dataSource, loadedIntervals);
-      }
+      final VersionedIntervalTimeline<String, ReferenceCountingSegment> loadedIntervals =
+          dataSources.computeIfAbsent(
+              dataSource,
+              ignored -> new VersionedIntervalTimeline<>(Ordering.natural())
+          );
 
       PartitionHolder<ReferenceCountingSegment> entry = loadedIntervals.findEntry(
           segment.getInterval(),
@@ -189,10 +194,10 @@ public class ServerManager implements QuerySegmentWalker
           segment.getShardSpec().createChunk(new ReferenceCountingSegment(adapter))
       );
       synchronized (dataSourceSizes) {
-        dataSourceSizes.add(dataSource, segment.getSize());
+        dataSourceSizes.addTo(dataSource, segment.getSize());
       }
       synchronized (dataSourceCounts) {
-        dataSourceCounts.add(dataSource, 1L);
+        dataSourceCounts.addTo(dataSource, 1L);
       }
       return true;
     }
@@ -209,7 +214,7 @@ public class ServerManager implements QuerySegmentWalker
         return;
       }
 
-      PartitionChunk<ReferenceCountingSegment> removed = loadedIntervals.remove(
+      final PartitionChunk<ReferenceCountingSegment> removed = loadedIntervals.remove(
           segment.getInterval(),
           segment.getVersion(),
           segment.getShardSpec().createChunk((ReferenceCountingSegment) null)
@@ -218,10 +223,10 @@ public class ServerManager implements QuerySegmentWalker
 
       if (oldQueryable != null) {
         synchronized (dataSourceSizes) {
-          dataSourceSizes.add(dataSource, -segment.getSize());
+          dataSourceSizes.addTo(dataSource, -segment.getSize());
         }
         synchronized (dataSourceCounts) {
-          dataSourceCounts.add(dataSource, -1L);
+          dataSourceCounts.addTo(dataSource, -1L);
         }
 
         try {
