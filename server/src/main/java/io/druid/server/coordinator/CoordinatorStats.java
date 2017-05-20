@@ -41,15 +41,12 @@ public class CoordinatorStats
     globalStats = new Object2LongOpenHashMap<>();
   }
 
-  public boolean hasPerTierStats(
-  )
+  public boolean hasPerTierStats()
   {
     return !perTierStats.isEmpty();
   }
 
-  public Set<String> getTiers(
-      final String statName
-  )
+  public Set<String> getTiers(final String statName)
   {
     final Object2LongOpenHashMap<String> theStat = perTierStats.get(statName);
     if (theStat == null) {
@@ -65,18 +62,12 @@ public class CoordinatorStats
    * @return the value for the statistics {@code statName} under {@code tier} tier
    * @throws NullPointerException if {@code statName} is not found
    */
-  public long getTieredStat(
-      final String statName,
-      final String tier
-  )
+  public long getTieredStat(final String statName, final String tier)
   {
     return perTierStats.get(statName).getLong(tier);
   }
 
-  public void forEachTieredStat(
-      final String statName,
-      final ObjLongConsumer<String> consumer
-  )
+  public void forEachTieredStat(final String statName, final ObjLongConsumer<String> consumer)
   {
     final Object2LongOpenHashMap<String> theStat = perTierStats.get(statName);
     if (theStat != null) {
@@ -86,34 +77,23 @@ public class CoordinatorStats
     }
   }
 
-  public long getGlobalStat(
-      final String statName
-  )
+  public long getGlobalStat(final String statName)
   {
     return globalStats.getLong(statName);
   }
 
-  public void addToTieredStat(
-      final String statName,
-      final String tier,
-      final long value
-  )
+  public void addToTieredStat(final String statName, final String tier, final long value)
   {
     perTierStats.computeIfAbsent(statName, ignored -> new Object2LongOpenHashMap<>())
                 .addTo(tier, value);
   }
 
-  public void addToGlobalStat(
-      final String statName,
-      final long value
-  )
+  public void addToGlobalStat(final String statName, final long value)
   {
     globalStats.addTo(statName, value);
   }
 
-  public CoordinatorStats accumulate(
-      final CoordinatorStats stats
-  )
+  public CoordinatorStats accumulate(final CoordinatorStats stats)
   {
     stats.perTierStats.forEach(
         (final String statName, final Object2LongOpenHashMap<String> urStat) -> {

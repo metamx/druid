@@ -119,9 +119,7 @@ public class ServerManager implements QuerySegmentWalker
     this.cacheConfig = cacheConfig;
   }
 
-  public void forEachDataSourceSize(
-      final ObjLongConsumer<String> consumer
-  )
+  public void forEachDataSourceSize(final ObjLongConsumer<String> consumer)
   {
     synchronized (dataSourceSizes) {
       for (final Object2LongMap.Entry<String> entry : dataSourceSizes.object2LongEntrySet()) {
@@ -130,9 +128,7 @@ public class ServerManager implements QuerySegmentWalker
     }
   }
 
-  public void forEachDataSourceCount(
-      final ObjLongConsumer<String> consumer
-  )
+  public void forEachDataSourceCount(final ObjLongConsumer<String> consumer)
   {
     synchronized (dataSourceCounts) {
       for (final Object2LongMap.Entry<String> entry : dataSourceCounts.object2LongEntrySet()) {

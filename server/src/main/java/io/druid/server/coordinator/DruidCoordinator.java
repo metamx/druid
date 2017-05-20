@@ -292,9 +292,7 @@ public class DruidCoordinator
     return retVal;
   }
 
-  boolean hasLoadPending(
-      final String dataSource
-  )
+  boolean hasLoadPending(final String dataSource)
   {
     return loadManagementPeons
         .values()
