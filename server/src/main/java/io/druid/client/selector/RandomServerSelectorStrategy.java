@@ -38,15 +38,13 @@ public class RandomServerSelectorStrategy implements ServerSelectorStrategy
   }
 
   @Override
-  public List<QueryableDruidServer> pick(
-      Set<QueryableDruidServer> servers, DataSegment segment, int numServersToPick
-  )
+  public List<QueryableDruidServer> pick(Set<QueryableDruidServer> servers, DataSegment segment, int numServersToPick)
   {
     if (servers.size() <= numServersToPick) {
       return ImmutableList.copyOf(servers);
     }
     List<QueryableDruidServer> list = Lists.newArrayList(servers);
     Collections.shuffle(list, ThreadLocalRandom.current());
-    return ImmutableList.copyOf(list.subList(0, Math.min(list.size(), numServersToPick)));
+    return ImmutableList.copyOf(list.subList(0, numServersToPick));
   }
 }

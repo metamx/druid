@@ -25,7 +25,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -41,7 +40,8 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
 
   @Override
   public QueryableDruidServer pick(
-      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment
+      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers,
+      DataSegment segment
   )
   {
     return Iterables.getOnlyElement(pick(prioritizedServers, segment, 1), null);
@@ -49,12 +49,14 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
 
   @Override
   public List<QueryableDruidServer> pick(
-      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment, int numServersToPick
+      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers,
+      DataSegment segment,
+      int numServersToPick
   )
   {
-    List<QueryableDruidServer> result = new ArrayList<>();
-    for (Map.Entry<Integer, Set<QueryableDruidServer>> priorityServers : prioritizedServers.entrySet()) {
-      result.addAll(serverSelectorStrategy.pick(priorityServers.getValue(), segment, numServersToPick - result.size()));
+    List<QueryableDruidServer> result = new ArrayList<>(numServersToPick);
+    for (Set<QueryableDruidServer> priorityServers : prioritizedServers.values()) {
+      result.addAll(serverSelectorStrategy.pick(priorityServers, segment, numServersToPick - result.size()));
       if (result.size() == numServersToPick) {
         break;
       }
