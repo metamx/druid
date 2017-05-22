@@ -168,7 +168,7 @@ public class CachingClusteredClientFunctionalityTest {
               public List<QueryableDruidServer> pick(
                   Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers,
                   DataSegment segment,
-                  int numServerToPick
+                  int numServersToPick
               )
               {
                 return Collections.singletonList(new QueryableDruidServer(
