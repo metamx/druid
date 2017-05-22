@@ -39,6 +39,7 @@ import io.druid.timeline.DataSegment;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.NoneShardSpec;
 import io.druid.timeline.partition.SingleElementPartitionChunk;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
 import org.junit.Assert;
@@ -52,7 +53,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.Executor;
 
 /**
@@ -157,7 +157,7 @@ public class CachingClusteredClientFunctionalityTest {
               }
 
               @Override
-              public QueryableDruidServer pick(SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment) {
+              public QueryableDruidServer pick(Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment) {
                 return new QueryableDruidServer(
                     new DruidServer("localhost", "localhost", 100, "historical", "a", 10),
                     EasyMock.createNiceMock(DirectDruidClient.class)
@@ -166,7 +166,7 @@ public class CachingClusteredClientFunctionalityTest {
 
               @Override
               public List<QueryableDruidServer> pick(
-                  SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
+                  Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers,
                   DataSegment segment,
                   int numServerToPick
               )

@@ -22,11 +22,11 @@ package io.druid.client.selector;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
-import java.util.SortedMap;
 
 /**
  */
@@ -40,10 +40,10 @@ public interface TierSelectorStrategy
 {
   Comparator<Integer> getComparator();
 
-  QueryableDruidServer pick(SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment);
+  QueryableDruidServer pick(Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment);
 
   List<QueryableDruidServer> pick(
-      SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers,
+      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers,
       DataSegment segment,
       int numServersToPick
   );

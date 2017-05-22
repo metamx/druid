@@ -21,12 +21,12 @@ package io.druid.client.selector;
 
 import com.google.common.collect.Iterables;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.SortedMap;
 
 /**
  */
@@ -41,7 +41,7 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
 
   @Override
   public QueryableDruidServer pick(
-      SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment
+      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment
   )
   {
     return Iterables.getOnlyElement(pick(prioritizedServers, segment, 1), null);
@@ -49,7 +49,7 @@ public abstract class AbstractTierSelectorStrategy implements TierSelectorStrate
 
   @Override
   public List<QueryableDruidServer> pick(
-      SortedMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment, int numServersToPick
+      Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment, int numServersToPick
   )
   {
     List<QueryableDruidServer> result = new ArrayList<>();
