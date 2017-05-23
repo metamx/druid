@@ -39,6 +39,7 @@ import io.druid.timeline.DataSegment;
 import io.druid.timeline.VersionedIntervalTimeline;
 import io.druid.timeline.partition.NoneShardSpec;
 import io.druid.timeline.partition.SingleElementPartitionChunk;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import org.easymock.EasyMock;
 import org.joda.time.Interval;
 import org.junit.Assert;
@@ -46,12 +47,12 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.Executor;
 
 /**
@@ -156,11 +157,24 @@ public class CachingClusteredClientFunctionalityTest {
               }
 
               @Override
-              public QueryableDruidServer pick(TreeMap<Integer, Set<QueryableDruidServer>> prioritizedServers, DataSegment segment) {
+              public QueryableDruidServer pick(Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers, DataSegment segment) {
                 return new QueryableDruidServer(
                     new DruidServer("localhost", "localhost", 100, "historical", "a", 10),
                     EasyMock.createNiceMock(DirectDruidClient.class)
                 );
+              }
+
+              @Override
+              public List<QueryableDruidServer> pick(
+                  Int2ObjectRBTreeMap<Set<QueryableDruidServer>> prioritizedServers,
+                  DataSegment segment,
+                  int numServersToPick
+              )
+              {
+                return Collections.singletonList(new QueryableDruidServer(
+                    new DruidServer("localhost", "localhost", 100, "historical", "a", 10),
+                    EasyMock.createNiceMock(DirectDruidClient.class)
+                ));
               }
             }
         )
