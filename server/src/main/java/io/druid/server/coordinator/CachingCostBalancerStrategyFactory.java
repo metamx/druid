@@ -19,6 +19,7 @@
 
 package io.druid.server.coordinator;
 
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Inject;
 import io.druid.client.ServerInventoryView;
@@ -48,7 +49,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   @Inject
   public CachingCostBalancerStrategyFactory(ServerInventoryView serverInventoryView)
   {
-    this.serverInventoryView = serverInventoryView;
+    this.serverInventoryView = Preconditions.checkNotNull(serverInventoryView);
   }
 
   @LifecycleStart
