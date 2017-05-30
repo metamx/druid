@@ -36,9 +36,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @State(Scope.Benchmark)
+@BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.MILLISECONDS)
+@Fork(1)
 public class CachingCostBalancerStrategyBenchmark
 {
   private static final int NUMBER_OF_SEGMENTS = 100000;
@@ -47,7 +51,7 @@ public class CachingCostBalancerStrategyBenchmark
   private final DateTime referenceTime = new DateTime("2014-01-01T00:00:00");
   private final List<DataSegment> segments = new ArrayList<>();
   private final List<DataSegment> segmentQueries = new ArrayList<>();
-  private final int seed = new Random().nextInt();
+  private final int seed = ThreadLocalRandom.current().nextInt();
 
   private SegmentCostCache segmentCostCache;
 
@@ -71,9 +75,6 @@ public class CachingCostBalancerStrategyBenchmark
   }
 
   @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  @Fork(1)
   public double measureCostStrategy() throws InterruptedException
   {
     double cost = 0.0;
@@ -84,9 +85,6 @@ public class CachingCostBalancerStrategyBenchmark
   }
 
   @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  @Fork(1)
   public double measureCachingCostStrategy() throws InterruptedException
   {
     double cost = 0.0;
