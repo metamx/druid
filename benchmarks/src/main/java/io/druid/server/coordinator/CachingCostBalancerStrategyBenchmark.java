@@ -41,29 +41,60 @@ import java.util.concurrent.TimeUnit;
 @State(Scope.Benchmark)
 public class CachingCostBalancerStrategyBenchmark
 {
-  private static final int NUMBER_OF_SEGMENTS = 1000;
+  private static final int NUMBER_OF_SEGMENTS = 100000;
+  private static final int NUMBER_OF_QUERIES = 500;
 
-  private DateTime referenceTime = new DateTime("2014-01-01T00:00:00");
-  private List<DataSegment> segments = new ArrayList<>();
-  private DataSegment segment;
+  private final DateTime referenceTime = new DateTime("2014-01-01T00:00:00");
+  private final List<DataSegment> segments = new ArrayList<>();
+  private final List<DataSegment> segmentQueries = new ArrayList<>();
+  private final int seed = new Random().nextInt();
 
-  private SegmentCostCache.Bucket bucket;
+  private SegmentCostCache segmentCostCache;
 
   @Setup
   public void createSegments()
   {
-    Random random = new Random();
-    SegmentCostCache.Bucket.Builder prototype = SegmentCostCache.Bucket.builder(new Interval(referenceTime.minusHours(1), referenceTime.plusHours(30 * 25)));
+    Random random = new Random(seed);
+    SegmentCostCache.Builder prototype = SegmentCostCache.builder();
     for (int i = 0; i < NUMBER_OF_SEGMENTS; ++i) {
       DataSegment segment = createSegment(random.nextInt(30 * 24));
       segments.add(segment);
       prototype.addSegment(segment);
     }
-    bucket = prototype.build();
-    segment = createSegment(random.nextInt(30*24));
+    segmentCostCache = prototype.build();
+    for (int i = 0; i < NUMBER_OF_QUERIES; ++i) {
+      DataSegment segment = createSegment(random.nextInt(30 * 24));
+      segmentQueries.add(segment);
+    }
+
+    System.out.println("GENERATING SEGMENTS : " + NUMBER_OF_SEGMENTS + " / " + NUMBER_OF_QUERIES);
   }
 
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MILLISECONDS)
+  @Fork(1)
+  public double measureCostStrategy() throws InterruptedException
+  {
+    double cost = 0.0;
+    for (DataSegment segment : segmentQueries) {
+      cost += CostBalancerStrategy.computeJointSegmentsCost(segment, segments);
+    }
+    return cost;
+  }
 
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MILLISECONDS)
+  @Fork(1)
+  public double measureCachingCostStrategy() throws InterruptedException
+  {
+    double cost = 0.0;
+    for (DataSegment segment : segmentQueries) {
+      cost += segmentCostCache.cost(segment);
+    }
+    return cost;
+  }
 
   private DataSegment createSegment(int shift)
   {
@@ -78,24 +109,6 @@ public class CachingCostBalancerStrategyBenchmark
         0,
         100
     );
-  }
-
-  @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  @Fork(1)
-  public double measureCostStrategy() throws InterruptedException
-  {
-    return CostBalancerStrategy.computeJointSegmentsCost(segment, segments);
-  }
-
-  @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  @Fork(1)
-  public double measureCachingCostStrategy() throws InterruptedException
-  {
-    return bucket.cost(segment);
   }
 
 }

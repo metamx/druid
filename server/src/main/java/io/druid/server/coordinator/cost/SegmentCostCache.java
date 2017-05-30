@@ -44,8 +44,8 @@ public class SegmentCostCache
   private static final double HALF_LIFE = 1.0; // cost function half-life in hours
   private static final double LAMBDA = Math.log(2) / HALF_LIFE;
   private static final double MILLIS_FACTOR = TimeUnit.DAYS.toMillis(1) / LAMBDA;
-  private static final long LIFE_THRESHOLD = TimeUnit.DAYS.toMillis(60);
-  private static final long BUCKET_INTERVAL = TimeUnit.DAYS.toMillis(7);
+  private static final long LIFE_THRESHOLD = TimeUnit.DAYS.toMillis(30);
+  private static final long BUCKET_INTERVAL = TimeUnit.DAYS.toMillis(30);
 
   private static final Comparator<DataSegment> SEGMENT_INTERVAL_COMPARATOR = (d1, d2) ->
       Comparators.intervalsByStartThenEnd().compare(
@@ -104,7 +104,7 @@ public class SegmentCostCache
     return new Builder();
   }
 
-  static class Builder
+  public static class Builder
   {
     private NavigableMap<Interval, Bucket.Builder> buckets = new TreeMap<>(Comparators.intervalsByStartThenEnd());
 
