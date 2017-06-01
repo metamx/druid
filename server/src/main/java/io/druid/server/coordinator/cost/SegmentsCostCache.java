@@ -31,15 +31,15 @@ import org.joda.time.Interval;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.ListIterator;
 import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public class SegmentCostCache
+public class SegmentsCostCache
 {
   private static final double HALF_LIFE = 1.0; // cost function half-life in hours
   private static final double LAMBDA = Math.log(2) / HALF_LIFE;
@@ -47,27 +47,24 @@ public class SegmentCostCache
   private static final long LIFE_THRESHOLD = TimeUnit.DAYS.toMillis(30);
   private static final long BUCKET_INTERVAL = TimeUnit.DAYS.toMillis(30);
 
-  private static final Comparator<DataSegment> SEGMENT_INTERVAL_COMPARATOR = (d1, d2) ->
-      Comparators.intervalsByStartThenEnd().compare(
-          d1.getInterval(),
-          d2.getInterval()
-      );
+  private static final Comparator<DataSegment> SEGMENT_INTERVAL_COMPARATOR =
+      Comparator.comparing(DataSegment::getInterval, Comparators.intervalsByStartThenEnd());
 
-  private static final Comparator<Bucket> BUCKET_INTERVAL_COMPARATOR = (b1, b2) ->
-      Comparators.intervalsByStartThenEnd().compare(
-          b1.getInterval(),
-          b2.getInterval()
-      );
+  private static final Comparator<Bucket> BUCKET_INTERVAL_COMPARATOR =
+      Comparator.comparing(Bucket::getInterval, Comparators.intervalsByStartThenEnd());
 
-  private final List<Bucket> sortedBuckets;
-  private final List<Interval> intervals;
+  private static final Ordering<DataSegment> SEGMENT_ORDERING = Ordering.from(SEGMENT_INTERVAL_COMPARATOR);
+  private static final Ordering<Bucket> BUCKET_ORDERING = Ordering.from(BUCKET_INTERVAL_COMPARATOR);
 
-  public SegmentCostCache(List<Bucket> sortedBuckets)
+  private final ArrayList<Bucket> sortedBuckets;
+  private final ArrayList<Interval> intervals;
+
+  public SegmentsCostCache(ArrayList<Bucket> sortedBuckets)
   {
     this.sortedBuckets = Preconditions.checkNotNull(sortedBuckets, "buckets should not be null");
     this.intervals = sortedBuckets.stream().map(Bucket::getInterval).collect(Collectors.toCollection(ArrayList::new));
     Preconditions.checkArgument(
-        Ordering.from(BUCKET_INTERVAL_COMPARATOR).isOrdered(sortedBuckets),
+        BUCKET_ORDERING.isOrdered(sortedBuckets),
         "buckets must be ordered by interval"
     );
   }
@@ -78,8 +75,7 @@ public class SegmentCostCache
     int index = Collections.binarySearch(intervals, segment.getInterval(), Comparators.intervalsByStartThenEnd());
     index = (index >= 0) ? index : -index - 1;
 
-    ListIterator<Bucket> it = sortedBuckets.listIterator(index);
-    while (it.hasNext()) {
+    for (ListIterator<Bucket> it = sortedBuckets.listIterator(index); it.hasNext(); ) {
       Bucket bucket = it.next();
       if (!bucket.inCalculationInterval(segment)) {
         break;
@@ -87,8 +83,7 @@ public class SegmentCostCache
       cost += bucket.cost(segment);
     }
 
-    it = sortedBuckets.listIterator(index);
-    while (it.hasPrevious()) {
+    for (ListIterator<Bucket> it = sortedBuckets.listIterator(index); it.hasPrevious(); ) {
       Bucket bucket = it.previous();
       if (!bucket.inCalculationInterval(segment)) {
         break;
@@ -108,32 +103,31 @@ public class SegmentCostCache
   {
     private NavigableMap<Interval, Bucket.Builder> buckets = new TreeMap<>(Comparators.intervalsByStartThenEnd());
 
-    public void addSegment(DataSegment segment)
+    public Builder addSegment(DataSegment segment)
     {
       Bucket.Builder builder = buckets.computeIfAbsent(toBucketInterval(segment), Bucket::builder);
       builder.addSegment(segment);
+      return this;
     }
 
-    public void removeSegement(DataSegment segment)
+    public Builder removeSegement(DataSegment segment)
     {
       Interval interval = toBucketInterval(segment);
-      Bucket.Builder builder = buckets.get(interval);
-      if (builder != null) {
-        builder.removeSegment(segment);
-        if (builder.size() == 0) {
-          buckets.remove(interval);
-        }
-      }
+      buckets.computeIfPresent(
+          interval,
+          (i, builder) -> builder.removeSegment(segment).isEmpty() ? null : builder
+      );
+      return this;
     }
 
-    public int size()
+    public boolean isEmpty()
     {
-      return buckets.size();
+      return buckets.isEmpty();
     }
 
-    public SegmentCostCache build()
+    public SegmentsCostCache build()
     {
-      return new SegmentCostCache(
+      return new SegmentsCostCache(
           buckets
               .entrySet()
               .stream()
@@ -144,7 +138,7 @@ public class SegmentCostCache
 
     private Interval toBucketInterval(DataSegment segment)
     {
-      long start = segment.getInterval().getStartMillis() - (segment.getInterval().getStartMillis() / BUCKET_INTERVAL);
+      long start = segment.getInterval().getStartMillis() - (segment.getInterval().getStartMillis() % BUCKET_INTERVAL);
       return new Interval(start, start + BUCKET_INTERVAL);
     }
   }
@@ -163,7 +157,7 @@ public class SegmentCostCache
       this.leftSum = Preconditions.checkNotNull(leftSum, "leftSum");
       this.rightSum = Preconditions.checkNotNull(rightSum, "rightSum");
       Preconditions.checkArgument(sortedSegments.size() == leftSum.length && sortedSegments.size() == rightSum.length);
-      Preconditions.checkArgument(Ordering.from(SEGMENT_INTERVAL_COMPARATOR).isOrdered(sortedSegments));
+      Preconditions.checkArgument(SEGMENT_ORDERING.isOrdered(sortedSegments));
     }
 
     public Interval getInterval()
@@ -173,8 +167,8 @@ public class SegmentCostCache
 
     public boolean inCalculationInterval(DataSegment dataSegment)
     {
-      return Math.abs(dataSegment.getInterval().getStartMillis() - interval.getStartMillis()) < LIFE_THRESHOLD
-             && Math.abs(dataSegment.getInterval().getEndMillis() - interval.getStartMillis()) < LIFE_THRESHOLD;
+      return (dataSegment.getInterval().getStartMillis() - interval.getEndMillis() < LIFE_THRESHOLD)
+             && (interval.getStartMillis() - dataSegment.getInterval().getEndMillis() < LIFE_THRESHOLD);
     }
 
     public double cost(DataSegment dataSegment)
@@ -194,7 +188,8 @@ public class SegmentCostCache
 
       // add to cost all left-overlapping segments
       int leftIndex = index - 1;
-      while (leftIndex >= 0 && sortedSegments.get(leftIndex).getInterval().overlaps(dataSegment.getInterval())) {
+      while (leftIndex >= 0
+             && sortedSegments.get(leftIndex).getInterval().overlaps(dataSegment.getInterval())) {
         double start = convertStart(sortedSegments.get(leftIndex), interval);
         double end = convertEnd(sortedSegments.get(leftIndex), interval);
         cost += CostBalancerStrategy.intervalCost(end - start, t0 - start, t1 - start);
@@ -244,24 +239,50 @@ public class SegmentCostCache
     static class Builder
     {
       private final Interval interval;
-      private final LinkedList<DataSegment> dataSegments = new LinkedList<>();
-      private final SumList leftSum = new SumList(false);
-      private final SumList rightSum = new SumList(true);
+      private final NavigableSet<ValueAndSegment> segments = new TreeSet<>();
 
       public Builder(Interval interval)
       {
         this.interval = interval;
       }
 
-      public void addSegment(DataSegment dataSegment)
+      public Builder addSegment(DataSegment dataSegment)
       {
         if (!interval.contains(dataSegment.getInterval().getStartMillis())) {
           throw new ISE("Failed to add segment to bucket: interval is not covered by this bucket");
         }
-        int index = Collections.binarySearch(dataSegments, dataSegment, SEGMENT_INTERVAL_COMPARATOR);
-        index = (index >= 0) ? index : -index - 1;
+        double t0 = convertStart(dataSegment, interval);
+        double t1 = convertEnd(dataSegment, interval);
 
-        dataSegments.add(index, dataSegment);
+        double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
+        double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
+
+        ValueAndSegment valueAndSegment = new ValueAndSegment(dataSegment, leftValue, rightValue);
+
+        segments.tailSet(valueAndSegment).forEach(v -> v.leftValue += leftValue);
+        segments.headSet(valueAndSegment).forEach(v -> v.rightValue += rightValue);
+
+        ValueAndSegment lower = segments.lower(valueAndSegment);
+        if (lower != null) {
+          valueAndSegment.leftValue += lower.leftValue;
+        }
+
+        ValueAndSegment higher = segments.higher(valueAndSegment);
+        if (higher != null) {
+          valueAndSegment.rightValue += higher.rightValue;
+        }
+
+        segments.add(valueAndSegment);
+        return this;
+      }
+
+      public Builder removeSegment(DataSegment dataSegment)
+      {
+        ValueAndSegment valueAndSegment = new ValueAndSegment(dataSegment, 0.0, 0.0);
+
+        if (!segments.remove(valueAndSegment)) {
+          return this;
+        }
 
         double t0 = convertStart(dataSegment, interval);
         double t1 = convertEnd(dataSegment, interval);
@@ -269,111 +290,60 @@ public class SegmentCostCache
         double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
         double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
 
-        leftSum.add(index, leftValue);
-        rightSum.add(index, rightValue);
+        segments.tailSet(valueAndSegment).forEach(v -> v.leftValue -= leftValue);
+        segments.headSet(valueAndSegment).forEach(v -> v.rightValue -= rightValue);
+        return this;
       }
 
-      public void removeSegment(DataSegment dataSegment)
+      public boolean isEmpty()
       {
-        int index = -1;
-        ListIterator<DataSegment> it = dataSegments.listIterator();
-        while (it.hasNext()) {
-          DataSegment value = it.next();
-          ++index;
-          if (value.getIdentifier().equals(dataSegment.getIdentifier())) {
-            it.remove();
-            break;
-          }
-        }
-
-        if (index < 0) {
-          throw new ISE("Failed to remove segment from bucket: segment not found");
-        }
-
-        double t0 = convertStart(dataSegment, interval);
-        double t1 = convertEnd(dataSegment, interval);
-
-        double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
-        double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
-
-        leftSum.remove(index, leftValue);
-        rightSum.remove(index, rightValue);
-      }
-
-      public int size()
-      {
-        return dataSegments.size();
+        return segments.isEmpty();
       }
 
       public Bucket build()
       {
+        ArrayList<DataSegment> segmentsList = new ArrayList<>(segments.size());
+        double[] leftSum = new double[segments.size()];
+        double[] rightSum = new double[segments.size()];
+
+        int i = 0;
+        for (ValueAndSegment valueAndSegment : segments) {
+          segmentsList.add(i, valueAndSegment.dataSegment);
+          leftSum[i] = valueAndSegment.leftValue;
+          rightSum[i] = valueAndSegment.rightValue;
+          ++i;
+        }
         return new Bucket(
             new Interval(
                 interval.getStartMillis(),
-                dataSegments.getLast().getInterval().getEndMillis()
+                segmentsList.get(segments.size() - 1).getInterval().getEndMillis()
             ),
-            new ArrayList<>(dataSegments),
-            leftSum.getElements().stream().mapToDouble(Double::doubleValue).toArray(),
-            rightSum.getElements().stream().mapToDouble(Double::doubleValue).toArray()
+            segmentsList,
+            leftSum,
+            rightSum
         );
       }
     }
   }
 
-  static class SumList
+  static class ValueAndSegment implements Comparable<ValueAndSegment>
   {
-    private final LinkedList<Double> elements = new LinkedList<>();
-    private final boolean reverse;
+    private final DataSegment dataSegment;
+    private double leftValue;
+    private double rightValue;
 
-    public SumList(boolean reverse)
+    public ValueAndSegment(DataSegment dataSegment, double leftValue, double rightValue)
     {
-      this.reverse = reverse;
+      this.dataSegment = dataSegment;
+      this.leftValue = leftValue;
+      this.rightValue = rightValue;
     }
 
-    public LinkedList<Double> getElements()
+    @Override
+    public int compareTo(ValueAndSegment o)
     {
-      return elements;
-    }
-
-    public void add(int index, double value)
-    {
-      if (reverse) {
-        updateInternal(elements.listIterator(index), value, false);
-        if (index < elements.size()) {
-          value += elements.get(index);
-        }
-      } else {
-        updateInternal(elements.listIterator(index), value, true);
-        if (index > 0) {
-          value += elements.get(index - 1);
-        }
-      }
-      elements.add(index, value);
-    }
-
-    public void remove(int index, double value)
-    {
-      if (reverse) {
-        updateInternal(elements.listIterator(index), -value, false);
-      } else {
-        updateInternal(elements.listIterator(index), -value, true);
-      }
-      elements.remove(index);
-    }
-
-    private void updateInternal(ListIterator<Double> it, double value, boolean upfront)
-    {
-      if (upfront) {
-        while (it.hasNext()) {
-          double current = it.next();
-          it.set(current + value);
-        }
-      } else {
-        while (it.hasPrevious()) {
-          double current = it.previous();
-          it.set(current + value);
-        }
-      }
+      int c = Comparators.intervalsByStartThenEnd().compare(dataSegment.getInterval(), o.dataSegment.getInterval());
+      return (c != 0) ? c : dataSegment.compareTo(o.dataSegment);
     }
   }
 }

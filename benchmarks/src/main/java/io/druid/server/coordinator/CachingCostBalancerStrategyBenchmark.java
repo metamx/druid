@@ -19,7 +19,7 @@
 
 package io.druid.server.coordinator;
 
-import io.druid.server.coordinator.cost.SegmentCostCache;
+import io.druid.server.coordinator.cost.SegmentsCostCache;
 import io.druid.timeline.DataSegment;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
@@ -48,24 +48,26 @@ public class CachingCostBalancerStrategyBenchmark
   private static final int NUMBER_OF_SEGMENTS = 100000;
   private static final int NUMBER_OF_QUERIES = 500;
 
+  private static final long DAYS_IN_MONTH = 30;
+
   private final DateTime referenceTime = new DateTime("2014-01-01T00:00:00");
   private final List<DataSegment> segments = new ArrayList<>();
   private final List<DataSegment> segmentQueries = new ArrayList<>();
   private final int seed = ThreadLocalRandom.current().nextInt();
 
-  private SegmentCostCache segmentCostCache;
+  private SegmentsCostCache segmentsCostCache;
 
   @Setup
   public void createSegments()
   {
     Random random = new Random(seed);
-    SegmentCostCache.Builder prototype = SegmentCostCache.builder();
+    SegmentsCostCache.Builder prototype = SegmentsCostCache.builder();
     for (int i = 0; i < NUMBER_OF_SEGMENTS; ++i) {
-      DataSegment segment = createSegment(random.nextInt(30 * 24));
+      DataSegment segment = createSegment(random.nextInt((int)TimeUnit.DAYS.toHours(DAYS_IN_MONTH)));
       segments.add(segment);
       prototype.addSegment(segment);
     }
-    segmentCostCache = prototype.build();
+    segmentsCostCache = prototype.build();
     for (int i = 0; i < NUMBER_OF_QUERIES; ++i) {
       DataSegment segment = createSegment(random.nextInt(30 * 24));
       segmentQueries.add(segment);
@@ -89,7 +91,7 @@ public class CachingCostBalancerStrategyBenchmark
   {
     double cost = 0.0;
     for (DataSegment segment : segmentQueries) {
-      cost += segmentCostCache.cost(segment);
+      cost += segmentsCostCache.cost(segment);
     }
     return cost;
   }

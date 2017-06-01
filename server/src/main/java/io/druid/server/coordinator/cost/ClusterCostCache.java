@@ -58,10 +58,10 @@ public class ClusterCostCache
 
     public void removeSegment(String serverName, DataSegment dataSegment)
     {
-      ServerCostCache.Builder builder = serversCostCache.get(serverName);
-      if (builder != null) {
-        builder.removeSegment(dataSegment);
-      }
+      serversCostCache.computeIfPresent(
+          serverName,
+          (s, builder) -> builder.removeSegment(dataSegment).isEmpty() ? null : builder
+      );
     }
 
     public void removeServer(String serverName)

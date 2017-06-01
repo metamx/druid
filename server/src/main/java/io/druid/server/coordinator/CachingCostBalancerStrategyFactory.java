@@ -53,7 +53,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   private final AtomicBoolean started = new AtomicBoolean(false);
   private final AtomicReference<ExecutorService> executorRef = new AtomicReference<>(null);
   private volatile boolean initialized = false;
-  private ClusterCostCache.Builder clusterCostCacheBuilder = ClusterCostCache.builder();
+  private ClusterCostCache.Builder clusterCostCacheBuilder;
 
   @Inject
   public CachingCostBalancerStrategyFactory(ServerInventoryView serverInventoryView)
@@ -96,6 +96,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
           public ServerView.CallbackAction segmentViewInitialized()
           {
             initialized = true;
+            clusterCostCacheBuilder = ClusterCostCache.builder();
             return ServerView.CallbackAction.CONTINUE;
           }
         }
@@ -117,36 +118,42 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
       throw new ISE("CachingCostBalancerStrategyFactory is not started");
     }
     executorRef.get().shutdownNow();
+    executorRef.set(null);
   }
 
   @Override
   public BalancerStrategy createBalancerStrategy(final ListeningExecutorService exec)
   {
-    if (!initialized) {
-      // fallback to CostBalancerStrategy if it's not yet possible to create valid cluster cost cache
-      return new CostBalancerStrategy(exec);
-    }
-    try {
-      CompletableFuture<CachingCostBalancerStrategy> future = CompletableFuture.supplyAsync(
-          () -> new CachingCostBalancerStrategy(clusterCostCacheBuilder.build(), exec),
-          executorRef.get()
-      );
+    if (initialized) {
       try {
-        return future.get(1, TimeUnit.SECONDS);
+        CompletableFuture<CachingCostBalancerStrategy> future = CompletableFuture.supplyAsync(
+            () -> new CachingCostBalancerStrategy(clusterCostCacheBuilder.build(), exec),
+            executorRef.get()
+        );
+        try {
+          return future.get(1, TimeUnit.SECONDS);
+        }
+        catch (CancellationException e) {
+          log.error("CachingCostBalancerStrategy creation has been cancelled");
+        }
+        catch (ExecutionException e) {
+          log.error(e, "Failed to create CachingCostBalancerStrategy");
+        }
+        catch (TimeoutException e) {
+          log.error("CachingCostBalancerStrategy creation took more than 1 second!");
+        }
+        catch (InterruptedException e) {
+          log.error("CachingCostBalancerStrategy creation has been interrupted");
+          Thread.currentThread().interrupt();
+        }
       }
-      catch (CancellationException e) {
-        log.warn("CachingCostBalancerStrategy creation has been cancelled, fallback to CostBalancerStrategy");
-      } catch (ExecutionException e) {
-        log.warn(e, "Failed to create CachingCostBalancerStrategy, fallback to CostBalancerStrategy");
-      } catch (TimeoutException e) {
-        log.error("CachingCostBalancerStrategy creation took more than 1 second! Fallback to CostBalancerStrategy");
-      } catch (InterruptedException e) {
-        log.warn("CachingCostBalancerStrategy creation has been interrupted, fallback to CostBalancerStrategy");
-        Thread.currentThread().interrupt();
+      catch (RejectedExecutionException e) {
+        log.error("CachingCostBalancerStrategy creation has been rejected");
       }
-    } catch (RejectedExecutionException e) {
-      log.warn("CachingCostBalancerStrategy creation has been rejected, fallback to CostBalancerStrategy");
+    } else {
+      log.error("CachingCostBalancerStrategy could not be created as serverView is not initialized yet");
     }
+    log.info("Fallback to CostBalancerStrategy");
     return new CostBalancerStrategy(exec);
   }
 }

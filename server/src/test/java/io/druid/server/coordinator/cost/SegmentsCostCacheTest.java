@@ -22,58 +22,50 @@ package io.druid.server.coordinator.cost;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.druid.timeline.DataSegment;
-import org.easymock.EasyMock;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
-import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 
-public class SegmentCostCacheTest
+public class SegmentsCostCacheTest
 {
 
   private static final String DATA_SOURCE = "dataSource";
   private static final DateTime REFERENCE_TIME = new DateTime("2014-01-01T00:00:00");
-  private static final double EPSILON = 0.0000001;
-
-  private SegmentCostCache.Bucket bucketMock;
-
-  @Before
-  public void setUp() throws Exception
-  {
-    bucketMock = EasyMock.createMock(SegmentCostCache.Bucket.class);
-  }
+  private static final double EPSILON = 0.00000001;
 
   @Test
   public void segmentCacheTest()
   {
-    SegmentCostCache.Builder cacheBuilder = SegmentCostCache.builder();
+    SegmentsCostCache.Builder cacheBuilder = SegmentsCostCache.builder();
     cacheBuilder.addSegment(createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100));
-    SegmentCostCache cache = cacheBuilder.build();
-    assertEquals(7.8735899489011E-4,
-                 cache.cost(createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, -2), 100)),
-                 EPSILON
+    SegmentsCostCache cache = cacheBuilder.build();
+    assertEquals(
+        7.8735899489011E-4,
+        cache.cost(createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, -2), 100)),
+        EPSILON
     );
   }
-  
+
   @Test
   public void twoSegmentsCostTest()
   {
     DataSegment segmentA = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100);
     DataSegment segmentB = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, -2), 100);
 
-    SegmentCostCache.Bucket.Builder prototype = SegmentCostCache.Bucket.builder(new Interval(
+    SegmentsCostCache.Bucket.Builder prototype = SegmentsCostCache.Bucket.builder(new Interval(
         REFERENCE_TIME.minusHours(5),
         REFERENCE_TIME.plusHours(5)
     ));
 
     prototype.addSegment(segmentA);
-    SegmentCostCache.Bucket bucket = prototype.build();
+    SegmentsCostCache.Bucket bucket = prototype.build();
 
     double segmentCost = bucket.cost(segmentB);
     assertEquals(7.8735899489011E-4, segmentCost, EPSILON);
@@ -85,13 +77,13 @@ public class SegmentCostCacheTest
     DataSegment segmentA = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100);
     DataSegment segmentB = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100);
 
-    SegmentCostCache.Bucket.Builder prototype = SegmentCostCache.Bucket.builder(new Interval(
+    SegmentsCostCache.Bucket.Builder prototype = SegmentsCostCache.Bucket.builder(new Interval(
         REFERENCE_TIME.minusHours(5),
         REFERENCE_TIME.plusHours(5)
     ));
 
     prototype.addSegment(segmentA);
-    SegmentCostCache.Bucket bucket = prototype.build();
+    SegmentsCostCache.Bucket bucket = prototype.build();
 
     double segmentCost = bucket.cost(segmentB);
     assertEquals(8.26147353873985E-4, segmentCost, EPSILON);
@@ -104,14 +96,14 @@ public class SegmentCostCacheTest
     DataSegment segmentB = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100);
     DataSegment segmentC = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 2), 100);
 
-    SegmentCostCache.Bucket.Builder prototype = SegmentCostCache.Bucket.builder(new Interval(
+    SegmentsCostCache.Bucket.Builder prototype = SegmentsCostCache.Bucket.builder(new Interval(
         REFERENCE_TIME.minusHours(5),
         REFERENCE_TIME.plusHours(5)
     ));
 
     prototype.addSegment(segmentA);
     prototype.addSegment(segmentC);
-    SegmentCostCache.Bucket bucket = prototype.build();
+    SegmentsCostCache.Bucket bucket = prototype.build();
 
     double segmentCost = bucket.cost(segmentB);
 
@@ -123,52 +115,21 @@ public class SegmentCostCacheTest
   {
     List<DataSegment> dataSegments = new ArrayList<>(1000);
     Random random = new Random(1);
-    for (int i=0; i < 1000; ++i) {
+    for (int i = 0; i < 1000; ++i) {
       dataSegments.add(createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, random.nextInt(20)), 100));
     }
 
     DataSegment referenceSegment = createSegment("ANOTHER_DATA_SOURCE", shifted1HInterval(REFERENCE_TIME, 5), 100);
 
-    SegmentCostCache.Bucket.Builder prototype = SegmentCostCache.Bucket.builder(new Interval(
+    SegmentsCostCache.Bucket.Builder prototype = SegmentsCostCache.Bucket.builder(new Interval(
         REFERENCE_TIME.minusHours(1),
         REFERENCE_TIME.plusHours(25)
     ));
     dataSegments.forEach(prototype::addSegment);
-    SegmentCostCache.Bucket bucket = prototype.build();
+    SegmentsCostCache.Bucket bucket = prototype.build();
 
     double cost = bucket.cost(referenceSegment);
     assertEquals(0.7065117101966677, cost, EPSILON);
-  }
-
-
-  @Test
-  public void sumListTest() throws Exception
-  {
-    SegmentCostCache.SumList sumList = new SegmentCostCache.SumList(false);
-    sumList.add(0, 3.0);
-    sumList.add(1, 4.0);
-    sumList.add(2, 1.0);
-    sumList.add(1, 1.0);
-    assertEquals(Lists.newLinkedList(Lists.newArrayList(3.0, 4.0, 8.0, 9.0)), sumList.getElements());
-    sumList.remove(1, 1.0);
-    assertEquals(Lists.newLinkedList(Lists.newArrayList(3.0, 7.0, 8.0)), sumList.getElements());
-    sumList.remove(0, 3.0);
-    assertEquals(Lists.newLinkedList(Lists.newArrayList(4.0, 5.0)), sumList.getElements());
-  }
-
-  @Test
-  public void reverseSumListTest() throws Exception
-  {
-    SegmentCostCache.SumList sumList = new SegmentCostCache.SumList(true);
-    sumList.add(0, 3.0);
-    sumList.add(1, 4.0);
-    sumList.add(2, 1.0);
-    sumList.add(1, 1.0);
-    assertEquals(Lists.newLinkedList(Lists.newArrayList(9.0, 6.0, 5.0, 1.0)), sumList.getElements());
-    sumList.remove(1, 1.0);
-    assertEquals(Lists.newLinkedList(Lists.newArrayList(8.0, 5.0, 1.0)), sumList.getElements());
-    sumList.remove(0, 3.0);
-    assertEquals(Lists.newLinkedList(Lists.newArrayList(5.0, 1.0)), sumList.getElements());
   }
 
   public static Interval shifted1HInterval(DateTime REFERENCE_TIME, int shiftInHours)
@@ -184,7 +145,7 @@ public class SegmentCostCacheTest
     return new DataSegment(
         dataSource,
         interval,
-        "version",
+        UUID.randomUUID().toString(),
         Maps.<String, Object>newConcurrentMap(),
         Lists.<String>newArrayList(),
         Lists.<String>newArrayList(),

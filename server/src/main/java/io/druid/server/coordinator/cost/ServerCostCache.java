@@ -28,12 +28,12 @@ import java.util.stream.Collectors;
 
 public class ServerCostCache
 {
-  private final SegmentCostCache allSegmentsCostCache;
-  private final Map<String, SegmentCostCache> segmentsPerDataSource;
+  private final SegmentsCostCache allSegmentsCostCache;
+  private final Map<String, SegmentsCostCache> segmentsPerDataSource;
 
   public ServerCostCache(
-      SegmentCostCache allSegmentsCostCache,
-      Map<String, SegmentCostCache> segmentsCostPerDataSource
+      SegmentsCostCache allSegmentsCostCache,
+      Map<String, SegmentsCostCache> segmentsCostPerDataSource
   )
   {
     this.allSegmentsCostCache = Preconditions.checkNotNull(allSegmentsCostCache);
@@ -47,7 +47,7 @@ public class ServerCostCache
 
   private double computeDataSourceCost(DataSegment segment)
   {
-    SegmentCostCache costCache = segmentsPerDataSource.get(segment.getDataSource());
+    SegmentsCostCache costCache = segmentsPerDataSource.get(segment.getDataSource());
     return (costCache == null) ? 0.0 : costCache.cost(segment);
   }
 
@@ -56,29 +56,33 @@ public class ServerCostCache
     return new Builder();
   }
 
-
   public static class Builder
   {
-    private final SegmentCostCache.Builder allSegmentsCostCache = SegmentCostCache.builder();
-    private final Map<String, SegmentCostCache.Builder> segmentsPerDataSource = new HashMap<>();
+    private final SegmentsCostCache.Builder allSegmentsCostCache = SegmentsCostCache.builder();
+    private final Map<String, SegmentsCostCache.Builder> segmentsPerDataSource = new HashMap<>();
 
-    public void addSegment(DataSegment dataSegment)
+    public Builder addSegment(DataSegment dataSegment)
     {
       allSegmentsCostCache.addSegment(dataSegment);
-      segmentsPerDataSource.computeIfAbsent(
-          dataSegment.getDataSource(),
-          d -> SegmentCostCache.builder()
-      ).addSegment(dataSegment);
+      segmentsPerDataSource
+          .computeIfAbsent(dataSegment.getDataSource(), d -> SegmentsCostCache.builder())
+          .addSegment(dataSegment);
+      return this;
     }
 
-    public void removeSegment(DataSegment dataSegment)
+    public Builder removeSegment(DataSegment dataSegment)
     {
       allSegmentsCostCache.removeSegement(dataSegment);
-      SegmentCostCache.Builder builder = segmentsPerDataSource.get(dataSegment.getDataSource());
-      builder.removeSegement(dataSegment);
-      if (builder.size() == 0) {
-        segmentsPerDataSource.remove(dataSegment.getDataSource());
-      }
+      segmentsPerDataSource.computeIfPresent(
+          dataSegment.getDataSource(),
+          (ds, builder) -> builder.removeSegement(dataSegment).isEmpty() ? null : builder
+      );
+      return this;
+    }
+
+    public boolean isEmpty()
+    {
+      return allSegmentsCostCache.isEmpty();
     }
 
     public ServerCostCache build()

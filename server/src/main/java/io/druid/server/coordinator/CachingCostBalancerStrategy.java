@@ -36,14 +36,6 @@ public class CachingCostBalancerStrategy extends CostBalancerStrategy
     this.clusterCostCache = Preconditions.checkNotNull(clusterCostCache);
   }
 
-  protected double computeCost(DataSegment proposalSegment, ServerHolder serverHolder)
-  {
-    return clusterCostCache.computeCost(
-        serverHolder.getServer().getName(),
-        proposalSegment
-    );
-  }
-
   @Override
   protected double computeCost(
       DataSegment proposalSegment, ServerHolder server, boolean includeCurrentServer
@@ -61,6 +53,9 @@ public class CachingCostBalancerStrategy extends CostBalancerStrategy
       return Double.POSITIVE_INFINITY;
     }
 
-    return computeCost(proposalSegment, server);
+    return clusterCostCache.computeCost(
+        server.getServer().getName(),
+        proposalSegment
+    );
   }
 }
