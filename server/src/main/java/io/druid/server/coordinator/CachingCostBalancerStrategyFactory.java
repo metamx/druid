@@ -48,7 +48,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   private static final EmittingLogger log = new EmittingLogger(CachingCostBalancerStrategyFactory.class);
 
   private final ServerInventoryView serverInventoryView;
-  private final Object lifecyclyLock = new Object();
+  private final Object lifecycleLock = new Object();
   private volatile boolean started = false;
   private volatile boolean initialized = false;
   private final ExecutorService executor = Execs.singleThreaded("CachingCostBalancerStrategy-executor");
@@ -63,7 +63,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   @LifecycleStart
   public void start()
   {
-    synchronized (lifecyclyLock) {
+    synchronized (lifecycleLock) {
       if (executor.isShutdown()) {
         throw new ISE("CachingCostBalancerStrategyFactory has been stopped");
       }
@@ -117,7 +117,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   @LifecycleStop
   public void stop()
   {
-    synchronized (lifecyclyLock) {
+    synchronized (lifecycleLock) {
       if (executor.isShutdown()) {
         throw new ISE("CachingCostBalancerStrategyFactory has been already stopped");
       }
