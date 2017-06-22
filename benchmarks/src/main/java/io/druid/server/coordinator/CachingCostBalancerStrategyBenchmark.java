@@ -69,7 +69,7 @@ public class CachingCostBalancerStrategyBenchmark
     }
     segmentsCostCache = prototype.build();
     for (int i = 0; i < NUMBER_OF_QUERIES; ++i) {
-      DataSegment segment = createSegment(random.nextInt(30 * 24));
+      DataSegment segment = createSegment(random.nextInt((int)TimeUnit.DAYS.toHours(DAYS_IN_MONTH)));
       segmentQueries.add(segment);
     }
 
