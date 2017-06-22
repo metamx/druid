@@ -41,8 +41,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 @ManageLifecycle
 public class CachingCostBalancerStrategyFactory implements BalancerStrategyFactory
@@ -50,10 +48,11 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   private static final EmittingLogger log = new EmittingLogger(CachingCostBalancerStrategyFactory.class);
 
   private final ServerInventoryView serverInventoryView;
-  private final AtomicBoolean started = new AtomicBoolean(false);
-  private final AtomicReference<ExecutorService> executorRef = new AtomicReference<>(null);
+  private final Object lifecyclyLock = new Object();
+  private volatile boolean started = false;
   private volatile boolean initialized = false;
-  private ClusterCostCache.Builder clusterCostCacheBuilder;
+  private final ExecutorService executor = Execs.singleThreaded("CachingCostBalancerStrategy-executor");
+  private final ClusterCostCache.Builder clusterCostCacheBuilder = ClusterCostCache.builder();
 
   @Inject
   public CachingCostBalancerStrategyFactory(ServerInventoryView serverInventoryView)
@@ -64,71 +63,85 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   @LifecycleStart
   public void start()
   {
-    if (!executorRef.compareAndSet(null, Execs.singleThreaded("CachingCostBalancerStrategy-executor"))) {
-      throw new ISE("CachingCostBalancerStrategyFactory is already started or has been stopped");
+    synchronized (lifecyclyLock) {
+      if (executor.isShutdown()) {
+        throw new ISE("CachingCostBalancerStrategyFactory has been stopped");
+      }
+      if (started) {
+        throw new ISE("CachingCostBalancerStrategyFactory is already started");
+      }
+
+      serverInventoryView.registerSegmentCallback(
+          executor,
+          new ServerView.SegmentCallback()
+          {
+            @Override
+            public ServerView.CallbackAction segmentAdded(
+                DruidServerMetadata server, DataSegment segment
+            )
+            {
+              clusterCostCacheBuilder.addSegment(server.getName(), segment);
+              return ServerView.CallbackAction.CONTINUE;
+            }
+
+            @Override
+            public ServerView.CallbackAction segmentRemoved(
+                DruidServerMetadata server, DataSegment segment
+            )
+            {
+              clusterCostCacheBuilder.removeSegment(server.getName(), segment);
+              return ServerView.CallbackAction.CONTINUE;
+            }
+
+            @Override
+            public ServerView.CallbackAction segmentViewInitialized()
+            {
+              initialized = true;
+              return ServerView.CallbackAction.CONTINUE;
+            }
+          }
+      );
+
+      serverInventoryView.registerServerCallback(
+          executor,
+          server -> {
+            clusterCostCacheBuilder.removeServer(server.getName());
+            return ServerView.CallbackAction.CONTINUE;
+          }
+      );
+
+      started = true;
     }
-    if (!started.compareAndSet(false, true)) {
-      throw new ISE("CachingCostBalancerStrategyFactory is already started");
-    }
-    serverInventoryView.registerSegmentCallback(
-        executorRef.get(),
-        new ServerView.SegmentCallback()
-        {
-          @Override
-          public ServerView.CallbackAction segmentAdded(
-              DruidServerMetadata server, DataSegment segment
-          )
-          {
-            clusterCostCacheBuilder.addSegment(server.getName(), segment);
-            return ServerView.CallbackAction.CONTINUE;
-          }
-
-          @Override
-          public ServerView.CallbackAction segmentRemoved(
-              DruidServerMetadata server, DataSegment segment
-          )
-          {
-            clusterCostCacheBuilder.removeSegment(server.getName(), segment);
-            return ServerView.CallbackAction.CONTINUE;
-          }
-
-          @Override
-          public ServerView.CallbackAction segmentViewInitialized()
-          {
-            initialized = true;
-            clusterCostCacheBuilder = ClusterCostCache.builder();
-            return ServerView.CallbackAction.CONTINUE;
-          }
-        }
-    );
-
-    serverInventoryView.registerServerCallback(
-        executorRef.get(),
-        server -> {
-          clusterCostCacheBuilder.removeServer(server.getName());
-          return ServerView.CallbackAction.CONTINUE;
-        }
-    );
   }
 
   @LifecycleStop
   public void stop()
   {
-    if (!started.compareAndSet(true, false)) {
-      throw new ISE("CachingCostBalancerStrategyFactory is not started");
+    synchronized (lifecyclyLock) {
+      if (executor.isShutdown()) {
+        throw new ISE("CachingCostBalancerStrategyFactory has been already stopped");
+      }
+      if (!started) {
+        throw new ISE("CachingCostBalancerStrategyFactory is not started");
+      }
+      executor.shutdownNow();
     }
-    executorRef.get().shutdownNow();
-    executorRef.set(null);
   }
 
   @Override
   public BalancerStrategy createBalancerStrategy(final ListeningExecutorService exec)
   {
+    if (!started) {
+      throw new ISE("CachingCostBalancerStrategyFactory need to be started");
+    }
+    if (executor.isShutdown()) {
+      throw new ISE("CachingCostBalancerStrategyFactory has been stopped");
+    }
     if (initialized) {
       try {
         CompletableFuture<CachingCostBalancerStrategy> future = CompletableFuture.supplyAsync(
             () -> new CachingCostBalancerStrategy(clusterCostCacheBuilder.build(), exec),
-            executorRef.get()
+            executor
         );
         try {
           return future.get(1, TimeUnit.SECONDS);
