@@ -102,7 +102,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
           }
       );
 
-      serverInventoryView.registerServerCallback(
+      serverInventoryView.registerServerRemovedCallback(
           executor,
           server -> {
             clusterCostCacheBuilder.removeServer(server.getName());

@@ -145,9 +145,9 @@ public class BrokerServerView implements TimelineServerView
         segmentFilter
     );
 
-    baseView.registerServerCallback(
+    baseView.registerServerRemovedCallback(
         exec,
-        new ServerView.ServerCallback()
+        new ServerRemovedCallback()
         {
           @Override
           public ServerView.CallbackAction serverRemoved(DruidServer server)
@@ -307,9 +307,9 @@ public class BrokerServerView implements TimelineServerView
   }
 
   @Override
-  public void registerServerCallback(Executor exec, ServerCallback callback)
+  public void registerServerRemovedCallback(Executor exec, ServerRemovedCallback callback)
   {
-    baseView.registerServerCallback(exec, callback);
+    baseView.registerServerRemovedCallback(exec, callback);
   }
 
   @Override

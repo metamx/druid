@@ -247,9 +247,9 @@ public class DruidSchema extends AbstractSchema
         }
     );
 
-    serverView.registerServerCallback(
+    serverView.registerServerRemovedCallback(
         MoreExecutors.sameThreadExecutor(),
-        new ServerView.ServerCallback()
+        new ServerView.ServerRemovedCallback()
         {
           @Override
           public ServerView.CallbackAction serverRemoved(DruidServer server)
