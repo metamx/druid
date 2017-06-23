@@ -25,6 +25,7 @@ import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.druid.collections.IntList;
+import io.druid.java.util.common.io.Channels;
 import io.druid.java.util.common.StringUtils;
 
 import java.io.IOException;
@@ -121,7 +122,7 @@ public class SerializerUtils
   {
     byte[] nameBytes = StringUtils.toUtf8(name);
     writeInt(out, nameBytes.length);
-    out.write(ByteBuffer.wrap(nameBytes));
+    Channels.writeFully(out, ByteBuffer.wrap(nameBytes));
   }
 
   public String readString(InputStream in) throws IOException
@@ -185,17 +186,22 @@ public class SerializerUtils
     return retVal;
   }
 
+  public static void writeByte(WritableByteChannel out, byte v) throws IOException
+  {
+    Channels.writeFully(out, ByteBuffer.wrap(new byte[] {v}));
+  }
+
   public void writeInt(OutputStream out, int intValue) throws IOException
   {
     out.write(Ints.toByteArray(intValue));
   }
 
-  public void writeInt(WritableByteChannel out, int intValue) throws IOException
+  public static void writeInt(WritableByteChannel out, int intValue) throws IOException
   {
     final ByteBuffer buffer = ByteBuffer.allocate(Ints.BYTES);
     buffer.putInt(intValue);
     buffer.flip();
-    out.write(buffer);
+    Channels.writeFully(out, buffer);
   }
 
   public int readInt(InputStream in) throws IOException
@@ -247,7 +253,7 @@ public class SerializerUtils
     final ByteBuffer buffer = ByteBuffer.allocate(Longs.BYTES);
     buffer.putLong(longValue);
     buffer.flip();
-    out.write(buffer);
+    Channels.writeFully(out, buffer);
   }
 
   public long readLong(InputStream in) throws IOException
@@ -290,7 +296,7 @@ public class SerializerUtils
     final ByteBuffer buffer = ByteBuffer.allocate(Floats.BYTES);
     buffer.putFloat(floatValue);
     buffer.flip();
-    out.write(buffer);
+    Channels.writeFully(out, buffer);
   }
 
   public float readFloat(InputStream in) throws IOException

@@ -20,6 +20,7 @@
 package io.druid.segment.data;
 
 import com.google.common.primitives.Ints;
+import io.druid.java.util.common.io.Channels;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,7 +44,7 @@ public class ByteBufferSerializer<T>
       throws IOException
   {
     byte[] toWrite = strategy.toBytes(obj);
-    channel.write(ByteBuffer.allocate(Ints.BYTES).putInt(0, toWrite.length));
-    channel.write(ByteBuffer.wrap(toWrite));
+    Channels.writeFully(channel, ByteBuffer.allocate(Ints.BYTES).putInt(0, toWrite.length));
+    Channels.writeFully(channel, ByteBuffer.wrap(toWrite));
   }
 }

@@ -21,6 +21,8 @@ package io.druid.segment.data;
 
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
+import io.druid.common.utils.SerializerUtils;
+import io.druid.java.util.common.io.Channels;
 import io.druid.java.util.common.IAE;
 import io.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import it.unimi.dsi.fastutil.ints.IntIterator;
@@ -187,9 +189,10 @@ public class VSizeIndexedInts implements IndexedInts, Comparable<VSizeIndexedInt
 
   public void writeToChannel(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(buffer.remaining())));
-    channel.write(buffer.asReadOnlyBuffer());
+    SerializerUtils.writeByte(channel, VERSION);
+    SerializerUtils.writeByte(channel, (byte) numBytes);
+    SerializerUtils.writeInt(channel, buffer.remaining());
+    Channels.writeFully(channel, buffer.asReadOnlyBuffer());
   }
 
   public static VSizeIndexedInts readFromByteBuffer(ByteBuffer buffer)

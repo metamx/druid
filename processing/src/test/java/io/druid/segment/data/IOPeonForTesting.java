@@ -70,6 +70,6 @@ class IOPeonForTesting implements IOPeon
   @Override
   public File getFile(String filename)
   {
-    return null;
+    throw new UnsupportedOperationException();
   }
 }

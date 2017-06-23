@@ -25,6 +25,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 import io.druid.collections.bitmap.ImmutableBitmap;
 import io.druid.collections.spatial.ImmutableRTree;
+import io.druid.common.utils.SerializerUtils;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.io.smoosh.FileSmoosher;
 import io.druid.java.util.common.io.smoosh.SmooshedFileMapper;
@@ -229,9 +230,9 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
             @Override
             public void write(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
             {
-              channel.write(ByteBuffer.wrap(new byte[]{version.asByte()}));
+              SerializerUtils.writeByte(channel, version.asByte());
               if (version.compareTo(VERSION.COMPRESSED) >= 0) {
-                channel.write(ByteBuffer.wrap(Ints.toByteArray(flags)));
+                SerializerUtils.writeInt(channel, flags);
               }
               if (dictionaryWriter != null) {
                 dictionaryWriter.writeToChannel(channel, smoosher);
@@ -373,9 +374,9 @@ public class DictionaryEncodedColumnPartSerde implements ColumnPartSerde
             @Override
             public void write(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
             {
-              channel.write(ByteBuffer.wrap(new byte[]{version.asByte()}));
+              SerializerUtils.writeByte(channel, version.asByte());
               if (version.compareTo(VERSION.COMPRESSED) >= 0) {
-                channel.write(ByteBuffer.wrap(Ints.toByteArray(flags)));
+                SerializerUtils.writeInt(channel, flags);
               }
 
               if (dictionary != null) {

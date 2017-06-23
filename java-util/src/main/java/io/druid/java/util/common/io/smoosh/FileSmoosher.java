@@ -79,6 +79,9 @@ public class FileSmoosher implements Closeable
 
   private final List<File> outFiles = Lists.newArrayList();
   private final Map<String, Metadata> internalFiles = Maps.newTreeMap();
+
+  private boolean fileSmoosherOpen = true;
+
   // list of files completed writing content using delegated smooshedWriter.
   private List<File> completedFiles = Lists.newArrayList();
   // list of files in process writing content using delegated smooshedWriter.
@@ -154,7 +157,7 @@ public class FileSmoosher implements Closeable
 
     try (SmooshedWriter out = addWithSmooshedWriter(name, size)) {
       for (ByteBuffer buffer : bufferToAdd) {
-        out.write(buffer);
+        io.druid.java.util.common.io.Channels.writeFully(out, buffer);
       }
     }
   }
@@ -235,7 +238,11 @@ public class FileSmoosher implements Closeable
       @Override
       public void close() throws IOException
       {
+        if (!open) {
+          return;
+        }
         open = false;
+
         internalFiles.put(name, new Metadata(currOut.getFileNum(), startOffset, currOut.getCurrOffset()));
         writerCurrentlyInUse = false;
 
@@ -295,6 +302,7 @@ public class FileSmoosher implements Closeable
       private final GatheringByteChannel channel = out.getChannel();
       private final Closer closer = Closer.create();
 
+      private boolean open = true;
       private int currOffset = 0;
 
       {
@@ -305,6 +313,11 @@ public class FileSmoosher implements Closeable
       @Override
       public void close() throws IOException
       {
+        if (!open) {
+          return;
+        }
+        open = false;
+
         closer.close();
         completedFiles.add(tmpFile);
         filesInProcess.remove(tmpFile);
@@ -356,7 +369,7 @@ public class FileSmoosher implements Closeable
       @Override
       public boolean isOpen()
       {
-        return channel.isOpen();
+        return open;
       }
 
     };
@@ -366,6 +379,11 @@ public class FileSmoosher implements Closeable
   @Override
   public void close() throws IOException
   {
+    if (!fileSmoosherOpen) {
+      return;
+    }
+    fileSmoosherOpen = false;
+    
     //book keeping checks on created file.
     if (!completedFiles.isEmpty() || !filesInProcess.isEmpty()) {
       for (File file : completedFiles) {
@@ -425,6 +443,8 @@ public class FileSmoosher implements Closeable
     private final GatheringByteChannel channel;
 
     private final Closer closer = Closer.create();
+
+    private boolean open = true;
     private int currOffset = 0;
 
     Outer(int fileNum, File outFile, int maxLength) throws FileNotFoundException
@@ -489,12 +509,17 @@ public class FileSmoosher implements Closeable
     @Override
     public boolean isOpen()
     {
-      return channel.isOpen();
+      return open;
     }
 
     @Override
     public void close() throws IOException
     {
+      if (!open) {
+        return;
+      }
+      open = false;
+
       closer.close();
       FileSmoosher.LOG.info("Created smoosh file [%s] of size [%s] bytes.", outFile.getAbsolutePath(), outFile.length());
     }

@@ -23,6 +23,7 @@ import com.google.common.io.Files;
 import com.google.common.primitives.Ints;
 import io.druid.java.util.common.BufferUtils;
 import io.druid.java.util.common.ISE;
+import io.druid.java.util.common.io.Channels;
 import junit.framework.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -69,7 +70,7 @@ public class SmooshedFileMapperTest
         Files.write(Ints.toByteArray(i), tmpFile);
         smoosher.add(String.format("%d", i), tmpFile);
         if (i == 10) {
-          writer.write(ByteBuffer.wrap(Ints.toByteArray(19)));
+          Channels.writeFully(writer, ByteBuffer.wrap(Ints.toByteArray(19)));
           writer.close();
         }
         tmpFile.delete();
@@ -86,7 +87,7 @@ public class SmooshedFileMapperTest
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       for (int i = 0; i < 19; ++i) {
         final SmooshedWriter writer = smoosher.addWithSmooshedWriter(String.format("%d", i), 4);
-        writer.write(ByteBuffer.wrap(Ints.toByteArray(i)));
+        Channels.writeFully(writer, ByteBuffer.wrap(Ints.toByteArray(i)));
       }
     }
   }
@@ -98,7 +99,7 @@ public class SmooshedFileMapperTest
 
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       final SmooshedWriter writer = smoosher.addWithSmooshedWriter(String.format("%d", 19), 4);
-      writer.write(ByteBuffer.wrap(Ints.toByteArray(19)));
+      Channels.writeFully(writer, ByteBuffer.wrap(Ints.toByteArray(19)));
 
       for (int i = 0; i < 19; ++i) {
         File tmpFile = File.createTempFile(String.format("smoosh-%s", i), ".bin");
@@ -119,7 +120,7 @@ public class SmooshedFileMapperTest
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       for (int i = 0; i < 20; ++i) {
         final SmooshedWriter writer = smoosher.addWithSmooshedWriter(String.format("%d", i), 7);
-        writer.write(ByteBuffer.wrap(Ints.toByteArray(i)));
+        Channels.writeFully(writer, ByteBuffer.wrap(Ints.toByteArray(i)));
         try {
           writer.close();
           Assert.fail("IOException expected");
@@ -159,7 +160,7 @@ public class SmooshedFileMapperTest
     try (FileSmoosher smoosher = new FileSmoosher(baseDir, 21)) {
       boolean exceptionThrown = false;
       try (final SmooshedWriter writer = smoosher.addWithSmooshedWriter("1", 2)) {
-        writer.write(ByteBuffer.wrap(Ints.toByteArray(1)));
+        Channels.writeFully(writer, ByteBuffer.wrap(Ints.toByteArray(1)));
       }
       catch (ISE e) {
         Assert.assertTrue(e.getMessage().contains("Liar!!!"));

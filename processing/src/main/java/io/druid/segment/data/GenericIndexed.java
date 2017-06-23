@@ -21,6 +21,7 @@ package io.druid.segment.data;
 
 import com.google.common.primitives.Ints;
 import io.druid.common.utils.SerializerUtils;
+import io.druid.java.util.common.io.Channels;
 import io.druid.io.ZeroCopyByteArrayOutputStream;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.StringUtils;
@@ -554,13 +555,11 @@ public class GenericIndexed<T> implements Indexed<T>
 
   private void writeToChannelVersionOne(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{
-        VERSION_ONE,
-        allowReverseLookup ? REVERSE_LOOKUP_ALLOWED : REVERSE_LOOKUP_DISALLOWED
-    }));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(theBuffer.remaining() + Ints.BYTES)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(size)));
-    channel.write(theBuffer.asReadOnlyBuffer());
+    SerializerUtils.writeByte(channel, VERSION_ONE);
+    SerializerUtils.writeByte(channel, allowReverseLookup ? REVERSE_LOOKUP_ALLOWED : REVERSE_LOOKUP_DISALLOWED);
+    SerializerUtils.writeInt(channel, theBuffer.remaining() + Ints.BYTES);
+    SerializerUtils.writeInt(channel, size);
+    Channels.writeFully(channel, theBuffer.asReadOnlyBuffer());
   }
 
 

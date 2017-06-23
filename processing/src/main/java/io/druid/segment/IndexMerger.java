@@ -50,6 +50,7 @@ import io.druid.java.util.common.guava.Comparators;
 import io.druid.java.util.common.guava.FunctionalIterable;
 import io.druid.java.util.common.guava.MergeIterable;
 import io.druid.java.util.common.guava.nary.BinaryFn;
+import io.druid.java.util.common.io.Channels;
 import io.druid.java.util.common.io.Closer;
 import io.druid.java.util.common.io.smoosh.Smoosh;
 import io.druid.java.util.common.logger.Logger;
@@ -634,7 +635,7 @@ public class IndexMerger
 
       try (FileOutputStream fileOutputStream = new FileOutputStream(indexFile);
            FileChannel channel = fileOutputStream.getChannel()) {
-        channel.write(ByteBuffer.wrap(new byte[]{IndexIO.V8_VERSION}));
+        SerializerUtils.writeByte(channel, IndexIO.V8_VERSION);
 
         GenericIndexed.fromIterable(mergedDimensions, GenericIndexed.STRING_STRATEGY).writeToChannel(channel);
         GenericIndexed.fromIterable(mergedMetrics, GenericIndexed.STRING_STRATEGY).writeToChannel(channel);
@@ -782,8 +783,7 @@ public class IndexMerger
 
       final File timeFile = IndexIO.makeTimeFile(v8OutDir, IndexIO.BYTE_ORDER);
       timeFile.delete();
-      ByteSink out = Files.asByteSink(timeFile, FileWriteMode.APPEND);
-      timeWriter.closeAndConsolidate(out);
+      timeWriter.closeAndConsolidate(Files.asByteSink(timeFile, FileWriteMode.APPEND));
       IndexIO.checkFileSize(timeFile);
 
       for (MetricColumnSerializer metWriter : metWriters) {
@@ -802,7 +802,7 @@ public class IndexMerger
 
       final File invertedFile = new File(v8OutDir, "inverted.drd");
       Files.touch(invertedFile);
-      out = Files.asByteSink(invertedFile, FileWriteMode.APPEND);
+      ByteSink insertedFileOut = Files.asByteSink(invertedFile, FileWriteMode.APPEND);
 
       final File geoFile = new File(v8OutDir, "spatial.drd");
       Files.touch(geoFile);
@@ -811,7 +811,7 @@ public class IndexMerger
       for (int i = 0; i < mergedDimensions.size(); i++) {
         DimensionMergerLegacy legacyMerger = (DimensionMergerLegacy) mergers.get(i);
         legacyMerger.writeIndexes(rowNumConversions, closer);
-        legacyMerger.writeIndexesToFiles(out, spatialOut);
+        legacyMerger.writeIndexesToFiles(insertedFileOut, spatialOut);
         legacyMerger.writeRowValuesToFile(dimOuts.get(i));
       }
       log.info("outDir[%s] completed inverted.drd and wrote dimensions in %,d millis.", v8OutDir, System.currentTimeMillis() - startTime);
@@ -1039,7 +1039,7 @@ public class IndexMerger
     File indexFile = new File(inDir, "index.drd");
 
     try (FileChannel channel = new FileOutputStream(indexFile).getChannel()) {
-      channel.write(ByteBuffer.wrap(new byte[]{versionId}));
+      SerializerUtils.writeByte(channel, versionId);
 
       availableDimensions.writeToChannel(channel);
       availableMetrics.writeToChannel(channel);
@@ -1259,9 +1259,7 @@ public class IndexMerger
          FileChannel metadataFilechannel = metadataFileOutputStream.getChannel()
     ) {
       byte[] metadataBytes = mapper.writeValueAsBytes(metadata);
-      if (metadataBytes.length != metadataFilechannel.write(ByteBuffer.wrap(metadataBytes))) {
-        throw new IOException("Failed to write metadata for file");
-      }
+      Channels.writeFully(metadataFilechannel, ByteBuffer.wrap(metadataBytes));
     }
     IndexIO.checkFileSize(metadataFile);
   }

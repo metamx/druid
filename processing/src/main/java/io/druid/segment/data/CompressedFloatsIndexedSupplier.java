@@ -20,7 +20,8 @@
 package io.druid.segment.data;
 
 import com.google.common.base.Supplier;
-import com.google.common.primitives.Ints;
+import io.druid.common.utils.SerializerUtils;
+import io.druid.java.util.common.io.Channels;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 
@@ -73,11 +74,11 @@ public class CompressedFloatsIndexedSupplier implements Supplier<IndexedFloats>
 
   public void writeToChannel(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(totalSize)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(sizePer)));
-    channel.write(ByteBuffer.wrap(new byte[]{compression.getId()}));
-    channel.write(buffer.asReadOnlyBuffer());
+    SerializerUtils.writeByte(channel, version);
+    SerializerUtils.writeInt(channel, totalSize);
+    SerializerUtils.writeInt(channel, sizePer);
+    SerializerUtils.writeByte(channel, compression.getId());
+    Channels.writeFully(channel, buffer.asReadOnlyBuffer());
   }
 
   public static CompressedFloatsIndexedSupplier fromByteBuffer(

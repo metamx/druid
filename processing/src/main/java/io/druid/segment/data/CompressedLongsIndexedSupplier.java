@@ -20,7 +20,8 @@
 package io.druid.segment.data;
 
 import com.google.common.base.Supplier;
-import com.google.common.primitives.Ints;
+import io.druid.common.utils.SerializerUtils;
+import io.druid.java.util.common.io.Channels;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 
@@ -79,16 +80,16 @@ public class CompressedLongsIndexedSupplier implements Supplier<IndexedLongs>
 
   public void writeToChannel(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(totalSize)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(sizePer)));
+    SerializerUtils.writeByte(channel, version);
+    SerializerUtils.writeInt(channel, totalSize);
+    SerializerUtils.writeInt(channel, sizePer);
     if (encoding == CompressionFactory.LEGACY_LONG_ENCODING_FORMAT) {
-      channel.write(ByteBuffer.wrap(new byte[]{compression.getId()}));
+      SerializerUtils.writeByte(channel, compression.getId());
     } else {
-      channel.write(ByteBuffer.wrap(new byte[]{CompressionFactory.setEncodingFlag(compression.getId())}));
-      channel.write(ByteBuffer.wrap(new byte[]{encoding.getId()}));
+      SerializerUtils.writeByte(channel, compression.getId());
+      SerializerUtils.writeByte(channel, encoding.getId());
     }
-    channel.write(buffer.asReadOnlyBuffer());
+    Channels.writeFully(channel, buffer.asReadOnlyBuffer());
   }
 
   public static CompressedLongsIndexedSupplier fromByteBuffer(

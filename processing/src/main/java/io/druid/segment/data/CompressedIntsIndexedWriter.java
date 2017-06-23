@@ -22,11 +22,11 @@ package io.druid.segment.data;
 import com.google.common.primitives.Ints;
 import io.druid.collections.ResourceHolder;
 import io.druid.collections.StupidResourceHolder;
+import io.druid.common.utils.SerializerUtils;
 import io.druid.java.util.common.io.smoosh.FileSmoosher;
 import io.druid.segment.IndexIO;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.IntBuffer;
 import java.nio.channels.WritableByteChannel;
@@ -132,10 +132,10 @@ public class CompressedIntsIndexedWriter extends SingleValueIndexedIntsWriter
   @Override
   public void writeToChannel(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(numInserted)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(chunkFactor)));
-    channel.write(ByteBuffer.wrap(new byte[]{compression.getId()}));
+    SerializerUtils.writeByte(channel, VERSION);
+    SerializerUtils.writeInt(channel, numInserted);
+    SerializerUtils.writeInt(channel, chunkFactor);
+    SerializerUtils.writeByte(channel, compression.getId());
     flattener.writeToChannel(channel, smoosher);
   }
 }

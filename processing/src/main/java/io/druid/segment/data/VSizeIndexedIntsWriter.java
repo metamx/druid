@@ -22,6 +22,7 @@ package io.druid.segment.data;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CountingOutputStream;
 import com.google.common.primitives.Ints;
+import io.druid.common.utils.SerializerUtils;
 import io.druid.java.util.common.io.smoosh.FileSmoosher;
 
 import java.io.IOException;
@@ -88,8 +89,9 @@ public class VSizeIndexedIntsWriter extends SingleValueIndexedIntsWriter
   public void writeToChannel(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
   {
     long numBytesWritten = valuesOut.getCount();
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray((int) numBytesWritten)));
+    SerializerUtils.writeByte(channel, VERSION);
+    SerializerUtils.writeByte(channel, (byte) numBytes);
+    SerializerUtils.writeInt(channel, Ints.checkedCast(numBytesWritten));
     try (final ReadableByteChannel from = Channels.newChannel(ioPeon.makeInputStream(valueFileName))) {
       ByteStreams.copy(from, channel);
     }

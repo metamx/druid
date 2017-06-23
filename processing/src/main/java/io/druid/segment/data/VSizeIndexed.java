@@ -21,6 +21,7 @@ package io.druid.segment.data;
 
 import com.google.common.primitives.Ints;
 import io.druid.common.utils.SerializerUtils;
+import io.druid.java.util.common.io.Channels;
 import io.druid.io.ZeroCopyByteArrayOutputStream;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.ISE;
@@ -156,10 +157,11 @@ public class VSizeIndexed implements IndexedMultivalue<IndexedInts>
 
   public void writeToChannel(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{version, (byte) numBytes}));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(theBuffer.remaining() + 4)));
-    channel.write(ByteBuffer.wrap(Ints.toByteArray(size)));
-    channel.write(theBuffer.asReadOnlyBuffer());
+    SerializerUtils.writeByte(channel, version);
+    SerializerUtils.writeByte(channel, (byte) numBytes);
+    SerializerUtils.writeInt(channel, theBuffer.remaining() + 4);
+    SerializerUtils.writeInt(channel, size);
+    Channels.writeFully(channel, theBuffer.asReadOnlyBuffer());
   }
 
   public static VSizeIndexed readFromByteBuffer(ByteBuffer buffer)

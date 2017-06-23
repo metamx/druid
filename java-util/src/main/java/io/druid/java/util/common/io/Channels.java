@@ -17,33 +17,22 @@
  * under the License.
  */
 
-package io.druid.io;
+package io.druid.java.util.common.io;
 
-import io.druid.java.util.common.io.Channels;
-
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
-public class ZeroCopyByteArrayOutputStream extends ByteArrayOutputStream
+public final class Channels
 {
-  public ZeroCopyByteArrayOutputStream()
+  public static void writeFully(WritableByteChannel dst, ByteBuffer src) throws IOException
   {
+    while (src.remaining() > 0) {
+      dst.write(src);
+    }
   }
 
-  public ZeroCopyByteArrayOutputStream(int capacity)
+  private Channels()
   {
-    super(capacity);
-  }
-
-  public void writeTo(ByteBuffer outputBuffer)
-  {
-    outputBuffer.put(buf, 0, count);
-  }
-
-  public void writeTo(WritableByteChannel channel) throws IOException
-  {
-    Channels.writeFully(channel, ByteBuffer.wrap(buf, 0, count));
   }
 }

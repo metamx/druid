@@ -36,7 +36,6 @@ import io.druid.java.util.common.io.smoosh.SmooshedWriter;
 
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -117,7 +116,7 @@ public class GenericIndexedWriter<T> implements Closeable
     while (numBytesToPutInFile > 0) {
       int bytesRead = is.read(buffer, 0, Math.min(buffer.length, Ints.saturatedCast(numBytesToPutInFile)));
       if (bytesRead != -1) {
-        smooshChannel.write((ByteBuffer) holderBuffer.clear().limit(bytesRead));
+        io.druid.java.util.common.io.Channels.writeFully(smooshChannel, (ByteBuffer) holderBuffer.clear().limit(bytesRead));
         numBytesToPutInFile -= bytesRead;
       } else {
         throw new ISE("Could not write [%d] bytes into smooshChannel.", numBytesToPutInFile);
@@ -369,7 +368,7 @@ public class GenericIndexedWriter<T> implements Closeable
       int numberOfFilesRequired = GenericIndexed.getNumberOfFilesRequired(bagSize, numWritten);
       byte[] buffer = new byte[1 << 16];
 
-      try (InputStream is = new FileInputStream(ioPeon.getFile(makeFilename("values")))) {
+      try (InputStream is = ioPeon.makeInputStream(makeFilename("values"))) {
         int counter = -1;
 
         for (int i = 0; i < numberOfFilesRequired; i++) {
@@ -434,7 +433,7 @@ public class GenericIndexedWriter<T> implements Closeable
 
       long numBytesToPutInFile = finalHeaderOut.getCount();
       finalHeaderOut.close();
-      try (InputStream is = new FileInputStream(ioPeon.getFile(makeFilename("header_final")))) {
+      try (InputStream is = ioPeon.makeInputStream(makeFilename("header_final"))) {
         try (SmooshedWriter smooshChannel = smoosher
             .addWithSmooshedWriter(generateHeaderFileName(filenameBase), numBytesToPutInFile)) {
           writeBytesIntoSmooshedChannel(numBytesToPutInFile, buffer, smooshChannel, is);

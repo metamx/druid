@@ -19,6 +19,7 @@
 
 package io.druid.segment;
 
+import io.druid.common.utils.SerializerUtils;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import io.druid.segment.data.CompressedIntsIndexedSupplier;
@@ -131,7 +132,7 @@ public class CompressedVSizeIndexedV3Supplier implements WritableSupplier<Indexe
   @Override
   public void writeToChannel(WritableByteChannel channel) throws IOException
   {
-    channel.write(ByteBuffer.wrap(new byte[]{VERSION}));
+    SerializerUtils.writeByte(channel, VERSION);
     offsetSupplier.writeToChannel(channel);
     valueSupplier.writeToChannel(channel);
   }

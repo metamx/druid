@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSink;
 import io.druid.benchmark.datagen.BenchmarkColumnSchema;
 import io.druid.benchmark.datagen.BenchmarkColumnValueGenerator;
+import io.druid.java.util.common.io.Channels;
 import io.druid.segment.column.ValueType;
 import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
@@ -178,7 +179,7 @@ public class FloatCompressionBenchmarkFileGenerator
                 }
               }
           );
-          output.write(ByteBuffer.wrap(baos.toByteArray()));
+          Channels.writeFully(output, ByteBuffer.wrap(baos.toByteArray()));
         }
         finally {
           iopeon.close();
