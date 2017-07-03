@@ -26,6 +26,7 @@ import com.metamx.emitter.EmittingLogger;
 import io.druid.client.ServerInventoryView;
 import io.druid.client.ServerView;
 import io.druid.concurrent.Execs;
+import io.druid.concurrent.LifecycleLock;
 import io.druid.guice.ManageLifecycle;
 import io.druid.java.util.common.ISE;
 import io.druid.java.util.common.lifecycle.LifecycleStart;
@@ -45,11 +46,10 @@ import java.util.concurrent.TimeoutException;
 @ManageLifecycle
 public class CachingCostBalancerStrategyFactory implements BalancerStrategyFactory
 {
-  private static final EmittingLogger log = new EmittingLogger(CachingCostBalancerStrategyFactory.class);
+  private static final EmittingLogger LOG = new EmittingLogger(CachingCostBalancerStrategyFactory.class);
 
   private final ServerInventoryView serverInventoryView;
-  private final Object lifecycleLock = new Object();
-  private volatile boolean started = false;
+  private final LifecycleLock lifecycleLock = new LifecycleLock();
   private volatile boolean initialized = false;
   private final ExecutorService executor = Execs.singleThreaded("CachingCostBalancerStrategy-executor");
   private final ClusterCostCache.Builder clusterCostCacheBuilder = ClusterCostCache.builder();
@@ -63,14 +63,10 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   @LifecycleStart
   public void start()
   {
-    synchronized (lifecycleLock) {
-      if (executor.isShutdown()) {
-        throw new ISE("CachingCostBalancerStrategyFactory has been stopped");
-      }
-      if (started) {
-        throw new ISE("CachingCostBalancerStrategyFactory is already started");
-      }
-
+    if (!lifecycleLock.canStart()) {
+      throw new ISE("CachingCostBalancerStrategyFactory can not be started");
+    }
+    try {
       serverInventoryView.registerSegmentCallback(
           executor,
           new ServerView.SegmentCallback()
@@ -110,32 +106,27 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
           }
       );
 
-      started = true;
+      lifecycleLock.started();
+    }
+    finally {
+      lifecycleLock.exitStart();
     }
   }
 
   @LifecycleStop
   public void stop()
   {
-    synchronized (lifecycleLock) {
-      if (executor.isShutdown()) {
-        throw new ISE("CachingCostBalancerStrategyFactory has been already stopped");
-      }
-      if (!started) {
-        throw new ISE("CachingCostBalancerStrategyFactory is not started");
-      }
-      executor.shutdownNow();
+    if (!lifecycleLock.canStop()) {
+      throw new ISE("CachingCostBalancerStrategyFactory can not be stopped");
     }
+    executor.shutdownNow();
   }
 
   @Override
   public BalancerStrategy createBalancerStrategy(final ListeningExecutorService exec)
   {
-    if (!started) {
-      throw new ISE("CachingCostBalancerStrategyFactory need to be started");
-    }
-    if (executor.isShutdown()) {
-      throw new ISE("CachingCostBalancerStrategyFactory has been stopped");
+    if (!lifecycleLock.awaitStarted()) {
+      throw new ISE("CachingCostBalancerStrategyFactory is not started");
     }
     if (initialized) {
       try {
@@ -147,26 +138,26 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
           return future.get(1, TimeUnit.SECONDS);
         }
         catch (CancellationException e) {
-          log.error("CachingCostBalancerStrategy creation has been cancelled");
+          LOG.error("CachingCostBalancerStrategy creation has been cancelled");
         }
         catch (ExecutionException e) {
-          log.error(e, "Failed to create CachingCostBalancerStrategy");
+          LOG.error(e, "Failed to create CachingCostBalancerStrategy");
         }
         catch (TimeoutException e) {
-          log.error("CachingCostBalancerStrategy creation took more than 1 second!");
+          LOG.error("CachingCostBalancerStrategy creation took more than 1 second!");
         }
         catch (InterruptedException e) {
-          log.error("CachingCostBalancerStrategy creation has been interrupted");
+          LOG.error("CachingCostBalancerStrategy creation has been interrupted");
           Thread.currentThread().interrupt();
         }
       }
       catch (RejectedExecutionException e) {
-        log.error("CachingCostBalancerStrategy creation has been rejected");
+        LOG.error("CachingCostBalancerStrategy creation has been rejected");
       }
     } else {
-      log.error("CachingCostBalancerStrategy could not be created as serverView is not initialized yet");
+      LOG.error("CachingCostBalancerStrategy could not be created as serverView is not initialized yet");
     }
-    log.info("Fallback to CostBalancerStrategy");
+    LOG.info("Fallback to CostBalancerStrategy");
     return new CostBalancerStrategy(exec);
   }
 }
