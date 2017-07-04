@@ -40,13 +40,74 @@ import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+/**
+ * SegmentsCostCache provides faster way to calculate cost function proposed in {@link CostBalancerStrategy}.
+ * See https://github.com/druid-io/druid/pull/2972 for more details about the cost function.
+ *
+ * Joint cost for two segments:
+ *
+ *        cost(X, Y) = \int_{x_0}^{x_1} \int_{y_0}^{y_1} e^{-\lambda |x-y|}dxdy
+ * or
+ *        cost(X, Y) = e^{y_0 + y_1} (e^{x_0} - e^{x_1})(e^{y_0} - e^{y_1})  (*)
+ *                                                                          if x_0 <= x_1 <= y_0 <= y_1
+ * (*) lambda coefficient is omitted for simplicity.
+ *
+ * For a group of segments {S_xi}, i = {0, n} total joint cost with segment S_y could be calculated as:
+ *
+ *        cost(X, Y) = \sum cost(X_i, Y) =  e^{y_0 + y_1} (e^{y_0} - e^{y_1}) \sum (e^{xi_0} - e^{xi_1})
+ *                                                                          if xi_0 <= xi_1 <= y_0 <= y_1
+ * and
+ *        cost(X, Y) = \sum cost(X_i, Y) = (e^{y_0} - e^{y_1}) \sum e^{xi_0 + xi_1} (e^{xi_0} - e^{xi_1})
+ *                                                                          if y_0 <= y_1 <= xi_0 <= xi_1
+ *
+ * SegmentsCostCache stores pre-computed sums for a group of segments {S_xi}:
+ *
+ *      1) \sum (e^{xi_0} - e^{xi_1})                      ->  leftSum
+ *      2) \sum e^{xi_0 + xi_1} (e^{xi_0} - e^{xi_1})      ->  rightSum
+ *
+ * so that calculation of joint cost function for segment S_y became a O(1 + m) complexity task, where m
+ * is the number of segments in {S_xi} that overlaps S_y.
+ *
+ * Segments are stored in buckets. Bucket is a subset of segments contained in SegmentsCostCache, so that
+ * startTime of all segments inside a bucket are in the same time interval (with some granularity):
+ *
+ *  |------------------------|--------------------------|-----------------------|--------  ....
+ *  t_0                    t_0+D                     t_0 + 2D                t0 + 3D       ....
+ *      S_x1  S_x2  S_x3          S_x4  S_x5  S_x6          S_x7  S_x8  S_x9
+ *         bucket1                  bucket2                    bucket3
+ *
+ * Reasons to store segments in Buckets:
+ *
+ *     1) Cost function tends to 0 as distance between segments' intervals increasing; buckets
+ *        are used to avoid redundant 0 calculations for thousands of times
+ *     2) To reduce number of calculations when segment is added or removed from SegmentsCostCache
+ *     3) To avoid infinite values during exponents calculations
+ *
+ */
 public class SegmentsCostCache
 {
+  /**
+   * HALF_LIFE defines how fast joint cost function tends to 0 as distance between
+   * segments' intervals increasing
+   */
   private static final double HALF_LIFE = 1.0; // cost function half-life in days
   private static final double LAMBDA = Math.log(2) / HALF_LIFE;
   private static final double MILLIS_FACTOR = TimeUnit.DAYS.toMillis(1) / LAMBDA;
+
+  /**
+   * LIFE_THRESHOLD is used to avoid calculations for segments that are "far"
+   * from each other and thus cost(X,Y) ~ 0 for these segments
+   */
   private static final long LIFE_THRESHOLD = TimeUnit.DAYS.toMillis(30);
+
+  /**
+   * Bucket interval defines duration granularity for segment buckets. Number of buckets control the trade-off
+   * between updates (add/remove segment operation) and joint cost calculation:
+   *        1) updates complexity is increasing when number of buckets is decreasing (as buckets contain more segments)
+   *        2) joint cost calculation complexity is increasing with increasing of buckets number
+   */
   private static final long BUCKET_INTERVAL = TimeUnit.DAYS.toMillis(30);
+  private static final DurationGranularity BUCKET_GRANULARITY = new DurationGranularity(BUCKET_INTERVAL, 0);
 
   private static final Comparator<DataSegment> SEGMENT_INTERVAL_COMPARATOR =
       Comparator.comparing(DataSegment::getInterval, Comparators.intervalsByStartThenEnd());
@@ -56,8 +117,6 @@ public class SegmentsCostCache
 
   private static final Ordering<DataSegment> SEGMENT_ORDERING = Ordering.from(SEGMENT_INTERVAL_COMPARATOR);
   private static final Ordering<Bucket> BUCKET_ORDERING = Ordering.from(BUCKET_INTERVAL_COMPARATOR);
-
-  private static final DurationGranularity BUCKET_GRANULARITY = new DurationGranularity(BUCKET_INTERVAL, 0);
 
   private final ArrayList<Bucket> sortedBuckets;
   private final ArrayList<Interval> intervals;
@@ -181,6 +240,7 @@ public class SegmentsCostCache
     {
       double cost = 0.0;
 
+      // cost is calculated relatively to bucket start (which is considered as 0)
       double t0 = convertStart(dataSegment, interval);
       double t1 = convertEnd(dataSegment, interval);
 
@@ -258,6 +318,8 @@ public class SegmentsCostCache
         if (!interval.contains(dataSegment.getInterval().getStartMillis())) {
           throw new ISE("Failed to add segment to bucket: interval is not covered by this bucket");
         }
+
+        // all values are pre-computed relatively to bucket start (which is considered as 0)
         double t0 = convertStart(dataSegment, interval);
         double t1 = convertEnd(dataSegment, interval);
 
