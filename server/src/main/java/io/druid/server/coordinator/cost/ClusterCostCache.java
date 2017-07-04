@@ -24,6 +24,7 @@ import io.druid.timeline.DataSegment;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ClusterCostCache
@@ -44,6 +45,19 @@ public class ClusterCostCache
   public static Builder builder()
   {
     return new Builder();
+  }
+
+  public static Builder builder(Map<String, Set<DataSegment>> segmentsByServerName)
+  {
+    Builder builder = builder();
+    segmentsByServerName
+        .forEach(
+            (serverName, segments) ->
+                segments.forEach(
+                    segment -> builder.addSegment(serverName, segment)
+                )
+        );
+    return builder;
   }
 
   public static class Builder

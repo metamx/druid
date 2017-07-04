@@ -20,9 +20,12 @@
 package io.druid.server.coordinator;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.druid.server.coordinator.cost.ClusterCostCache;
 import io.druid.timeline.DataSegment;
+
+import java.util.Set;
 
 
 public class CachingCostBalancerStrategy extends CostBalancerStrategy
@@ -53,9 +56,20 @@ public class CachingCostBalancerStrategy extends CostBalancerStrategy
       return Double.POSITIVE_INFINITY;
     }
 
-    return clusterCostCache.computeCost(
-        server.getServer().getName(),
-        proposalSegment
-    );
+    final String serverName = server.getServer().getName();
+
+    double cost = clusterCostCache.computeCost(serverName, proposalSegment);
+
+    // add segments that will be loaded to the cost
+    cost += costCacheForLoadingSegments(server).computeCost(serverName, proposalSegment);
+
+    return cost;
   }
+
+  private ClusterCostCache costCacheForLoadingSegments(ServerHolder server)
+  {
+    final Set<DataSegment> loadingSegments = server.getPeon().getSegmentsToLoad();
+    return ClusterCostCache.builder(ImmutableMap.of(server.getServer().getName(), loadingSegments)).build();
+  }
+
 }
