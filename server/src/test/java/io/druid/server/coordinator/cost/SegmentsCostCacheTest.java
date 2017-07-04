@@ -30,8 +30,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class SegmentsCostCacheTest
 {
@@ -54,6 +57,21 @@ public class SegmentsCostCacheTest
   }
 
   @Test
+  public void notInCalculationIntervalCostTest()
+  {
+    SegmentsCostCache.Builder cacheBuilder = SegmentsCostCache.builder();
+    cacheBuilder.addSegment(
+        createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100)
+    );
+    SegmentsCostCache cache = cacheBuilder.build();
+    assertEquals(
+        0,
+        cache.cost(createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, (int)TimeUnit.DAYS.toHours(50)), 100)),
+        EPSILON
+    );
+  }
+
+  @Test
   public void twoSegmentsCostTest()
   {
     DataSegment segmentA = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100);
@@ -69,6 +87,25 @@ public class SegmentsCostCacheTest
 
     double segmentCost = bucket.cost(segmentB);
     assertEquals(7.8735899489011E-4, segmentCost, EPSILON);
+  }
+
+  @Test
+  public void calculationIntervalTest()
+  {
+    DataSegment segmentA = createSegment(DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, 0), 100);
+    DataSegment segmentB = createSegment(
+        DATA_SOURCE, shifted1HInterval(REFERENCE_TIME, (int)TimeUnit.DAYS.toHours(50)), 100
+    );
+
+    SegmentsCostCache.Bucket.Builder prototype = SegmentsCostCache.Bucket.builder(new Interval(
+        REFERENCE_TIME.minusHours(5),
+        REFERENCE_TIME.plusHours(5)
+    ));
+    prototype.addSegment(segmentA);
+    SegmentsCostCache.Bucket bucket = prototype.build();
+
+    assertTrue(bucket.inCalculationInterval(segmentA));
+    assertFalse(bucket.inCalculationInterval(segmentB));
   }
 
   @Test

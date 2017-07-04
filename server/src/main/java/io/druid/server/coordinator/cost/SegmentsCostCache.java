@@ -22,6 +22,7 @@ package io.druid.server.coordinator.cost;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import io.druid.java.util.common.ISE;
+import io.druid.java.util.common.granularity.DurationGranularity;
 import io.druid.java.util.common.guava.Comparators;
 import io.druid.server.coordinator.CostBalancerStrategy;
 import io.druid.timeline.DataSegment;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 
 public class SegmentsCostCache
 {
-  private static final double HALF_LIFE = 1.0; // cost function half-life in hours
+  private static final double HALF_LIFE = 1.0; // cost function half-life in days
   private static final double LAMBDA = Math.log(2) / HALF_LIFE;
   private static final double MILLIS_FACTOR = TimeUnit.DAYS.toMillis(1) / LAMBDA;
   private static final long LIFE_THRESHOLD = TimeUnit.DAYS.toMillis(30);
@@ -55,6 +56,8 @@ public class SegmentsCostCache
 
   private static final Ordering<DataSegment> SEGMENT_ORDERING = Ordering.from(SEGMENT_INTERVAL_COMPARATOR);
   private static final Ordering<Bucket> BUCKET_ORDERING = Ordering.from(BUCKET_INTERVAL_COMPARATOR);
+
+  private static final DurationGranularity BUCKET_GRANULARITY = new DurationGranularity(BUCKET_INTERVAL, 0);
 
   private final ArrayList<Bucket> sortedBuckets;
   private final ArrayList<Interval> intervals;
@@ -105,14 +108,14 @@ public class SegmentsCostCache
 
     public Builder addSegment(DataSegment segment)
     {
-      Bucket.Builder builder = buckets.computeIfAbsent(toBucketInterval(segment), Bucket::builder);
+      Bucket.Builder builder = buckets.computeIfAbsent(getBucketInterval(segment), Bucket::builder);
       builder.addSegment(segment);
       return this;
     }
 
     public Builder removeSegement(DataSegment segment)
     {
-      Interval interval = toBucketInterval(segment);
+      Interval interval = getBucketInterval(segment);
       buckets.computeIfPresent(
           interval,
           (i, builder) -> builder.removeSegment(segment).isEmpty() ? null : builder
@@ -136,16 +139,16 @@ public class SegmentsCostCache
       );
     }
 
-    private Interval toBucketInterval(DataSegment segment)
+    private Interval getBucketInterval(DataSegment segment)
     {
-      long start = segment.getInterval().getStartMillis() - (segment.getInterval().getStartMillis() % BUCKET_INTERVAL);
-      return new Interval(start, start + BUCKET_INTERVAL);
+      return BUCKET_GRANULARITY.bucket(segment.getInterval().getStart());
     }
   }
 
   static class Bucket
   {
     private final Interval interval;
+    private final Interval calculationInterval;
     private final ArrayList<DataSegment> sortedSegments;
     private final double[] leftSum;
     private final double[] rightSum;
@@ -158,6 +161,10 @@ public class SegmentsCostCache
       this.rightSum = Preconditions.checkNotNull(rightSum, "rightSum");
       Preconditions.checkArgument(sortedSegments.size() == leftSum.length && sortedSegments.size() == rightSum.length);
       Preconditions.checkArgument(SEGMENT_ORDERING.isOrdered(sortedSegments));
+      this.calculationInterval = new Interval(
+          interval.getStartMillis() - LIFE_THRESHOLD,
+          interval.getEndMillis() + LIFE_THRESHOLD
+      );
     }
 
     public Interval getInterval()
@@ -167,8 +174,7 @@ public class SegmentsCostCache
 
     public boolean inCalculationInterval(DataSegment dataSegment)
     {
-      return (dataSegment.getInterval().getStartMillis() - interval.getEndMillis() < LIFE_THRESHOLD)
-             && (interval.getStartMillis() - dataSegment.getInterval().getEndMillis() < LIFE_THRESHOLD);
+      return calculationInterval.contains(dataSegment.getInterval());
     }
 
     public double cost(DataSegment dataSegment)
@@ -180,7 +186,7 @@ public class SegmentsCostCache
 
       // avoid calculation for segments outside of LIFE_THRESHOLD
       if (!inCalculationInterval(dataSegment)) {
-        return cost;
+        throw new ISE("Segment is not within calculation interval");
       }
 
       int index = Collections.binarySearch(sortedSegments, dataSegment, SEGMENT_INTERVAL_COMPARATOR);
@@ -201,9 +207,10 @@ public class SegmentsCostCache
       }
       // add all right-overlapping segments
       int rightIndex = index;
-      while (rightIndex < sortedSegments.size() && sortedSegments.get(rightIndex)
-                                                                 .getInterval()
-                                                                 .overlaps(dataSegment.getInterval())) {
+      while (rightIndex < sortedSegments.size() &&
+             sortedSegments.get(rightIndex)
+                           .getInterval()
+                           .overlaps(dataSegment.getInterval())) {
         double start = convertStart(sortedSegments.get(rightIndex), interval);
         double end = convertEnd(sortedSegments.get(rightIndex), interval);
         cost += CostBalancerStrategy.intervalCost(t1 - t0, start - t0, end - t0);
