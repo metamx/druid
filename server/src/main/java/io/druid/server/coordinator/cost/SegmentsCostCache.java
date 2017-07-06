@@ -314,7 +314,7 @@ public class SegmentsCostCache
     static class Builder
     {
       private final Interval interval;
-      private final NavigableSet<SegmentAndValue> segments = new TreeSet<>();
+      private final NavigableSet<SegmentAndSum> segments = new TreeSet<>();
 
       public Builder(Interval interval)
       {
@@ -334,30 +334,35 @@ public class SegmentsCostCache
         double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
         double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
 
-        SegmentAndValue segmentAndValue = new SegmentAndValue(dataSegment, leftValue, rightValue);
+        SegmentAndSum segmentAndSum = new SegmentAndSum(dataSegment, leftValue, rightValue);
 
-        segments.tailSet(segmentAndValue).forEach(v -> v.leftValue += leftValue);
-        segments.headSet(segmentAndValue).forEach(v -> v.rightValue += rightValue);
+        // left/right value should be added to left/right sums for elements greater/lower than current segment
+        segments.tailSet(segmentAndSum).forEach(v -> v.leftSum += leftValue);
+        segments.headSet(segmentAndSum).forEach(v -> v.rightSum += rightValue);
 
-        SegmentAndValue lower = segments.lower(segmentAndValue);
+        // leftSum_i = leftValue_i + \sum leftValue_j = leftValue_i + leftSum_{i-1} , j < i
+        SegmentAndSum lower = segments.lower(segmentAndSum);
         if (lower != null) {
-          segmentAndValue.leftValue += lower.leftValue;
+          segmentAndSum.leftSum = leftValue + lower.leftSum;
         }
 
-        SegmentAndValue higher = segments.higher(segmentAndValue);
+        // rightSum_i = rightValue_i + \sum rightValue_j = rightValue_i + rightSum_{i+1} , j > i
+        SegmentAndSum higher = segments.higher(segmentAndSum);
         if (higher != null) {
-          segmentAndValue.rightValue += higher.rightValue;
+          segmentAndSum.rightSum = rightValue + higher.rightSum;
         }
 
-        segments.add(segmentAndValue);
+        if (!segments.add(segmentAndSum)) {
+          throw new ISE("expect new segment");
+        }
         return this;
       }
 
       public Builder removeSegment(DataSegment dataSegment)
       {
-        SegmentAndValue segmentAndValue = new SegmentAndValue(dataSegment, 0.0, 0.0);
+        SegmentAndSum segmentAndSum = new SegmentAndSum(dataSegment, 0.0, 0.0);
 
-        if (!segments.remove(segmentAndValue)) {
+        if (!segments.remove(segmentAndSum)) {
           return this;
         }
 
@@ -367,8 +372,8 @@ public class SegmentsCostCache
         double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
         double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
 
-        segments.tailSet(segmentAndValue).forEach(v -> v.leftValue -= leftValue);
-        segments.headSet(segmentAndValue).forEach(v -> v.rightValue -= rightValue);
+        segments.tailSet(segmentAndSum).forEach(v -> v.leftSum -= leftValue);
+        segments.headSet(segmentAndSum).forEach(v -> v.rightSum -= rightValue);
         return this;
       }
 
@@ -384,10 +389,10 @@ public class SegmentsCostCache
         double[] rightSum = new double[segments.size()];
 
         int i = 0;
-        for (SegmentAndValue segmentAndValue : segments) {
-          segmentsList.add(i, segmentAndValue.dataSegment);
-          leftSum[i] = segmentAndValue.leftValue;
-          rightSum[i] = segmentAndValue.rightValue;
+        for (SegmentAndSum segmentAndSum : segments) {
+          segmentsList.add(i, segmentAndSum.dataSegment);
+          leftSum[i] = segmentAndSum.leftSum;
+          rightSum[i] = segmentAndSum.rightSum;
           ++i;
         }
         return new Bucket(
@@ -403,21 +408,21 @@ public class SegmentsCostCache
     }
   }
 
-  static class SegmentAndValue implements Comparable<SegmentAndValue>
+  static class SegmentAndSum implements Comparable<SegmentAndSum>
   {
     private final DataSegment dataSegment;
-    private double leftValue;
-    private double rightValue;
+    private double leftSum;
+    private double rightSum;
 
-    public SegmentAndValue(DataSegment dataSegment, double leftValue, double rightValue)
+    public SegmentAndSum(DataSegment dataSegment, double leftSum, double rightSum)
     {
       this.dataSegment = dataSegment;
-      this.leftValue = leftValue;
-      this.rightValue = rightValue;
+      this.leftSum = leftSum;
+      this.rightSum = rightSum;
     }
 
     @Override
-    public int compareTo(SegmentAndValue o)
+    public int compareTo(SegmentAndSum o)
     {
       int c = Comparators.intervalsByStartThenEnd().compare(dataSegment.getInterval(), o.dataSegment.getInterval());
       return (c != 0) ? c : dataSegment.compareTo(o.dataSegment);
