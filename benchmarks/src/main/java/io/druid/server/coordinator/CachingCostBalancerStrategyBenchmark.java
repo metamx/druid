@@ -32,10 +32,10 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -51,8 +51,8 @@ public class CachingCostBalancerStrategyBenchmark
   private static final long DAYS_IN_MONTH = 30;
 
   private final DateTime referenceTime = new DateTime("2014-01-01T00:00:00");
-  private final List<DataSegment> segments = new ArrayList<>();
-  private final List<DataSegment> segmentQueries = new ArrayList<>();
+  private final Set<DataSegment> segments = new HashSet<>();
+  private final Set<DataSegment> segmentQueries = new HashSet<>();
   private final int seed = ThreadLocalRandom.current().nextInt();
 
   private SegmentsCostCache segmentsCostCache;
@@ -65,12 +65,14 @@ public class CachingCostBalancerStrategyBenchmark
     for (int i = 0; i < NUMBER_OF_SEGMENTS; ++i) {
       DataSegment segment = createSegment(random.nextInt((int)TimeUnit.DAYS.toHours(DAYS_IN_MONTH)));
       segments.add(segment);
-      prototype.addSegment(segment);
     }
     segmentsCostCache = prototype.build();
     for (int i = 0; i < NUMBER_OF_QUERIES; ++i) {
       DataSegment segment = createSegment(random.nextInt((int)TimeUnit.DAYS.toHours(DAYS_IN_MONTH)));
       segmentQueries.add(segment);
+    }
+    for (DataSegment segment : segments) {
+      prototype.addSegment(segment);
     }
 
     System.out.println("GENERATING SEGMENTS : " + NUMBER_OF_SEGMENTS + " / " + NUMBER_OF_QUERIES);
