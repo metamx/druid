@@ -136,7 +136,7 @@ public class PullDependencies implements Runnable
 
   private static final List<String> DEFAULT_REMOTE_REPOSITORIES = ImmutableList.of(
       "https://repo1.maven.org/maven2/",
-      "https://metamx.jfrog.com/metamx/pub-libs-releases-local"
+      "https://metamx.jfrog.io/metamx/pub-libs-releases-local"
   );
 
   private TeslaAether aether;
