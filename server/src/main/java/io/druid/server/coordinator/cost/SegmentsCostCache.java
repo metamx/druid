@@ -78,7 +78,7 @@ import java.util.stream.Collectors;
  *
  * Reasons to store segments in Buckets:
  *
- *     1) Cost function tends to 0 as distance between segments' intervals increasing; buckets
+ *     1) Cost function tends to 0 as distance between segments' intervals increases; buckets
  *        are used to avoid redundant 0 calculations for thousands of times
  *     2) To reduce number of calculations when segment is added or removed from SegmentsCostCache
  *     3) To avoid infinite values during exponents calculations
@@ -87,11 +87,12 @@ import java.util.stream.Collectors;
 public class SegmentsCostCache
 {
   /**
-   * HALF_LIFE defines how fast joint cost function tends to 0 as distance between
-   * segments' intervals increasing
+   * HALF_LIFE_DAYS defines how fast joint cost function tends to 0 as distance between segments' intervals increasing.
+   * The value of 1 day means that cost function of co-locating two segments which have 1 days between their intervals
+   * is 0.5 of the cost, if the intervals are adjacent. If the distance is 2 days, then 0.25, etc.
    */
-  private static final double HALF_LIFE = 1.0; // cost function half-life in days
-  private static final double LAMBDA = Math.log(2) / HALF_LIFE;
+  private static final double HALF_LIFE_DAYS = 1.0;
+  private static final double LAMBDA = Math.log(2) / HALF_LIFE_DAYS;
   private static final double MILLIS_FACTOR = TimeUnit.DAYS.toMillis(1) / LAMBDA;
 
   /**
@@ -238,8 +239,6 @@ public class SegmentsCostCache
 
     public double cost(DataSegment dataSegment)
     {
-      double cost = 0.0;
-
       // cost is calculated relatively to bucket start (which is considered as 0)
       double t0 = convertStart(dataSegment, interval);
       double t1 = convertEnd(dataSegment, interval);
@@ -251,36 +250,45 @@ public class SegmentsCostCache
 
       int index = Collections.binarySearch(sortedSegments, dataSegment, SEGMENT_INTERVAL_COMPARATOR);
       index = (index >= 0) ? index : -index - 1;
+      return addLeftCost(dataSegment, t0, t1, index) + rightCost(dataSegment, t0, t1, index);
+    }
 
+    private double addLeftCost(DataSegment dataSegment, double t0, double t1, int index)
+    {
+      double leftCost = 0.0;
       // add to cost all left-overlapping segments
       int leftIndex = index - 1;
       while (leftIndex >= 0
              && sortedSegments.get(leftIndex).getInterval().overlaps(dataSegment.getInterval())) {
         double start = convertStart(sortedSegments.get(leftIndex), interval);
         double end = convertEnd(sortedSegments.get(leftIndex), interval);
-        cost += CostBalancerStrategy.intervalCost(end - start, t0 - start, t1 - start);
+        leftCost += CostBalancerStrategy.intervalCost(end - start, t0 - start, t1 - start);
         --leftIndex;
       }
       // add left-non-overlapping segments
       if (leftIndex >= 0) {
-        cost += leftSum[leftIndex] * (FastMath.exp(-t1) - FastMath.exp(-t0));
+        leftCost += leftSum[leftIndex] * (FastMath.exp(-t1) - FastMath.exp(-t0));
       }
+      return leftCost;
+    }
+
+    private double rightCost(DataSegment dataSegment, double t0, double t1, int index)
+    {
+      double rightCost = 0.0;
       // add all right-overlapping segments
       int rightIndex = index;
       while (rightIndex < sortedSegments.size() &&
-             sortedSegments.get(rightIndex)
-                           .getInterval()
-                           .overlaps(dataSegment.getInterval())) {
+             sortedSegments.get(rightIndex).getInterval().overlaps(dataSegment.getInterval())) {
         double start = convertStart(sortedSegments.get(rightIndex), interval);
         double end = convertEnd(sortedSegments.get(rightIndex), interval);
-        cost += CostBalancerStrategy.intervalCost(t1 - t0, start - t0, end - t0);
+        rightCost += CostBalancerStrategy.intervalCost(t1 - t0, start - t0, end - t0);
         ++rightIndex;
       }
       // add right-non-overlapping segments
       if (rightIndex < sortedSegments.size()) {
-        cost += rightSum[rightIndex] * (FastMath.exp(t0) - FastMath.exp(t1));
+        rightCost += rightSum[rightIndex] * (FastMath.exp(t0) - FastMath.exp(t1));
       }
-      return cost;
+      return rightCost;
     }
 
     private static double convertStart(DataSegment dataSegment, Interval interval)

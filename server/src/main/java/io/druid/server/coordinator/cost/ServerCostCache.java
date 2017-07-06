@@ -56,7 +56,6 @@ public class ServerCostCache
     return new Builder();
   }
 
-
   public static class Builder
   {
     private final SegmentsCostCache.Builder allSegmentsCostCache = SegmentsCostCache.builder();

@@ -50,13 +50,9 @@ public class ClusterCostCache
   public static Builder builder(Map<String, Set<DataSegment>> segmentsByServerName)
   {
     Builder builder = builder();
-    segmentsByServerName
-        .forEach(
-            (serverName, segments) ->
-                segments.forEach(
-                    segment -> builder.addSegment(serverName, segment)
-                )
-        );
+    segmentsByServerName.forEach(
+        (serverName, segments) -> segments.forEach(segment -> builder.addSegment(serverName, segment))
+    );
     return builder;
   }
 
@@ -89,10 +85,7 @@ public class ClusterCostCache
           serversCostCache
               .entrySet()
               .stream()
-              .collect(Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> e.getValue().build()
-              ))
+              .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().build()))
       );
     }
   }
