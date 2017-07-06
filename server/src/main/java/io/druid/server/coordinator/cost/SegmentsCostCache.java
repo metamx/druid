@@ -314,7 +314,7 @@ public class SegmentsCostCache
     static class Builder
     {
       private final Interval interval;
-      private final NavigableSet<ValueAndSegment> segments = new TreeSet<>();
+      private final NavigableSet<SegmentAndValue> segments = new TreeSet<>();
 
       public Builder(Interval interval)
       {
@@ -334,30 +334,30 @@ public class SegmentsCostCache
         double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
         double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
 
-        ValueAndSegment valueAndSegment = new ValueAndSegment(dataSegment, leftValue, rightValue);
+        SegmentAndValue segmentAndValue = new SegmentAndValue(dataSegment, leftValue, rightValue);
 
-        segments.tailSet(valueAndSegment).forEach(v -> v.leftValue += leftValue);
-        segments.headSet(valueAndSegment).forEach(v -> v.rightValue += rightValue);
+        segments.tailSet(segmentAndValue).forEach(v -> v.leftValue += leftValue);
+        segments.headSet(segmentAndValue).forEach(v -> v.rightValue += rightValue);
 
-        ValueAndSegment lower = segments.lower(valueAndSegment);
+        SegmentAndValue lower = segments.lower(segmentAndValue);
         if (lower != null) {
-          valueAndSegment.leftValue += lower.leftValue;
+          segmentAndValue.leftValue += lower.leftValue;
         }
 
-        ValueAndSegment higher = segments.higher(valueAndSegment);
+        SegmentAndValue higher = segments.higher(segmentAndValue);
         if (higher != null) {
-          valueAndSegment.rightValue += higher.rightValue;
+          segmentAndValue.rightValue += higher.rightValue;
         }
 
-        segments.add(valueAndSegment);
+        segments.add(segmentAndValue);
         return this;
       }
 
       public Builder removeSegment(DataSegment dataSegment)
       {
-        ValueAndSegment valueAndSegment = new ValueAndSegment(dataSegment, 0.0, 0.0);
+        SegmentAndValue segmentAndValue = new SegmentAndValue(dataSegment, 0.0, 0.0);
 
-        if (!segments.remove(valueAndSegment)) {
+        if (!segments.remove(segmentAndValue)) {
           return this;
         }
 
@@ -367,8 +367,8 @@ public class SegmentsCostCache
         double leftValue = FastMath.exp(t0) - FastMath.exp(t1);
         double rightValue = FastMath.exp(-t1) - FastMath.exp(-t0);
 
-        segments.tailSet(valueAndSegment).forEach(v -> v.leftValue -= leftValue);
-        segments.headSet(valueAndSegment).forEach(v -> v.rightValue -= rightValue);
+        segments.tailSet(segmentAndValue).forEach(v -> v.leftValue -= leftValue);
+        segments.headSet(segmentAndValue).forEach(v -> v.rightValue -= rightValue);
         return this;
       }
 
@@ -384,10 +384,10 @@ public class SegmentsCostCache
         double[] rightSum = new double[segments.size()];
 
         int i = 0;
-        for (ValueAndSegment valueAndSegment : segments) {
-          segmentsList.add(i, valueAndSegment.dataSegment);
-          leftSum[i] = valueAndSegment.leftValue;
-          rightSum[i] = valueAndSegment.rightValue;
+        for (SegmentAndValue segmentAndValue : segments) {
+          segmentsList.add(i, segmentAndValue.dataSegment);
+          leftSum[i] = segmentAndValue.leftValue;
+          rightSum[i] = segmentAndValue.rightValue;
           ++i;
         }
         return new Bucket(
@@ -403,13 +403,13 @@ public class SegmentsCostCache
     }
   }
 
-  static class ValueAndSegment implements Comparable<ValueAndSegment>
+  static class SegmentAndValue implements Comparable<SegmentAndValue>
   {
     private final DataSegment dataSegment;
     private double leftValue;
     private double rightValue;
 
-    public ValueAndSegment(DataSegment dataSegment, double leftValue, double rightValue)
+    public SegmentAndValue(DataSegment dataSegment, double leftValue, double rightValue)
     {
       this.dataSegment = dataSegment;
       this.leftValue = leftValue;
@@ -417,7 +417,7 @@ public class SegmentsCostCache
     }
 
     @Override
-    public int compareTo(ValueAndSegment o)
+    public int compareTo(SegmentAndValue o)
     {
       int c = Comparators.intervalsByStartThenEnd().compare(dataSegment.getInterval(), o.dataSegment.getInterval());
       return (c != 0) ? c : dataSegment.compareTo(o.dataSegment);
