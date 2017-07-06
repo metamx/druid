@@ -107,7 +107,7 @@ public class SegmentsCostCache
    *        1) updates complexity is increasing when number of buckets is decreasing (as buckets contain more segments)
    *        2) joint cost calculation complexity is increasing with increasing of buckets number
    */
-  private static final long BUCKET_INTERVAL = TimeUnit.DAYS.toMillis(30);
+  private static final long BUCKET_INTERVAL = TimeUnit.DAYS.toMillis(15);
   private static final DurationGranularity BUCKET_GRANULARITY = new DurationGranularity(BUCKET_INTERVAL, 0);
 
   private static final Comparator<DataSegment> SEGMENT_INTERVAL_COMPARATOR =
