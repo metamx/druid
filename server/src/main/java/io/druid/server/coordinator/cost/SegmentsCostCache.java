@@ -173,7 +173,7 @@ public class SegmentsCostCache
       return this;
     }
 
-    public Builder removeSegement(DataSegment segment)
+    public Builder removeSegment(DataSegment segment)
     {
       Interval interval = getBucketInterval(segment);
       buckets.computeIfPresent(

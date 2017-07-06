@@ -72,10 +72,10 @@ public class ServerCostCache
 
     public Builder removeSegment(DataSegment dataSegment)
     {
-      allSegmentsCostCache.removeSegement(dataSegment);
+      allSegmentsCostCache.removeSegment(dataSegment);
       segmentsPerDataSource.computeIfPresent(
           dataSegment.getDataSource(),
-          (ds, builder) -> builder.removeSegement(dataSegment).isEmpty() ? null : builder
+          (ds, builder) -> builder.removeSegment(dataSegment).isEmpty() ? null : builder
       );
       return this;
     }
