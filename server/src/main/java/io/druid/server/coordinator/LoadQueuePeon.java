@@ -30,16 +30,10 @@ import io.druid.server.coordination.SegmentChangeRequestDrop;
 import io.druid.server.coordination.SegmentChangeRequestLoad;
 import io.druid.server.coordination.SegmentChangeRequestNoop;
 import io.druid.timeline.DataSegment;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.api.CuratorWatcher;
-import org.apache.curator.utils.ZKPaths;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.data.Stat;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -48,6 +42,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.api.CuratorWatcher;
+import org.apache.curator.utils.ZKPaths;
+import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.WatchedEvent;
+import org.apache.zookeeper.data.Stat;
 
 /**
  */
@@ -287,8 +287,9 @@ public class LoadQueuePeon
     if (currentlyProcessing != null) {
       switch (currentlyProcessing.getType()) {
         case LOAD:
-          segmentsToLoad.remove(currentlyProcessing.getSegment());
-          queuedSize.addAndGet(-currentlyProcessing.getSegmentSize());
+          if(segmentsToLoad.remove(currentlyProcessing.getSegment()) != null) {
+            queuedSize.addAndGet(-currentlyProcessing.getSegmentSize());
+          }
           break;
         case DROP:
           segmentsToDrop.remove(currentlyProcessing.getSegment());
@@ -389,6 +390,20 @@ public class LoadQueuePeon
       failedAssignCount.getAndIncrement();
       // Act like it was completed so that the coordinator gives it to someone else
       actionCompleted();
+    }
+  }
+
+  public void reduceLoadQueue(int toSize)
+  {
+    if(toSize < 1) return; //keeping at least 2 segments in the loading queue.
+
+    while(this.segmentsToLoad.size() > toSize && this.currentlyProcessing != this.segmentsToLoad.lastEntry()) {
+      Map.Entry<DataSegment, SegmentHolder> entry = this.segmentsToLoad.pollLastEntry();
+      if(entry != null)
+      {
+        queuedSize.addAndGet(-entry.getValue().getSegmentSize());
+        log.info("Server[%s] dropped an entry[%s] from queue.", basePath, entry.getKey().getIdentifier());
+      }
     }
   }
 

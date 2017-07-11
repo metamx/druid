@@ -77,6 +77,11 @@ public class ServerHolder implements Comparable<ServerHolder>
     return (100 * getSizeUsed().doubleValue()) / getMaxSize();
   }
 
+  public Double getCurrServerPercentUsed()
+  {
+    return (100 * getCurrServerSize().doubleValue()) / getMaxSize();
+  }
+
   public Long getAvailableSize()
   {
     long maxSize = getMaxSize();

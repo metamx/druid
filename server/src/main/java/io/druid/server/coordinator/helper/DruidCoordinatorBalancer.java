@@ -34,7 +34,6 @@ import io.druid.server.coordinator.LoadPeonCallback;
 import io.druid.server.coordinator.LoadQueuePeon;
 import io.druid.server.coordinator.ServerHolder;
 import io.druid.timeline.DataSegment;
-
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +88,14 @@ public class DruidCoordinatorBalancer implements DruidCoordinatorHelper
 
     for (Map.Entry<String, MinMaxPriorityQueue<ServerHolder>> entry :
         params.getDruidCluster().getHistoricals().entrySet()) {
+      final List<ServerHolder> serverHolderList = Lists.newArrayList(entry.getValue());
+
+      int queueThresHold = 50; // get this value from CoordinatatorDynamicConfig
+      // rebalance loading queue by reducing
+      if(queueThresHold > 0) { // 0 or less indicates no queue rebalancing.
+        rebalanceLoadQueue(serverHolderList, queueThresHold);
+      }
+
       String tier = entry.getKey();
 
       if (currentlyMovingSegments.get(tier) == null) {
@@ -100,8 +107,6 @@ public class DruidCoordinatorBalancer implements DruidCoordinatorHelper
         log.info("[%s]: Still waiting on %,d segments to be moved", tier, currentlyMovingSegments.size());
         continue;
       }
-
-      final List<ServerHolder> serverHolderList = Lists.newArrayList(entry.getValue());
 
       if (serverHolderList.size() <= 1) {
         log.info("[%s]: One or fewer servers found.  Cannot balance.", tier);
@@ -202,5 +207,25 @@ public class DruidCoordinatorBalancer implements DruidCoordinatorHelper
       currentlyMovingSegments.get(toServer.getTier()).remove(segmentName);
     }
 
+  }
+
+  private void rebalanceLoadQueue(List<ServerHolder> serverHolderList, int threshold)
+  {
+    boolean anyFreeWorker = serverHolderList.stream().anyMatch(server ->
+                                                                   server.getCurrServerPercentUsed() < 90 &&
+                                                                   server.getPeon().getSegmentsToLoad().size() == 0);
+
+    // if we know there's at least one free worker, then let's try to drop more segments from queues.
+    if(anyFreeWorker) threshold = threshold / 2;
+    for(ServerHolder server: serverHolderList)
+    {
+      if(server.getPeon().getSegmentsToLoad().size() > threshold) {
+        int loadQueueSize = server.getPeon().getSegmentsToLoad().size();
+        server.getPeon().reduceLoadQueue(loadQueueSize / 2);
+        int reducedLoadQueueSize = server.getPeon().getSegmentsToLoad().size();
+        log.info("Server[%s] queue was reduced from %d to %d", server.getServer().getName(), loadQueueSize, reducedLoadQueueSize);
+
+      }
+    }
   }
 }
