@@ -251,7 +251,7 @@ public class QueryResource implements QueryCountStatsProvider
         final Query theQuery = query;
         final QueryToolChest theToolChest = toolChest;
         final ObjectWriter jsonWriter = context.newOutputWriter();
-        Response.ResponseBuilder builder = Response
+        final Response.ResponseBuilder builder = Response
             .ok(
                 new StreamingOutput()
                 {
@@ -261,7 +261,7 @@ public class QueryResource implements QueryCountStatsProvider
                     boolean success = false;
                     String exceptionStr = "";
 
-                    CountingOutputStream os = new CountingOutputStream(outputStream);
+                    final CountingOutputStream os = new CountingOutputStream(outputStream);
                     try {
                       // json serializer will always close the yielder
                       jsonWriter.writeValue(os, yielder);
@@ -299,7 +299,7 @@ public class QueryResource implements QueryCountStatsProvider
                             req.getRemoteAddr()
                         ).reportQueryBytes(os.getCount()).emit(emitter);
 
-                        ImmutableMap.Builder<String, Object> statsMapBuilder = ImmutableMap.builder();
+                        final ImmutableMap.Builder<String, Object> statsMapBuilder = ImmutableMap.builder();
                         statsMapBuilder.put("query/time", TimeUnit.NANOSECONDS.toMillis(queryTimeNs));
                         statsMapBuilder.put("query/bytes", os.getCount());
                         statsMapBuilder.put("success", success);

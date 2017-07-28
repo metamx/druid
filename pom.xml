@@ -131,6 +131,7 @@
         <module>extensions-contrib/kafka-emitter</module>
         <!-- distribution packaging -->
         <module>distribution</module>
+        <module>grpc</module>
     </modules>
 
     <dependencyManagement>
@@ -1105,6 +1106,34 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>grpc</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <modules>
+                <module>grpc</module>
+            </modules>
+            <dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-netty</artifactId>
+                        <version>1.4.0</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-protobuf</artifactId>
+                        <version>1.4.0</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.grpc</groupId>
+                        <artifactId>grpc-stub</artifactId>
+                        <version>1.4.0</version>
+                    </dependency>
+                </dependencies>
+            </dependencyManagement>
         </profile>
     </profiles>
 </project>
