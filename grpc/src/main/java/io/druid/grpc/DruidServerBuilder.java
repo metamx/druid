@@ -1,35 +1,39 @@
 package io.druid.grpc;
 
 import com.google.common.base.Throwables;
+import io.druid.java.util.common.RE;
 import io.grpc.ServerStreamTracer;
 import io.grpc.internal.AbstractServerImplBuilder;
 import io.grpc.internal.InternalServer;
 import io.grpc.internal.ServerListener;
-import org.eclipse.jetty.alpn.ALPN;
-import org.eclipse.jetty.alpn.server.ALPNServerConnectionFactory;
 import org.eclipse.jetty.http2.HTTP2Cipher;
 import org.eclipse.jetty.http2.server.HTTP2CServerConnectionFactory;
 import org.eclipse.jetty.http2.server.HTTP2ServerConnectionFactory;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
-import org.eclipse.jetty.server.NegotiatingServerConnectionFactory;
 import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
-import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.security.GeneralSecurityException;
+import java.security.KeyStore;
 import java.util.List;
 
 public class DruidServerBuilder extends AbstractServerImplBuilder<DruidServerBuilder>
 {
   private final SslContextFactory sslContextFactory = new SslContextFactory();
   private final int port;
-  DruidServerBuilder(int port) {
+
+  DruidServerBuilder(int port)
+  {
     this.port = port;
   }
+
   @Override
   protected InternalServer buildTransportServer(List<ServerStreamTracer.Factory> streamTracerFactories)
   {
@@ -37,6 +41,7 @@ public class DruidServerBuilder extends AbstractServerImplBuilder<DruidServerBui
     final HttpConfiguration http_config = new HttpConfiguration();
     http_config.setSecureScheme("https");
     http_config.setSecurePort(port);
+    http_config.setSendXPoweredBy(false);
     final HTTP2CServerConnectionFactory http2c = new HTTP2CServerConnectionFactory(http_config);
     final HttpConfiguration https_config = new HttpConfiguration(http_config);
     https_config.addCustomizer(new SecureRequestCustomizer());
@@ -102,7 +107,7 @@ public class DruidServerBuilder extends AbstractServerImplBuilder<DruidServerBui
       @Override
       public int getPort()
       {
-        return 0;
+        return http2Connector.getPort();
       }
     };
   }
@@ -111,6 +116,21 @@ public class DruidServerBuilder extends AbstractServerImplBuilder<DruidServerBui
   public DruidServerBuilder useTransportSecurity(File certChain, File privateKey)
   {
     sslContextFactory.setCipherComparator(HTTP2Cipher.COMPARATOR);
+    final KeyStore keyStore;
+    try {
+      keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+      keyStore.load(null, "nope".toCharArray());
+    }
+    catch (GeneralSecurityException | IOException e) {
+      throw new RE(e, "Unable to load from [%s] / [%s]", certChain, privateKey);
+    }
+    try (OutputStream fos = new FileOutputStream("tmp.jks")) {
+      keyStore.store(fos, "secret".toCharArray());
+    }
+    catch (IOException | GeneralSecurityException e) {
+      throw new RE(e, "Unable to save temporary keystore");
+    }
+    sslContextFactory.setKeyStore(keyStore);
     return this;
   }
 }
