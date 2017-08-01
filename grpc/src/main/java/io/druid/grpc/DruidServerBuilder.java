@@ -60,10 +60,10 @@ public class DruidServerBuilder extends AbstractServerImplBuilder<DruidServerBui
         server,
         //ssl,
         sslContextFactory,
-        http2c,
+        //http2c
         //alpn,
-        h2,
-        new HttpConnectionFactory(https_config)
+        h2
+        //new HttpConnectionFactory(https_config)
     );
     http2Connector.setPort(port);
     server.addConnector(http2Connector);
