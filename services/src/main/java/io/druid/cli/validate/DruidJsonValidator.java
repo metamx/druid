@@ -31,19 +31,19 @@ import com.google.common.io.Resources;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.name.Names;
-
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.druid.cli.GuiceRunnable;
 import io.druid.data.input.InputRow;
 import io.druid.data.input.impl.StringInputRowParser;
+import io.druid.guice.DruidProcessingModule;
 import io.druid.guice.ExtensionsConfig;
 import io.druid.guice.FirehoseModule;
 import io.druid.guice.IndexingServiceFirehoseModule;
 import io.druid.guice.LocalDataStorageDruidModule;
 import io.druid.guice.ParsersModule;
-import io.druid.indexer.HadoopDruidIndexerConfig;
-import io.druid.indexer.IndexingHadoopModule;
+import io.druid.guice.QueryRunnerFactoryModule;
+import io.druid.guice.QueryableModule;
 import io.druid.indexing.common.task.Task;
 import io.druid.initialization.DruidModule;
 import io.druid.initialization.Initialization;
@@ -54,9 +54,11 @@ import org.apache.commons.io.output.NullWriter;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -69,7 +71,7 @@ import java.util.List;
 public class DruidJsonValidator extends GuiceRunnable
 {
   private static final Logger LOG = new Logger(DruidJsonValidator.class);
-  private Writer logWriter = new PrintWriter(System.out);
+  private Writer logWriter = new PrintWriter(new OutputStreamWriter(System.out, StandardCharsets.UTF_8));
 
   @Option(name = "-f", title = "file", description = "file to validate", required = true)
   public String jsonFile;
@@ -92,6 +94,9 @@ public class DruidJsonValidator extends GuiceRunnable
   protected List<? extends com.google.inject.Module> getModules()
   {
     return ImmutableList.<com.google.inject.Module>of(
+        new DruidProcessingModule(),
+        new QueryableModule(),
+        new QueryRunnerFactoryModule(),
         new com.google.inject.Module()
         {
           @Override
@@ -121,7 +126,6 @@ public class DruidJsonValidator extends GuiceRunnable
             Initialization.getFromExtensions(injector.getInstance(ExtensionsConfig.class), DruidModule.class),
             Arrays.asList(
                 new FirehoseModule(),
-                new IndexingHadoopModule(),
                 new IndexingServiceFirehoseModule(),
                 new LocalDataStorageDruidModule(),
                 new ParsersModule()
@@ -152,8 +156,6 @@ public class DruidJsonValidator extends GuiceRunnable
     try {
       if (type.equalsIgnoreCase("query")) {
         jsonMapper.readValue(file, Query.class);
-      } else if (type.equalsIgnoreCase("hadoopConfig")) {
-        jsonMapper.readValue(file, HadoopDruidIndexerConfig.class);
       } else if (type.equalsIgnoreCase("task")) {
         jsonMapper.readValue(file, Task.class);
       } else if (type.equalsIgnoreCase("parse")) {

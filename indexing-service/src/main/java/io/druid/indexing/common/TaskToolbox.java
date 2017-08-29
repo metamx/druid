@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
+import com.google.inject.Provider;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.metrics.MonitorScheduler;
 import io.druid.client.cache.Cache;
@@ -33,10 +34,8 @@ import io.druid.client.cache.CacheConfig;
 import io.druid.indexing.common.actions.SegmentInsertAction;
 import io.druid.indexing.common.actions.TaskActionClient;
 import io.druid.indexing.common.config.TaskConfig;
-import io.druid.indexing.common.task.Task;
 import io.druid.query.QueryRunnerFactoryConglomerate;
 import io.druid.segment.IndexIO;
-import io.druid.segment.IndexMerger;
 import io.druid.segment.IndexMergerV9;
 import io.druid.segment.loading.DataSegmentArchiver;
 import io.druid.segment.loading.DataSegmentKiller;
@@ -63,7 +62,6 @@ import java.util.concurrent.ExecutorService;
 public class TaskToolbox
 {
   private final TaskConfig config;
-  private final Task task;
   private final TaskActionClient taskActionClient;
   private final ServiceEmitter emitter;
   private final DataSegmentPusher segmentPusher;
@@ -73,13 +71,17 @@ public class TaskToolbox
   private final DataSegmentAnnouncer segmentAnnouncer;
   private final DataSegmentServerAnnouncer serverAnnouncer;
   private final SegmentHandoffNotifierFactory handoffNotifierFactory;
-  private final QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate;
+  /**
+   * Using Provider, not {@link QueryRunnerFactoryConglomerate} directly, to not require {@link
+   * io.druid.indexing.overlord.TaskRunner} implementations that create TaskToolboxes to inject query stuff eagerly,
+   * because it may not be available, e. g. for batch tasks running in Spark or Hadooop.
+   */
+  private final Provider<QueryRunnerFactoryConglomerate> queryRunnerFactoryConglomerateProvider;
   private final MonitorScheduler monitorScheduler;
   private final ExecutorService queryExecutorService;
   private final SegmentLoader segmentLoader;
   private final ObjectMapper objectMapper;
   private final File taskWorkDir;
-  private final IndexMerger indexMerger;
   private final IndexIO indexIO;
   private final Cache cache;
   private final CacheConfig cacheConfig;
@@ -87,7 +89,6 @@ public class TaskToolbox
 
   public TaskToolbox(
       TaskConfig config,
-      Task task,
       TaskActionClient taskActionClient,
       ServiceEmitter emitter,
       DataSegmentPusher segmentPusher,
@@ -97,13 +98,12 @@ public class TaskToolbox
       DataSegmentAnnouncer segmentAnnouncer,
       DataSegmentServerAnnouncer serverAnnouncer,
       SegmentHandoffNotifierFactory handoffNotifierFactory,
-      QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate,
+      Provider<QueryRunnerFactoryConglomerate> queryRunnerFactoryConglomerateProvider,
       ExecutorService queryExecutorService,
       MonitorScheduler monitorScheduler,
       SegmentLoader segmentLoader,
       ObjectMapper objectMapper,
       File taskWorkDir,
-      IndexMerger indexMerger,
       IndexIO indexIO,
       Cache cache,
       CacheConfig cacheConfig,
@@ -111,7 +111,6 @@ public class TaskToolbox
   )
   {
     this.config = config;
-    this.task = task;
     this.taskActionClient = taskActionClient;
     this.emitter = emitter;
     this.segmentPusher = segmentPusher;
@@ -121,13 +120,12 @@ public class TaskToolbox
     this.segmentAnnouncer = segmentAnnouncer;
     this.serverAnnouncer = serverAnnouncer;
     this.handoffNotifierFactory = handoffNotifierFactory;
-    this.queryRunnerFactoryConglomerate = queryRunnerFactoryConglomerate;
+    this.queryRunnerFactoryConglomerateProvider = queryRunnerFactoryConglomerateProvider;
     this.queryExecutorService = queryExecutorService;
     this.monitorScheduler = monitorScheduler;
     this.segmentLoader = segmentLoader;
     this.objectMapper = objectMapper;
     this.taskWorkDir = taskWorkDir;
-    this.indexMerger = Preconditions.checkNotNull(indexMerger, "Null IndexMerger");
     this.indexIO = Preconditions.checkNotNull(indexIO, "Null IndexIO");
     this.cache = cache;
     this.cacheConfig = cacheConfig;
@@ -186,7 +184,7 @@ public class TaskToolbox
 
   public QueryRunnerFactoryConglomerate getQueryRunnerFactoryConglomerate()
   {
-    return queryRunnerFactoryConglomerate;
+    return queryRunnerFactoryConglomerateProvider.get();
   }
 
   public ExecutorService getQueryExecutorService()
@@ -242,11 +240,6 @@ public class TaskToolbox
   public IndexIO getIndexIO()
   {
     return indexIO;
-  }
-
-  public IndexMerger getIndexMerger()
-  {
-    return indexMerger;
   }
 
   public Cache getCache()

@@ -80,7 +80,6 @@ import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.DoubleSumAggregatorFactory;
 import io.druid.query.aggregation.LongSumAggregatorFactory;
 import io.druid.segment.IndexIO;
-import io.druid.segment.IndexMerger;
 import io.druid.segment.IndexMergerV9;
 import io.druid.segment.IndexSpec;
 import io.druid.segment.indexing.DataSchema;
@@ -122,6 +121,7 @@ import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -135,7 +135,6 @@ import java.util.concurrent.Executor;
 public class TaskLifecycleTest
 {
   private static final ObjectMapper MAPPER;
-  private static final IndexMerger INDEX_MERGER;
   private static final IndexMergerV9 INDEX_MERGER_V9;
   private static final IndexIO INDEX_IO;
   private static final TestUtils TEST_UTILS;
@@ -143,7 +142,6 @@ public class TaskLifecycleTest
   static {
     TEST_UTILS = new TestUtils();
     MAPPER = TEST_UTILS.getTestObjectMapper();
-    INDEX_MERGER = TEST_UTILS.getTestIndexMerger();
     INDEX_MERGER_V9 = TEST_UTILS.getTestIndexMergerV9();
     INDEX_IO = TEST_UTILS.getTestIndexIO();
   }
@@ -477,6 +475,12 @@ public class TaskLifecycleTest
         pushedSegments++;
         return segment;
       }
+
+      @Override
+      public Map<String, Object> makeLoadSpec(URI uri)
+      {
+        throw new UnsupportedOperationException();
+      }
     };
   }
 
@@ -570,7 +574,7 @@ public class TaskLifecycleTest
         }, // segment announcer
         EasyMock.createNiceMock(DataSegmentServerAnnouncer.class),
         handoffNotifierFactory,
-        queryRunnerFactoryConglomerate, // query runner factory conglomerate corporation unionized collective
+        () -> queryRunnerFactoryConglomerate, // query runner factory conglomerate corporation unionized collective
         MoreExecutors.sameThreadExecutor(), // query executor service
         monitorScheduler, // monitor scheduler
         new SegmentLoaderFactory(
@@ -587,7 +591,6 @@ public class TaskLifecycleTest
             )
         ),
         MAPPER,
-        INDEX_MERGER,
         INDEX_IO,
         MapCache.create(0),
         FireDepartmentTest.NO_CACHE_CONFIG,
@@ -649,7 +652,7 @@ public class TaskLifecycleTest
                 mapper
             ),
             new IndexTask.IndexIOConfig(new MockFirehoseFactory(false), false),
-            new IndexTask.IndexTuningConfig(10000, 10, null, null, indexSpec, 3, true, true, true)
+            new IndexTask.IndexTuningConfig(10000, 10, null, null, indexSpec, 3, true, true, true, null)
         ),
         null,
         MAPPER
@@ -707,7 +710,7 @@ public class TaskLifecycleTest
                 mapper
             ),
             new IndexTask.IndexIOConfig(new MockExceptionalFirehoseFactory(), false),
-            new IndexTask.IndexTuningConfig(10000, 10, null, null, indexSpec, 3, true, true, true)
+            new IndexTask.IndexTuningConfig(10000, 10, null, null, indexSpec, 3, true, true, true, null)
         ),
         null,
         MAPPER
@@ -1017,6 +1020,12 @@ public class TaskLifecycleTest
       {
         throw new RuntimeException("FAILURE");
       }
+
+      @Override
+      public Map<String, Object> makeLoadSpec(URI uri)
+      {
+        throw new UnsupportedOperationException();
+      }
     };
 
     tb = setUpTaskToolboxFactory(dataSegmentPusher, handoffNotifierFactory, mdc);
@@ -1066,7 +1075,7 @@ public class TaskLifecycleTest
                 mapper
             ),
             new IndexTask.IndexIOConfig(new MockFirehoseFactory(false), false),
-            new IndexTask.IndexTuningConfig(10000, 10, null, null, indexSpec, null, false, null, null)
+            new IndexTask.IndexTuningConfig(10000, 10, null, null, indexSpec, null, false, null, null, null)
         ),
         null,
         MAPPER

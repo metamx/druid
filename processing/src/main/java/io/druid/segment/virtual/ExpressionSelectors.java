@@ -19,7 +19,9 @@
 
 package io.druid.segment.virtual;
 
+import com.google.common.base.Strings;
 import io.druid.math.expr.Expr;
+import io.druid.math.expr.ExprEval;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.monomorphicprocessing.RuntimeShapeInspector;
 import io.druid.segment.ColumnSelectorFactory;
@@ -52,10 +54,10 @@ public class ExpressionSelectors
     class ExpressionLongColumnSelector implements LongColumnSelector
     {
       @Override
-      public long get()
+      public long getLong()
       {
-        final Number number = baseSelector.get();
-        return number != null ? number.longValue() : nullValue;
+        final ExprEval exprEval = baseSelector.get();
+        return exprEval.isNull() ? nullValue : exprEval.asLong();
       }
 
       @Override
@@ -77,10 +79,10 @@ public class ExpressionSelectors
     class ExpressionFloatColumnSelector implements FloatColumnSelector
     {
       @Override
-      public float get()
+      public float getFloat()
       {
-        final Number number = baseSelector.get();
-        return number != null ? number.floatValue() : nullValue;
+        final ExprEval exprEval = baseSelector.get();
+        return exprEval.isNull() ? nullValue : (float) exprEval.asDouble();
       }
 
       @Override
@@ -106,8 +108,7 @@ public class ExpressionSelectors
         @Override
         protected String getValue()
         {
-          final Number number = baseSelector.get();
-          return number == null ? null : String.valueOf(number);
+          return Strings.emptyToNull(baseSelector.get().asString());
         }
 
         @Override
@@ -123,7 +124,7 @@ public class ExpressionSelectors
         @Override
         protected String getValue()
         {
-          return extractionFn.apply(baseSelector.get());
+          return extractionFn.apply(Strings.emptyToNull(baseSelector.get().asString()));
         }
 
         @Override

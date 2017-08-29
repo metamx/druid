@@ -26,7 +26,6 @@ import io.druid.segment.column.LongColumn;
 import io.druid.segment.data.Indexed;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 
 public class LongDimensionHandler implements DimensionHandler<Long, Long, Long>
@@ -52,27 +51,12 @@ public class LongDimensionHandler implements DimensionHandler<Long, Long, Long>
 
   @Override
   public DimensionMergerV9<Long> makeMerger(
-      IndexSpec indexSpec, File outDir, ColumnCapabilities capabilities, ProgressIndicator progress
+      IndexSpec indexSpec, ColumnCapabilities capabilities, ProgressIndicator progress
   ) throws IOException
   {
     return new LongDimensionMergerV9(
         dimensionName,
         indexSpec,
-        outDir,
-        capabilities,
-        progress
-    );
-  }
-
-  @Override
-  public DimensionMergerLegacy<Long> makeLegacyMerger(
-      IndexSpec indexSpec, File outDir, ColumnCapabilities capabilities, ProgressIndicator progress
-  ) throws IOException
-  {
-    return new LongDimensionMergerLegacy(
-        dimensionName,
-        indexSpec,
-        outDir,
         capabilities,
         progress
     );

@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.io.ByteSource;
 import com.google.common.primitives.Ints;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -58,7 +57,7 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
 
   private ByteBuffer allocateBuffer()
   {
-    return ByteBuffer.allocate(BUFFER_SIZE);
+    return ByteBuffer.allocateDirect(BUFFER_SIZE);
   }
 
   private void ensureCapacity(int len) {
@@ -199,7 +198,9 @@ public final class OutputBytes extends OutputStream implements WritableByteChann
       @Override
       public InputStream openStream()
       {
-        return new ByteArrayInputStream(buf.array(), 0, buf.position());
+        ByteBuffer inputBuf = buf.duplicate();
+        inputBuf.flip();
+        return new ByteBufferInputStream(inputBuf);
       }
     };
     return ByteSource.concat(buffers.stream().map(byteBufferToByteSource).collect(Collectors.toList())).openStream();

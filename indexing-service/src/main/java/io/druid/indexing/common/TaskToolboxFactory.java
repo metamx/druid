@@ -22,6 +22,7 @@ package io.druid.indexing.common;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.metamx.emitter.service.ServiceEmitter;
 import com.metamx.metrics.MonitorScheduler;
 import io.druid.client.cache.Cache;
@@ -32,7 +33,6 @@ import io.druid.indexing.common.config.TaskConfig;
 import io.druid.indexing.common.task.Task;
 import io.druid.query.QueryRunnerFactoryConglomerate;
 import io.druid.segment.IndexIO;
-import io.druid.segment.IndexMerger;
 import io.druid.segment.IndexMergerV9;
 import io.druid.segment.loading.DataSegmentArchiver;
 import io.druid.segment.loading.DataSegmentKiller;
@@ -60,12 +60,11 @@ public class TaskToolboxFactory
   private final DataSegmentAnnouncer segmentAnnouncer;
   private final DataSegmentServerAnnouncer serverAnnouncer;
   private final SegmentHandoffNotifierFactory handoffNotifierFactory;
-  private final QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate;
+  private final Provider<QueryRunnerFactoryConglomerate> queryRunnerFactoryConglomerateProvider;
   private final ExecutorService queryExecutorService;
   private final MonitorScheduler monitorScheduler;
   private final SegmentLoaderFactory segmentLoaderFactory;
   private final ObjectMapper objectMapper;
-  private final IndexMerger indexMerger;
   private final IndexIO indexIO;
   private final Cache cache;
   private final CacheConfig cacheConfig;
@@ -83,12 +82,11 @@ public class TaskToolboxFactory
       DataSegmentAnnouncer segmentAnnouncer,
       DataSegmentServerAnnouncer serverAnnouncer,
       SegmentHandoffNotifierFactory handoffNotifierFactory,
-      QueryRunnerFactoryConglomerate queryRunnerFactoryConglomerate,
+      Provider<QueryRunnerFactoryConglomerate> queryRunnerFactoryConglomerateProvider,
       @Processing ExecutorService queryExecutorService,
       MonitorScheduler monitorScheduler,
       SegmentLoaderFactory segmentLoaderFactory,
       ObjectMapper objectMapper,
-      IndexMerger indexMerger,
       IndexIO indexIO,
       Cache cache,
       CacheConfig cacheConfig,
@@ -105,12 +103,11 @@ public class TaskToolboxFactory
     this.segmentAnnouncer = segmentAnnouncer;
     this.serverAnnouncer = serverAnnouncer;
     this.handoffNotifierFactory = handoffNotifierFactory;
-    this.queryRunnerFactoryConglomerate = queryRunnerFactoryConglomerate;
+    this.queryRunnerFactoryConglomerateProvider = queryRunnerFactoryConglomerateProvider;
     this.queryExecutorService = queryExecutorService;
     this.monitorScheduler = monitorScheduler;
     this.segmentLoaderFactory = segmentLoaderFactory;
     this.objectMapper = objectMapper;
-    this.indexMerger = Preconditions.checkNotNull(indexMerger, "Null IndexMerger");
     this.indexIO = Preconditions.checkNotNull(indexIO, "Null IndexIO");
     this.cache = cache;
     this.cacheConfig = cacheConfig;
@@ -122,7 +119,6 @@ public class TaskToolboxFactory
     final File taskWorkDir = config.getTaskWorkDir(task.getId());
     return new TaskToolbox(
         config,
-        task,
         taskActionClientFactory.create(task),
         emitter,
         segmentPusher,
@@ -132,13 +128,12 @@ public class TaskToolboxFactory
         segmentAnnouncer,
         serverAnnouncer,
         handoffNotifierFactory,
-        queryRunnerFactoryConglomerate,
+        queryRunnerFactoryConglomerateProvider,
         queryExecutorService,
         monitorScheduler,
         segmentLoaderFactory.manufacturate(taskWorkDir),
         objectMapper,
         taskWorkDir,
-        indexMerger,
         indexIO,
         cache,
         cacheConfig,

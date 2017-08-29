@@ -21,6 +21,8 @@ package io.druid.server;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.datatype.joda.ser.DateTimeSerializer;
 import com.fasterxml.jackson.jaxrs.smile.SmileMediaTypes;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
@@ -30,6 +32,7 @@ import com.google.inject.Inject;
 import com.metamx.emitter.EmittingLogger;
 import com.metamx.emitter.service.ServiceEmitter;
 import io.druid.client.DirectDruidClient;
+import io.druid.guice.LazySingleton;
 import io.druid.guice.annotations.Json;
 import io.druid.guice.annotations.Smile;
 import io.druid.java.util.common.ISE;
@@ -40,6 +43,7 @@ import io.druid.java.util.common.guava.Yielders;
 import io.druid.query.DruidMetrics;
 import io.druid.query.GenericQueryMetricsFactory;
 import io.druid.query.Query;
+import io.druid.query.QueryContexts;
 import io.druid.query.QueryInterruptedException;
 import io.druid.query.QueryMetrics;
 import io.druid.query.QueryPlus;
@@ -81,6 +85,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  */
+@LazySingleton
 @Path("/druid/v2/")
 public class QueryResource implements QueryCountStatsProvider
 {
@@ -97,6 +102,8 @@ public class QueryResource implements QueryCountStatsProvider
   protected final ServerConfig config;
   protected final ObjectMapper jsonMapper;
   protected final ObjectMapper smileMapper;
+  protected final ObjectMapper serializeDateTimeAsLongJsonMapper;
+  protected final ObjectMapper serializeDateTimeAsLongSmileMapper;
   protected final QuerySegmentWalker texasRanger;
   protected final ServiceEmitter emitter;
   protected final RequestLogger requestLogger;
@@ -125,6 +132,8 @@ public class QueryResource implements QueryCountStatsProvider
     this.config = config;
     this.jsonMapper = jsonMapper;
     this.smileMapper = smileMapper;
+    this.serializeDateTimeAsLongJsonMapper = serializeDataTimeAsLong(jsonMapper);
+    this.serializeDateTimeAsLongSmileMapper = serializeDataTimeAsLong(smileMapper);
     this.texasRanger = texasRanger;
     this.emitter = emitter;
     this.requestLogger = requestLogger;
@@ -176,6 +185,7 @@ public class QueryResource implements QueryCountStatsProvider
       @Context final HttpServletRequest req // used to get request content-type, remote address and AuthorizationInfo
   ) throws IOException
   {
+    final long startTimestamp = System.currentTimeMillis();
     final long startNs = System.nanoTime();
     Query<?> query = null;
     QueryToolChest toolChest = null;
@@ -250,7 +260,11 @@ public class QueryResource implements QueryCountStatsProvider
       try {
         final Query theQuery = query;
         final QueryToolChest theToolChest = toolChest;
-        final ObjectWriter jsonWriter = context.newOutputWriter();
+        boolean shouldFinalize = QueryContexts.isFinalize(query, true);
+        boolean serializeDateTimeAsLong =
+            QueryContexts.isSerializeDateTimeAsLong(query, false)
+            || (!shouldFinalize && QueryContexts.isSerializeDateTimeAsLongInner(query, false));
+        final ObjectWriter jsonWriter = context.newOutputWriter(serializeDateTimeAsLong);
         Response.ResponseBuilder builder = Response
             .ok(
                 new StreamingOutput()
@@ -309,7 +323,7 @@ public class QueryResource implements QueryCountStatsProvider
 
                         requestLogger.log(
                             new RequestLogLine(
-                                new DateTime(TimeUnit.NANOSECONDS.toMillis(startNs)),
+                                new DateTime(startTimestamp),
                                 req.getRemoteAddr(),
                                 theQuery,
                                 new QueryStats(
@@ -375,7 +389,7 @@ public class QueryResource implements QueryCountStatsProvider
         queryMetrics.reportQueryTime(queryTimeNs).emit(emitter);
         requestLogger.log(
             new RequestLogLine(
-                new DateTime(TimeUnit.NANOSECONDS.toMillis(startNs)),
+                new DateTime(startTimestamp),
                 req.getRemoteAddr(),
                 query,
                 new QueryStats(
@@ -420,7 +434,7 @@ public class QueryResource implements QueryCountStatsProvider
         queryMetrics.reportQueryTime(queryTimeNs).emit(emitter);
         requestLogger.log(
             new RequestLogLine(
-                new DateTime(TimeUnit.NANOSECONDS.toMillis(startNs)),
+                new DateTime(startTimestamp),
                 req.getRemoteAddr(),
                 query,
                 new QueryStats(ImmutableMap.<String, Object>of(
@@ -451,24 +465,41 @@ public class QueryResource implements QueryCountStatsProvider
     }
   }
 
+  protected ObjectMapper serializeDataTimeAsLong(ObjectMapper mapper)
+  {
+    return mapper.copy().registerModule(new SimpleModule().addSerializer(DateTime.class, new DateTimeSerializer()));
+  }
+
   protected ResponseContext createContext(String requestType, boolean pretty)
   {
     boolean isSmile = SmileMediaTypes.APPLICATION_JACKSON_SMILE.equals(requestType) ||
                       APPLICATION_SMILE.equals(requestType);
     String contentType = isSmile ? SmileMediaTypes.APPLICATION_JACKSON_SMILE : MediaType.APPLICATION_JSON;
-    return new ResponseContext(contentType, isSmile ? smileMapper : jsonMapper, pretty);
+    return new ResponseContext(
+        contentType,
+        isSmile ? smileMapper : jsonMapper,
+        isSmile ? serializeDateTimeAsLongSmileMapper : serializeDateTimeAsLongJsonMapper,
+        pretty
+    );
   }
 
   protected static class ResponseContext
   {
     private final String contentType;
     private final ObjectMapper inputMapper;
+    private final ObjectMapper serializeDateTimeAsLongInputMapper;
     private final boolean isPretty;
 
-    ResponseContext(String contentType, ObjectMapper inputMapper, boolean isPretty)
+    ResponseContext(
+        String contentType,
+        ObjectMapper inputMapper,
+        ObjectMapper serializeDateTimeAsLongInputMapper,
+        boolean isPretty
+    )
     {
       this.contentType = contentType;
       this.inputMapper = inputMapper;
+      this.serializeDateTimeAsLongInputMapper = serializeDateTimeAsLongInputMapper;
       this.isPretty = isPretty;
     }
 
@@ -482,21 +513,22 @@ public class QueryResource implements QueryCountStatsProvider
       return inputMapper;
     }
 
-    ObjectWriter newOutputWriter()
+    ObjectWriter newOutputWriter(boolean serializeDateTimeAsLong)
     {
-      return isPretty ? inputMapper.writerWithDefaultPrettyPrinter() : inputMapper.writer();
+      ObjectMapper mapper = serializeDateTimeAsLong ? serializeDateTimeAsLongInputMapper : inputMapper;
+      return isPretty ? mapper.writerWithDefaultPrettyPrinter() : mapper.writer();
     }
 
     Response ok(Object object) throws IOException
     {
-      return Response.ok(newOutputWriter().writeValueAsString(object), contentType).build();
+      return Response.ok(newOutputWriter(false).writeValueAsString(object), contentType).build();
     }
 
     Response gotError(Exception e) throws IOException
     {
       return Response.serverError()
                      .type(contentType)
-                     .entity(newOutputWriter().writeValueAsBytes(QueryInterruptedException.wrapIfNeeded(e)))
+                     .entity(newOutputWriter(false).writeValueAsBytes(QueryInterruptedException.wrapIfNeeded(e)))
                      .build();
     }
   }

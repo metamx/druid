@@ -23,13 +23,12 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 import io.druid.collections.bitmap.BitmapFactory;
 import io.druid.collections.bitmap.MutableBitmap;
 import io.druid.data.input.impl.DimensionSchema.MultiValueHandling;
 import io.druid.java.util.common.ISE;
+import io.druid.java.util.common.guava.Comparators;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.ValueMatcher;
@@ -44,6 +43,8 @@ import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexStorageAdapter;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntIterator;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntRBTreeMap;
 import it.unimi.dsi.fastutil.objects.Object2IntSortedMap;
 
@@ -51,24 +52,20 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 
 public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], String>
 {
   private static final Function<Object, String> STRING_TRANSFORMER = o -> o != null ? o.toString() : null;
 
-  private static final Comparator<String> UNENCODED_COMPARATOR = Ordering.natural().nullsFirst();
-
   private static class DimensionDictionary
   {
     private String minValue = null;
     private String maxValue = null;
 
-    private final Map<String, Integer> valueToId = Maps.newHashMap();
+    private final Object2IntMap<String> valueToId = new Object2IntOpenHashMap<>();
 
     private final List<String> idToValue = Lists.newArrayList();
     private final Object lock;
@@ -76,13 +73,13 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
     public DimensionDictionary()
     {
       this.lock = new Object();
+      valueToId.defaultReturnValue(-1);
     }
 
     public int getId(String value)
     {
       synchronized (lock) {
-        final Integer id = valueToId.get(Strings.nullToEmpty(value));
-        return id == null ? -1 : id;
+        return valueToId.getInt(Strings.nullToEmpty(value));
       }
     }
 
@@ -111,8 +108,8 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
     {
       String value = Strings.nullToEmpty(originalValue);
       synchronized (lock) {
-        Integer prev = valueToId.get(value);
-        if (prev != null) {
+        int prev = valueToId.getInt(value);
+        if (prev >= 0) {
           return prev;
         }
         final int index = size();
@@ -227,7 +224,7 @@ public class StringDimensionIndexer implements DimensionIndexer<Integer, int[], 
         }
         if (multiValueHandling.needSorting()) {
           // Sort multival row by their unencoded values first.
-          Arrays.sort(dimensionValues, UNENCODED_COMPARATOR);
+          Arrays.sort(dimensionValues, Comparators.naturalNullsFirst());
         }
 
         final int[] retVal = new int[dimensionValues.length];

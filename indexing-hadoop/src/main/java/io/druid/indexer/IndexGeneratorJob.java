@@ -49,7 +49,6 @@ import io.druid.segment.QueryableIndex;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexSchema;
-import io.druid.segment.incremental.OnheapIncrementalIndex;
 import io.druid.timeline.DataSegment;
 import io.druid.timeline.partition.NumberedShardSpec;
 import io.druid.timeline.partition.ShardSpec;
@@ -166,6 +165,8 @@ public class IndexGeneratorJob implements Jobby
 
       JobHelper.injectSystemProperties(job);
       config.addJobProperties(job);
+      // inject druid properties like deep storage bindings
+      JobHelper.injectDruidProperties(job.getConfiguration(), config.getAllowedHadoopPrefix());
 
       job.setMapperClass(IndexGeneratorMapper.class);
       job.setMapOutputValueClass(BytesWritable.class);
@@ -235,11 +236,11 @@ public class IndexGeneratorJob implements Jobby
         .withRollup(config.getSchema().getDataSchema().getGranularitySpec().isRollup())
         .build();
 
-    OnheapIncrementalIndex newIndex = new OnheapIncrementalIndex(
-        indexSchema,
-        !tuningConfig.isIgnoreInvalidRows(),
-        tuningConfig.getRowFlushBoundary()
-    );
+    IncrementalIndex newIndex = new IncrementalIndex.Builder()
+        .setIndexSchema(indexSchema)
+        .setReportParseExceptions(!tuningConfig.isIgnoreInvalidRows())
+        .setMaxRowCount(tuningConfig.getRowFlushBoundary())
+        .buildOnheap();
 
     if (oldDimOrder != null && !indexSchema.getDimensionsSpec().hasCustomDimensions()) {
       newIndex.loadDimensionIterable(oldDimOrder, oldCapabilities);
@@ -452,7 +453,7 @@ public class IndexGeneratorJob implements Jobby
       final ByteBuffer bytes = ByteBuffer.wrap(bytesWritable.getBytes());
       bytes.position(4); // Skip length added by SortableBytes
       int shardNum = bytes.getInt();
-      if (config.get("mapred.job.tracker").equals("local")) {
+      if ("local".equals(config.get("mapreduce.jobtracker.address")) || "local".equals(config.get("mapred.job.tracker"))) {
         return shardNum % numPartitions;
       } else {
         if (shardNum >= numPartitions) {
@@ -503,15 +504,9 @@ public class IndexGeneratorJob implements Jobby
         final ProgressIndicator progressIndicator
     ) throws IOException
     {
-      if (config.isBuildV9Directly()) {
-        return HadoopDruidIndexerConfig.INDEX_MERGER_V9.persist(
-            index, interval, file, config.getIndexSpec(), progressIndicator
-        );
-      } else {
-        return HadoopDruidIndexerConfig.INDEX_MERGER.persist(
-            index, interval, file, config.getIndexSpec(), progressIndicator
-        );
-      }
+      return HadoopDruidIndexerConfig.INDEX_MERGER_V9.persist(
+          index, interval, file, config.getIndexSpec(), progressIndicator
+      );
     }
 
     protected File mergeQueryableIndex(
@@ -522,15 +517,9 @@ public class IndexGeneratorJob implements Jobby
     ) throws IOException
     {
       boolean rollup = config.getSchema().getDataSchema().getGranularitySpec().isRollup();
-      if (config.isBuildV9Directly()) {
-        return HadoopDruidIndexerConfig.INDEX_MERGER_V9.mergeQueryableIndex(
-            indexes, rollup, aggs, file, config.getIndexSpec(), progressIndicator
-        );
-      } else {
-        return HadoopDruidIndexerConfig.INDEX_MERGER.mergeQueryableIndex(
-            indexes, rollup, aggs, file, config.getIndexSpec(), progressIndicator
-        );
-      }
+      return HadoopDruidIndexerConfig.INDEX_MERGER_V9.mergeQueryableIndex(
+          indexes, rollup, aggs, file, config.getIndexSpec(), progressIndicator
+      );
     }
 
     @Override
@@ -741,20 +730,24 @@ public class IndexGeneratorJob implements Jobby
                 new Path(config.getSchema().getIOConfig().getSegmentOutputPath()),
                 outputFS,
                 segmentTemplate,
-                JobHelper.INDEX_ZIP
+                JobHelper.INDEX_ZIP,
+                config.DATA_SEGMENT_PUSHER
             ),
             JobHelper.makeFileNamePath(
                 new Path(config.getSchema().getIOConfig().getSegmentOutputPath()),
                 outputFS,
                 segmentTemplate,
-                JobHelper.DESCRIPTOR_JSON
+                JobHelper.DESCRIPTOR_JSON,
+                config.DATA_SEGMENT_PUSHER
             ),
             JobHelper.makeTmpPath(
                 new Path(config.getSchema().getIOConfig().getSegmentOutputPath()),
                 outputFS,
                 segmentTemplate,
-                context.getTaskAttemptID()
-            )
+                context.getTaskAttemptID(),
+                config.DATA_SEGMENT_PUSHER
+            ),
+            config.DATA_SEGMENT_PUSHER
         );
 
         Path descriptorPath = config.makeDescriptorInfoPath(segment);

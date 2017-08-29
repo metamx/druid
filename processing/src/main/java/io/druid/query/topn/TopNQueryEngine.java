@@ -22,7 +22,7 @@ package io.druid.query.topn;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
-import io.druid.collections.StupidPool;
+import io.druid.collections.NonBlockingPool;
 import io.druid.java.util.common.granularity.Granularity;
 import io.druid.java.util.common.guava.Sequence;
 import io.druid.java.util.common.guava.Sequences;
@@ -51,9 +51,9 @@ public class TopNQueryEngine
 {
   private static final Logger log = new Logger(TopNQueryEngine.class);
 
-  private final StupidPool<ByteBuffer> bufferPool;
+  private final NonBlockingPool<ByteBuffer> bufferPool;
 
-  public TopNQueryEngine(StupidPool<ByteBuffer> bufferPool)
+  public TopNQueryEngine(NonBlockingPool<ByteBuffer> bufferPool)
   {
     this.bufferPool = bufferPool;
   }
@@ -143,8 +143,9 @@ public class TopNQueryEngine
       topNAlgorithm = new TimeExtractionTopNAlgorithm(capabilities, query);
     } else if (selector.isHasExtractionFn()) {
       topNAlgorithm = new DimExtractionTopNAlgorithm(capabilities, query);
-    } else if (columnCapabilities != null && columnCapabilities.getType() != ValueType.STRING) {
-      // force non-Strings to use DimExtraction for now, do a typed PooledTopN later
+    } else if (columnCapabilities != null && !(columnCapabilities.getType() == ValueType.STRING
+                                              && columnCapabilities.isDictionaryEncoded())) {
+      // Use DimExtraction for non-Strings and for non-dictionary-encoded Strings.
       topNAlgorithm = new DimExtractionTopNAlgorithm(capabilities, query);
     } else if (selector.isAggregateAllMetrics()) {
       topNAlgorithm = new PooledTopNAlgorithm(capabilities, query, bufferPool);

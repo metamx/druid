@@ -48,6 +48,7 @@ import io.druid.query.timeseries.TimeseriesQueryQueryToolChest;
 import io.druid.query.timeseries.TimeseriesQueryRunnerFactory;
 import io.druid.segment.IndexIO;
 import io.druid.segment.IndexMerger;
+import io.druid.segment.IndexMergerV9;
 import io.druid.segment.column.ColumnConfig;
 import io.druid.segment.indexing.DataSchema;
 import io.druid.segment.indexing.RealtimeTuningConfig;
@@ -61,6 +62,7 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -152,7 +154,7 @@ public class AppenderatorTester implements AutoCloseable
           }
         }
     );
-    indexMerger = new IndexMerger(objectMapper, indexIO);
+    indexMerger = new IndexMergerV9(objectMapper, indexIO);
 
     emitter = new ServiceEmitter(
         "test",
@@ -185,6 +187,12 @@ public class AppenderatorTester implements AutoCloseable
       {
         pushedSegments.add(segment);
         return segment;
+      }
+
+      @Override
+      public Map<String, Object> makeLoadSpec(URI uri)
+      {
+        throw new UnsupportedOperationException();
       }
     };
     appenderator = Appenderators.createRealtime(

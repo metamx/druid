@@ -21,7 +21,6 @@ package io.druid.indexer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.NamedType;
-import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -32,6 +31,7 @@ import io.druid.data.input.impl.InputRowParser;
 import io.druid.data.input.impl.JSONParseSpec;
 import io.druid.data.input.impl.StringInputRowParser;
 import io.druid.data.input.impl.TimestampSpec;
+import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.granularity.Granularities;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.CountAggregatorFactory;
@@ -89,7 +89,7 @@ public class IndexGeneratorJobTest
 
   @Parameterized.Parameters(name = "useCombiner={0}, partitionType={1}, interval={2}, shardInfoForEachSegment={3}, " +
                                    "data={4}, inputFormatName={5}, inputRowParser={6}, maxRowsInMemory={7}, " +
-                                   "aggs={8}, datasourceName={9}, forceExtendableShardSpecs={10}, buildV9Directly={11}")
+                                   "aggs={8}, datasourceName={9}, forceExtendableShardSpecs={10}")
   public static Collection<Object[]> constructFeed()
   {
     final List<Object[]> baseConstructors = Arrays.asList(
@@ -371,17 +371,14 @@ public class IndexGeneratorJobTest
         }
     );
 
-    // Run each baseConstructor with/without buildV9Directly and forceExtendableShardSpecs.
+    // Run each baseConstructor with/without forceExtendableShardSpecs.
     final List<Object[]> constructors = Lists.newArrayList();
     for (Object[] baseConstructor : baseConstructors) {
-      for (int buildV9Directly = 0; buildV9Directly < 2; buildV9Directly++) {
-        for (int forceExtendableShardSpecs = 0; forceExtendableShardSpecs < 2 ; forceExtendableShardSpecs++) {
-          final Object[] fullConstructor = new Object[baseConstructor.length + 2];
-          System.arraycopy(baseConstructor, 0, fullConstructor, 0, baseConstructor.length);
-          fullConstructor[baseConstructor.length] = forceExtendableShardSpecs == 0;
-          fullConstructor[baseConstructor.length + 1] = buildV9Directly == 0;
-          constructors.add(fullConstructor);
-        }
+      for (int forceExtendableShardSpecs = 0; forceExtendableShardSpecs < 2 ; forceExtendableShardSpecs++) {
+        final Object[] fullConstructor = new Object[baseConstructor.length + 1];
+        System.arraycopy(baseConstructor, 0, fullConstructor, 0, baseConstructor.length);
+        fullConstructor[baseConstructor.length] = forceExtendableShardSpecs == 0;
+        constructors.add(fullConstructor);
       }
     }
 
@@ -402,7 +399,6 @@ public class IndexGeneratorJobTest
   private final AggregatorFactory[] aggs;
   private final String datasourceName;
   private final boolean forceExtendableShardSpecs;
-  private final boolean buildV9Directly;
 
   private ObjectMapper mapper;
   private HadoopDruidIndexerConfig config;
@@ -420,8 +416,7 @@ public class IndexGeneratorJobTest
       Integer maxRowsInMemory,
       AggregatorFactory[] aggs,
       String datasourceName,
-      boolean forceExtendableShardSpecs,
-      boolean buildV9Directly
+      boolean forceExtendableShardSpecs
   ) throws IOException
   {
     this.useCombiner = useCombiner;
@@ -435,7 +430,6 @@ public class IndexGeneratorJobTest
     this.aggs = aggs;
     this.datasourceName = datasourceName;
     this.forceExtendableShardSpecs = forceExtendableShardSpecs;
-    this.buildV9Directly = buildV9Directly;
   }
 
   private void writeDataToLocalSequenceFile(File outputFile, List<String> data) throws IOException
@@ -457,7 +451,7 @@ public class IndexGeneratorJobTest
       ByteBuffer buf = ByteBuffer.allocate(4);
       buf.putInt(keyCount);
       BytesWritable key = new BytesWritable(buf.array());
-      BytesWritable value = new BytesWritable(line.getBytes(Charsets.UTF_8));
+      BytesWritable value = new BytesWritable(StringUtils.toUtf8(line));
       fileWriter.append(key, value);
       keyCount += 1;
     }
@@ -522,10 +516,11 @@ public class IndexGeneratorJobTest
                 false,
                 useCombiner,
                 null,
-                buildV9Directly,
+                true,
                 null,
                 forceExtendableShardSpecs,
-                false
+                false,
+                null
             )
         )
     );

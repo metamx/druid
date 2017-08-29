@@ -23,10 +23,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Longs;
-import io.druid.jackson.DefaultObjectMapper;
 import io.druid.query.dimension.DefaultDimensionSpec;
 import io.druid.query.dimension.DimensionSpec;
 import io.druid.query.dimension.ExtractionDimensionSpec;
+import io.druid.query.expression.TestExprMacroTable;
 import io.druid.query.extraction.BucketExtractionFn;
 import io.druid.query.extraction.ExtractionFn;
 import io.druid.query.filter.ValueMatcher;
@@ -39,6 +39,7 @@ import io.druid.segment.IdLookup;
 import io.druid.segment.LongColumnSelector;
 import io.druid.segment.ObjectColumnSelector;
 import io.druid.segment.TestFloatColumnSelector;
+import io.druid.segment.TestHelper;
 import io.druid.segment.TestLongColumnSelector;
 import io.druid.segment.VirtualColumn;
 import io.druid.segment.VirtualColumns;
@@ -80,8 +81,8 @@ public class VirtualColumnsTest
     Assert.assertEquals(1L, objectSelector.get());
     Assert.assertEquals("1", dimensionSelector.lookupName(dimensionSelector.getRow().get(0)));
     Assert.assertEquals("0.5", extractionDimensionSelector.lookupName(extractionDimensionSelector.getRow().get(0)));
-    Assert.assertEquals(1.0f, floatSelector.get(), 0.0f);
-    Assert.assertEquals(1L, longSelector.get());
+    Assert.assertEquals(1.0f, floatSelector.getFloat(), 0.0f);
+    Assert.assertEquals(1L, longSelector.getLong());
   }
 
   @Test
@@ -98,8 +99,8 @@ public class VirtualColumnsTest
 
     Assert.assertEquals(5L, objectSelector.get());
     Assert.assertEquals("5", dimensionSelector.lookupName(dimensionSelector.getRow().get(0)));
-    Assert.assertEquals(5.0f, floatSelector.get(), 0.0f);
-    Assert.assertEquals(5L, longSelector.get());
+    Assert.assertEquals(5.0f, floatSelector.getFloat(), 0.0f);
+    Assert.assertEquals(5L, longSelector.getLong());
   }
 
   @Test
@@ -116,14 +117,19 @@ public class VirtualColumnsTest
 
     Assert.assertEquals(-1L, objectSelector.get());
     Assert.assertEquals("-1", dimensionSelector.lookupName(dimensionSelector.getRow().get(0)));
-    Assert.assertEquals(-1.0f, floatSelector.get(), 0.0f);
-    Assert.assertEquals(-1L, longSelector.get());
+    Assert.assertEquals(-1.0f, floatSelector.getFloat(), 0.0f);
+    Assert.assertEquals(-1L, longSelector.getLong());
   }
 
   @Test
   public void testTimeNotAllowed()
   {
-    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn("__time", "x + y");
+    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn(
+        "__time",
+        "x + y",
+        ValueType.FLOAT,
+        TestExprMacroTable.INSTANCE
+    );
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("virtualColumn name[__time] not allowed");
@@ -134,8 +140,19 @@ public class VirtualColumnsTest
   @Test
   public void testDuplicateNameDetection()
   {
-    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn("expr", "x + y");
-    final ExpressionVirtualColumn expr2 = new ExpressionVirtualColumn("expr", "x * 2");
+    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn(
+        "expr",
+        "x + y",
+        ValueType.FLOAT,
+        TestExprMacroTable.INSTANCE
+    );
+
+    final ExpressionVirtualColumn expr2 = new ExpressionVirtualColumn(
+        "expr",
+        "x * 2",
+        ValueType.FLOAT,
+        TestExprMacroTable.INSTANCE
+    );
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("Duplicate virtualColumn name[expr]");
@@ -146,8 +163,19 @@ public class VirtualColumnsTest
   @Test
   public void testCycleDetection()
   {
-    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn("expr", "x + expr2");
-    final ExpressionVirtualColumn expr2 = new ExpressionVirtualColumn("expr2", "expr * 2");
+    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn(
+        "expr",
+        "x + expr2",
+        ValueType.FLOAT,
+        TestExprMacroTable.INSTANCE
+    );
+
+    final ExpressionVirtualColumn expr2 = new ExpressionVirtualColumn(
+        "expr2",
+        "expr * 2",
+        ValueType.FLOAT,
+        TestExprMacroTable.INSTANCE
+    );
 
     expectedException.expect(IllegalArgumentException.class);
     expectedException.expectMessage("Self-referential column[expr]");
@@ -160,13 +188,13 @@ public class VirtualColumnsTest
   {
     final VirtualColumns virtualColumns = VirtualColumns.create(
         ImmutableList.<VirtualColumn>of(
-            new ExpressionVirtualColumn("expr", "x + y")
+            new ExpressionVirtualColumn("expr", "x + y", ValueType.FLOAT, TestExprMacroTable.INSTANCE)
         )
     );
 
     final VirtualColumns virtualColumns2 = VirtualColumns.create(
         ImmutableList.<VirtualColumn>of(
-            new ExpressionVirtualColumn("expr", "x + y")
+            new ExpressionVirtualColumn("expr", "x + y", ValueType.FLOAT, TestExprMacroTable.INSTANCE)
         )
     );
 
@@ -179,13 +207,13 @@ public class VirtualColumnsTest
   {
     final VirtualColumns virtualColumns = VirtualColumns.create(
         ImmutableList.<VirtualColumn>of(
-            new ExpressionVirtualColumn("expr", "x + y")
+            new ExpressionVirtualColumn("expr", "x + y", ValueType.FLOAT, TestExprMacroTable.INSTANCE)
         )
     );
 
     final VirtualColumns virtualColumns2 = VirtualColumns.create(
         ImmutableList.<VirtualColumn>of(
-            new ExpressionVirtualColumn("expr", "x + y")
+            new ExpressionVirtualColumn("expr", "x + y", ValueType.FLOAT, TestExprMacroTable.INSTANCE)
         )
     );
 
@@ -202,10 +230,10 @@ public class VirtualColumnsTest
   @Test
   public void testSerde() throws Exception
   {
-    final ObjectMapper mapper = new DefaultObjectMapper();
+    final ObjectMapper mapper = TestHelper.getJsonMapper();
     final ImmutableList<VirtualColumn> theColumns = ImmutableList.<VirtualColumn>of(
-        new ExpressionVirtualColumn("expr", "x + y"),
-        new ExpressionVirtualColumn("expr2", "x + z")
+        new ExpressionVirtualColumn("expr", "x + y", ValueType.FLOAT, TestExprMacroTable.INSTANCE),
+        new ExpressionVirtualColumn("expr2", "x + z", ValueType.FLOAT, TestExprMacroTable.INSTANCE)
     );
     final VirtualColumns virtualColumns = VirtualColumns.create(theColumns);
 
@@ -228,7 +256,12 @@ public class VirtualColumnsTest
 
   private VirtualColumns makeVirtualColumns()
   {
-    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn("expr", "1");
+    final ExpressionVirtualColumn expr = new ExpressionVirtualColumn(
+        "expr",
+        "1",
+        ValueType.FLOAT,
+        TestExprMacroTable.INSTANCE
+    );
     final DottyVirtualColumn dotty = new DottyVirtualColumn("foo");
     return VirtualColumns.create(ImmutableList.of(expr, dotty));
   }
@@ -263,7 +296,7 @@ public class VirtualColumnsTest
         @Override
         public Object get()
         {
-          return selector.get();
+          return selector.getLong();
         }
       };
     }
@@ -290,7 +323,7 @@ public class VirtualColumnsTest
         @Override
         public String lookupName(int id)
         {
-          final String stringValue = String.valueOf(selector.get());
+          final String stringValue = String.valueOf(selector.getLong());
           return extractionFn == null ? stringValue : extractionFn.apply(stringValue);
         }
 
@@ -343,9 +376,9 @@ public class VirtualColumnsTest
       return new TestFloatColumnSelector()
       {
         @Override
-        public float get()
+        public float getFloat()
         {
-          return selector.get();
+          return selector.getLong();
         }
       };
     }
@@ -359,7 +392,7 @@ public class VirtualColumnsTest
       return new TestLongColumnSelector()
       {
         @Override
-        public long get()
+        public long getLong()
         {
           return theLong;
         }

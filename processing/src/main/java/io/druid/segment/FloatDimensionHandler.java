@@ -26,7 +26,6 @@ import io.druid.segment.column.GenericColumn;
 import io.druid.segment.data.Indexed;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 
 public class FloatDimensionHandler implements DimensionHandler<Float, Float, Float>
@@ -52,27 +51,12 @@ public class FloatDimensionHandler implements DimensionHandler<Float, Float, Flo
 
   @Override
   public DimensionMergerV9<Float> makeMerger(
-      IndexSpec indexSpec, File outDir, ColumnCapabilities capabilities, ProgressIndicator progress
+      IndexSpec indexSpec, ColumnCapabilities capabilities, ProgressIndicator progress
   ) throws IOException
   {
     return new FloatDimensionMergerV9(
         dimensionName,
         indexSpec,
-        outDir,
-        capabilities,
-        progress
-    );
-  }
-
-  @Override
-  public DimensionMergerLegacy<Float> makeLegacyMerger(
-      IndexSpec indexSpec, File outDir, ColumnCapabilities capabilities, ProgressIndicator progress
-  ) throws IOException
-  {
-    return new FloatDimensionMergerLegacy(
-        dimensionName,
-        indexSpec,
-        outDir,
         capabilities,
         progress
     );

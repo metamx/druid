@@ -42,6 +42,7 @@ import io.druid.query.aggregation.LongSumAggregatorFactory;
 import io.druid.query.aggregation.PostAggregator;
 import io.druid.query.aggregation.first.DoubleFirstAggregatorFactory;
 import io.druid.query.aggregation.last.DoubleLastAggregatorFactory;
+import io.druid.query.expression.TestExprMacroTable;
 import io.druid.query.extraction.MapLookupExtractor;
 import io.druid.query.filter.AndDimFilter;
 import io.druid.query.filter.BoundDimFilter;
@@ -54,6 +55,7 @@ import io.druid.query.lookup.LookupExtractionFn;
 import io.druid.query.ordering.StringComparators;
 import io.druid.query.spec.MultipleIntervalSegmentSpec;
 import io.druid.segment.TestHelper;
+import io.druid.segment.column.ValueType;
 import io.druid.segment.virtual.ExpressionVirtualColumn;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -416,7 +418,14 @@ public class TimeseriesQueryRunnerTest
                                       )
                                   )
                                   .descending(descending)
-                                  .virtualColumns(new ExpressionVirtualColumn("expr", "index"))
+                                  .virtualColumns(
+                                      new ExpressionVirtualColumn(
+                                          "expr",
+                                          "index",
+                                          ValueType.FLOAT,
+                                          TestExprMacroTable.INSTANCE
+                                      )
+                                  )
                                   .build();
 
     List<Result<TimeseriesResultValue>> expectedResults = Arrays.asList(

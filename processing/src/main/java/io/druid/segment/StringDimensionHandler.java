@@ -28,7 +28,6 @@ import io.druid.segment.data.Indexed;
 import io.druid.segment.data.IndexedInts;
 
 import java.io.Closeable;
-import java.io.File;
 import java.lang.reflect.Array;
 import java.util.Arrays;
 
@@ -80,7 +79,7 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
   ) throws SegmentValidationException
   {
     if (lhs == null || rhs == null) {
-      if (lhs != rhs) {
+      if (lhs != null || rhs != null) {
         throw new SegmentValidationException(
             "Expected nulls, found %s and %s",
             Arrays.toString(lhs),
@@ -192,22 +191,11 @@ public class StringDimensionHandler implements DimensionHandler<Integer, int[], 
   @Override
   public DimensionMergerV9 makeMerger(
       IndexSpec indexSpec,
-      File outDir,
       ColumnCapabilities capabilities,
       ProgressIndicator progress
   )
   {
-    return new StringDimensionMergerV9(dimensionName, indexSpec, outDir, capabilities, progress);
+    return new StringDimensionMergerV9(dimensionName, indexSpec, capabilities, progress);
   }
 
-  @Override
-  public DimensionMergerLegacy makeLegacyMerger(
-      IndexSpec indexSpec,
-      File outDir,
-      ColumnCapabilities capabilities,
-      ProgressIndicator progress
-  )
-  {
-    return new StringDimensionMergerLegacy(dimensionName, indexSpec, outDir, capabilities, progress);
-  }
 }
