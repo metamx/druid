@@ -58,8 +58,11 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  */
@@ -209,6 +212,147 @@ public class LoadRuleTest
 
     Assert.assertEquals(1L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, "hot"));
     Assert.assertEquals(2L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, DruidServer.DEFAULT_TIER));
+    exec.shutdown();
+  }
+
+  @Test
+  public void testLoadPriority() throws Exception
+  {
+    final ReplicationThrottler limitedThrottler = new ReplicationThrottler(1, 1);
+    final List<String> tiers = Arrays.asList("tier1", "tier2");
+
+    for (final String tier : tiers) {
+      limitedThrottler.updateReplicationState(tier);
+    }
+
+    final LoadQueuePeon loadedPeon = EasyMock.createMock(LoadQueuePeon.class);
+
+    EasyMock.expect(mockPeon.getSegmentsToLoad()).andReturn(Sets.<DataSegment>newHashSet()).atLeastOnce();
+    EasyMock.expect(mockPeon.getLoadQueueSize()).andReturn(0L).atLeastOnce();
+    EasyMock.expect(mockPeon.getNumberOfSegmentsInQueue()).andReturn(0).anyTimes();
+    EasyMock.expect(mockPeon.getSegmentsMarkedToDrop()).andReturn(Sets.<DataSegment>newHashSet()).anyTimes();
+
+    EasyMock.expect(loadedPeon.getSegmentsToLoad()).andReturn(Sets.<DataSegment>newHashSet()).atLeastOnce();
+    EasyMock.expect(loadedPeon.getLoadQueueSize()).andReturn(0L).atLeastOnce();
+    EasyMock.expect(loadedPeon.getNumberOfSegmentsInQueue()).andReturn(0).anyTimes();
+    EasyMock.expect(loadedPeon.getSegmentsMarkedToDrop()).andReturn(Sets.<DataSegment>newHashSet()).anyTimes();
+
+    loadedPeon.loadSegment(EasyMock.<DataSegment>anyObject(), EasyMock.<LoadPeonCallback>isNull());
+    EasyMock.expectLastCall().once();
+
+    EasyMock.replay(mockPeon, loadedPeon);
+
+
+    final LoadRule rule = new LoadRule()
+    {
+      @Override
+      public Map<String, Integer> getTieredReplicants()
+      {
+        return tiers.stream().collect(Collectors.toMap(Function.identity(), (tier) -> 10));
+      }
+
+      @Override
+      public int getNumReplicants(String tier)
+      {
+        return 10;
+      }
+
+      @Override
+      public String getType()
+      {
+        return "test";
+      }
+
+      @Override
+      public boolean appliesTo(DataSegment segment, DateTime referenceTimestamp)
+      {
+        return true;
+      }
+
+      @Override
+      public boolean appliesTo(Interval interval, DateTime referenceTimestamp)
+      {
+        return true;
+      }
+    };
+
+    final DruidCluster druidCluster = new DruidCluster(
+        null,
+        ImmutableMap.of(
+            "tier1",
+            MinMaxPriorityQueue.orderedBy(Ordering.natural().reverse()).create(
+                Arrays.asList(
+                    new ServerHolder(
+                        new DruidServer(
+                            "server1",
+                            "host1",
+                            1000,
+                            ServerType.HISTORICAL,
+                            "tier1",
+                            0
+                        ).toImmutableDruidServer(),
+                        mockPeon
+                    )
+                )
+            ),
+            "tier2",
+            MinMaxPriorityQueue.orderedBy(Ordering.natural().reverse()).create(
+                Arrays.asList(
+                    new ServerHolder(
+                        new DruidServer(
+                            "server2",
+                            "host2",
+                            1000,
+                            ServerType.HISTORICAL,
+                            "tier2",
+                            1
+                        ).toImmutableDruidServer(),
+                        loadedPeon
+                    ),
+                    new ServerHolder(
+                        new DruidServer(
+                            "server3",
+                            "host3",
+                            1000,
+                            ServerType.HISTORICAL,
+                            "tier2",
+                            1
+                        ).toImmutableDruidServer(),
+                        loadedPeon
+                    )
+                )
+            )
+        )
+    );
+
+    // to pack the throttler
+    for (final ServerHolder server : druidCluster.getAllServers()) {
+      limitedThrottler.registerReplicantCreation(
+          server.getServer().getTier(), "dummySegment", server.getServer().getName()
+      );
+    }
+
+    final ListeningExecutorService exec = MoreExecutors.listeningDecorator(
+        Executors.newFixedThreadPool(1)
+    );
+    final BalancerStrategy balancerStrategy =
+        new CostBalancerStrategyFactory().createBalancerStrategy(exec);
+
+    final CoordinatorStats stats = rule.run(
+        null,
+        DruidCoordinatorRuntimeParams.newBuilder()
+                                     .withDruidCluster(druidCluster)
+                                     .withSegmentReplicantLookup(SegmentReplicantLookup.make(druidCluster))
+                                     .withReplicationManager(limitedThrottler)
+                                     .withBalancerStrategy(balancerStrategy)
+                                     .withBalancerReferenceTimestamp(new DateTime("2013-01-01"))
+                                     .withAvailableSegments(Arrays.asList(segment)).build(),
+        segment
+    );
+
+    Assert.assertEquals(0L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, "tier1"));
+    Assert.assertEquals(1L, stats.getTieredStat(LoadRule.ASSIGNED_COUNT, "tier2"));
+
     exec.shutdown();
   }
 

@@ -1163,7 +1163,7 @@ public class DruidCoordinatorRuleRunnerTest
                             1000,
                             ServerType.HISTORICAL,
                             "hot",
-                            0
+                            1
                         ).toImmutableDruidServer(),
                         mockPeon
                     )
