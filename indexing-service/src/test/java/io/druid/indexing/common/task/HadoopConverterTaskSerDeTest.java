@@ -25,8 +25,8 @@ import com.google.common.collect.ImmutableMap;
 import io.druid.indexing.common.TestUtils;
 import io.druid.java.util.common.Intervals;
 import io.druid.segment.IndexSpec;
-import io.druid.segment.data.CompressedObjectStrategy;
 import io.druid.segment.data.CompressionFactory;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.ConciseBitmapSerdeFactory;
 import io.druid.timeline.DataSegment;
 import io.druid.timeline.partition.NoneShardSpec;
@@ -54,8 +54,8 @@ public class HadoopConverterTaskSerDeTest
   private static final int BINARY_VERSION = 34718;
   private static final long SEGMENT_SIZE = 7483901348790L;
   private static final IndexSpec INDEX_SPEC = new IndexSpec(new ConciseBitmapSerdeFactory(),
-                                                            CompressedObjectStrategy.CompressionStrategy.LZ4,
-                                                            CompressedObjectStrategy.CompressionStrategy.LZF,
+                                                            CompressionStrategy.LZ4,
+                                                            CompressionStrategy.LZF,
                                                             CompressionFactory.LongEncodingStrategy.LONGS);
   private static final DataSegment DATA_SEGMENT = new DataSegment(
       DATA_SOURCE,

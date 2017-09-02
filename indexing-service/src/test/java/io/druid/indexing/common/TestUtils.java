@@ -27,6 +27,7 @@ import io.druid.guice.ServerModule;
 import io.druid.jackson.DefaultObjectMapper;
 import io.druid.java.util.common.ISE;
 import io.druid.math.expr.ExprMacroTable;
+import io.druid.output.OffHeapMemoryOutputMediumFactory;
 import io.druid.query.expression.TestExprMacroTable;
 import io.druid.segment.IndexIO;
 import io.druid.segment.IndexMergerV9;
@@ -50,6 +51,7 @@ public class TestUtils
     jsonMapper = new DefaultObjectMapper();
     indexIO = new IndexIO(
         jsonMapper,
+        OffHeapMemoryOutputMediumFactory.instance(),
         new ColumnConfig()
         {
           @Override
@@ -59,7 +61,7 @@ public class TestUtils
           }
         }
     );
-    indexMergerV9 = new IndexMergerV9(jsonMapper, indexIO);
+    indexMergerV9 = new IndexMergerV9(jsonMapper, indexIO, OffHeapMemoryOutputMediumFactory.instance());
 
     final List<? extends Module> list = new ServerModule().getJacksonModules();
     for (Module module : list) {

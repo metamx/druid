@@ -36,6 +36,7 @@ import io.druid.java.util.common.guava.Comparators;
 import io.druid.java.util.common.guava.nary.BinaryFn;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.java.util.common.parsers.CloseableIterator;
+import io.druid.output.OutputMediumFactory;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.segment.column.ColumnCapabilitiesImpl;
 import io.druid.segment.data.Indexed;
@@ -220,6 +221,14 @@ public interface IndexMerger
 
   File convert(File inDir, File outDir, IndexSpec indexSpec, ProgressIndicator progress)
       throws IOException;
+
+  File convert(
+      File inDir,
+      File outDir,
+      IndexSpec indexSpec,
+      ProgressIndicator progress,
+      @Nullable OutputMediumFactory outputMediumFactory
+  ) throws IOException;
 
   File append(List<IndexableAdapter> indexes, AggregatorFactory[] aggregators, File outDir, IndexSpec indexSpec)
       throws IOException;
@@ -411,7 +420,8 @@ public interface IndexMerger
           Int2ObjectMap.Entry<IntSortedSet> entry = entryIterator.next();
 
           for (IntIterator setIterator = entry.getValue().iterator(); setIterator.hasNext(); /* NOP */) {
-            retVal.addRow(entry.getIntKey(), setIterator.nextInt());
+            int rowNum = setIterator.nextInt();
+            retVal.addRow(entry.getIntKey(), rowNum);
           }
         }
       }

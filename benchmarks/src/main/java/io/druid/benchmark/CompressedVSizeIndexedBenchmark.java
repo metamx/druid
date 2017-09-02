@@ -23,7 +23,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.druid.segment.CompressedVSizeIndexedSupplier;
-import io.druid.segment.data.CompressedObjectStrategy;
+import io.druid.segment.data.CompressionStrategy;
 import io.druid.segment.data.IndexedInts;
 import io.druid.segment.data.IndexedMultivalue;
 import io.druid.segment.data.VSizeIndexed;
@@ -95,7 +95,7 @@ public class CompressedVSizeIndexedBenchmark
                 }
             ),
             bound - 1,
-            ByteOrder.nativeOrder(), CompressedObjectStrategy.CompressionStrategy.LZ4
+            ByteOrder.nativeOrder(), CompressionStrategy.LZ4
         )
     );
     this.compressed = CompressedVSizeIndexedSupplier.fromByteBuffer(
@@ -117,7 +117,7 @@ public class CompressedVSizeIndexedBenchmark
                   }
                 }
             )
-        ).asWritableSupplier()
+        )
     );
     this.uncompressed = VSizeIndexed.readFromByteBuffer(bufferUncompressed);
 
@@ -159,7 +159,7 @@ public class CompressedVSizeIndexedBenchmark
       }
     };
 
-    writableSupplier.writeToChannel(channel);
+    writableSupplier.writeTo(channel, null);
     buffer.rewind();
     return buffer;
   }

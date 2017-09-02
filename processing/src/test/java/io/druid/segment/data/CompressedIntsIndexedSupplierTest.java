@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class CompressedIntsIndexedSupplierTest extends CompressionStrategyTest
 {
-  public CompressedIntsIndexedSupplierTest(CompressedObjectStrategy.CompressionStrategy compressionStrategy)
+  public CompressedIntsIndexedSupplierTest(CompressionStrategy compressionStrategy)
   {
     super(compressionStrategy);
   }
@@ -99,12 +99,12 @@ public class CompressedIntsIndexedSupplierTest extends CompressionStrategyTest
     final CompressedIntsIndexedSupplier theSupplier = CompressedIntsIndexedSupplier.fromIntBuffer(
         IntBuffer.wrap(vals), chunkSize, ByteOrder.nativeOrder(), compressionStrategy
     );
-    theSupplier.writeToChannel(Channels.newChannel(baos));
+    theSupplier.writeTo(Channels.newChannel(baos), null);
 
     final byte[] bytes = baos.toByteArray();
     Assert.assertEquals(theSupplier.getSerializedSize(), bytes.length);
 
-    supplier = CompressedIntsIndexedSupplier.fromByteBuffer(ByteBuffer.wrap(bytes), ByteOrder.nativeOrder(), null);
+    supplier = CompressedIntsIndexedSupplier.fromByteBuffer(ByteBuffer.wrap(bytes), ByteOrder.nativeOrder());
     indexed = supplier.get();
   }
 

@@ -37,6 +37,7 @@ import io.druid.hll.HyperLogLogHash;
 import io.druid.java.util.common.DateTimes;
 import io.druid.java.util.common.Intervals;
 import io.druid.java.util.common.logger.Logger;
+import io.druid.output.OffHeapMemoryOutputMediumFactory;
 import io.druid.query.aggregation.AggregatorFactory;
 import io.druid.query.aggregation.DoubleMaxAggregatorFactory;
 import io.druid.query.aggregation.DoubleMinAggregatorFactory;
@@ -135,8 +136,9 @@ public class TestIndex
   };
   private static final IndexSpec indexSpec = new IndexSpec();
 
-  private static final IndexMerger INDEX_MERGER = TestHelper.getTestIndexMergerV9();
-  private static final IndexIO INDEX_IO = TestHelper.getTestIndexIO();
+  private static final IndexMerger INDEX_MERGER =
+      TestHelper.getTestIndexMergerV9(OffHeapMemoryOutputMediumFactory.instance());
+  private static final IndexIO INDEX_IO = TestHelper.getTestIndexIO(OffHeapMemoryOutputMediumFactory.instance());
 
   static {
     if (ComplexMetrics.getSerdeForType("hyperUnique") == null) {
