@@ -27,6 +27,7 @@ import io.druid.java.util.common.io.smoosh.SmooshedFileMapper;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.LongBuffer;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BlockLayoutIndexedLongSupplier implements Supplier<IndexedLongs>
 {
@@ -35,6 +36,7 @@ public class BlockLayoutIndexedLongSupplier implements Supplier<IndexedLongs>
   private final int totalSize;
   private final int sizePer;
   private final CompressionFactory.LongEncodingReader baseReader;
+  private final AtomicLong blockLoads = new AtomicLong(0L);
 
   public BlockLayoutIndexedLongSupplier(
       int totalSize,
@@ -95,6 +97,7 @@ public class BlockLayoutIndexedLongSupplier implements Supplier<IndexedLongs>
             buffer = holder.get();
             longBuffer = buffer.asLongBuffer();
             currIndex = bufferNum;
+            blockLoads.getAndIncrement();
           }
         };
       } else {
