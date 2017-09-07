@@ -97,6 +97,7 @@ public class HadoopConverterTaskSerDeTest
         PRIORITY,
         OUTPUT_PATH,
         CLASSPATH_PREFIX,
+        null,
         null
     );
     final String strOrig = jsonMapper.writeValueAsString(orig);
@@ -122,6 +123,7 @@ public class HadoopConverterTaskSerDeTest
         PRIORITY,
         OUTPUT_PATH,
         CLASSPATH_PREFIX,
+        null,
         null
     );
     HadoopConverterTask.ConverterSubTask subTask = new HadoopConverterTask.ConverterSubTask(
@@ -175,6 +177,7 @@ public class HadoopConverterTaskSerDeTest
         PRIORITY,
         OUTPUT_PATH,
         CLASSPATH_PREFIX,
+        null,
         null
     );
     HadoopConverterTask.ConverterSubTask subTask = new HadoopConverterTask.ConverterSubTask(
@@ -203,6 +206,7 @@ public class HadoopConverterTaskSerDeTest
         PRIORITY,
         OUTPUT_PATH,
         CLASSPATH_PREFIX,
+        null,
         null
     );
     Assert.assertTrue(orig.isValidate());
@@ -222,6 +226,7 @@ public class HadoopConverterTaskSerDeTest
         DISTRIBUTED_CACHE,
         null,
         OUTPUT_PATH,
+        null,
         null,
         null
     );
@@ -248,6 +253,7 @@ public class HadoopConverterTaskSerDeTest
         PRIORITY,
         OUTPUT_PATH,
         CLASSPATH_PREFIX,
+        null,
         null
     );
     orig.getSegment();
@@ -268,6 +274,7 @@ public class HadoopConverterTaskSerDeTest
         null,
         OUTPUT_PATH,
         null,
+        null,
         null
     );
   }
@@ -286,6 +293,7 @@ public class HadoopConverterTaskSerDeTest
         DISTRIBUTED_CACHE,
         null,
         OUTPUT_PATH,
+        null,
         null,
         null
     );
@@ -306,6 +314,7 @@ public class HadoopConverterTaskSerDeTest
         null,
         OUTPUT_PATH,
         null,
+        null,
         null
     );
   }
@@ -322,6 +331,7 @@ public class HadoopConverterTaskSerDeTest
         null,
         null,
         DISTRIBUTED_CACHE,
+        null,
         null,
         null,
         null,

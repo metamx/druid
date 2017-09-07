@@ -436,7 +436,8 @@ public class GroupByBenchmark
       final File file = INDEX_MERGER_V9.persist(
           index,
           new File(tmpDir, String.valueOf(i)),
-          new IndexSpec()
+          new IndexSpec(),
+          null
       );
 
       queryableIndexes.add(INDEX_IO.loadIndex(file));

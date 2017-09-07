@@ -271,7 +271,7 @@ public class SpatialFilterTest
     tmpFile.mkdirs();
     tmpFile.deleteOnExit();
 
-    INDEX_MERGER.persist(theIndex, tmpFile, indexSpec);
+    INDEX_MERGER.persist(theIndex, tmpFile, indexSpec, null);
     return INDEX_IO.loadIndex(tmpFile);
   }
 
@@ -498,9 +498,9 @@ public class SpatialFilterTest
       mergedFile.mkdirs();
       mergedFile.deleteOnExit();
 
-      INDEX_MERGER.persist(first, DATA_INTERVAL, firstFile, indexSpec);
-      INDEX_MERGER.persist(second, DATA_INTERVAL, secondFile, indexSpec);
-      INDEX_MERGER.persist(third, DATA_INTERVAL, thirdFile, indexSpec);
+      INDEX_MERGER.persist(first, DATA_INTERVAL, firstFile, indexSpec, null);
+      INDEX_MERGER.persist(second, DATA_INTERVAL, secondFile, indexSpec, null);
+      INDEX_MERGER.persist(third, DATA_INTERVAL, thirdFile, indexSpec, null);
 
       QueryableIndex mergedRealtime = INDEX_IO.loadIndex(
           INDEX_MERGER.mergeQueryableIndex(
@@ -508,7 +508,8 @@ public class SpatialFilterTest
               true,
               METRIC_AGGS,
               mergedFile,
-              indexSpec
+              indexSpec,
+              null
           )
       );
 

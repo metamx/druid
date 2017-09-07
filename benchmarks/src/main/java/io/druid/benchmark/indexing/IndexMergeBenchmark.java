@@ -141,7 +141,8 @@ public class IndexMergeBenchmark
       File indexFile = INDEX_MERGER_V9.persist(
           incIndex,
           tmpDir,
-          new IndexSpec()
+          new IndexSpec(),
+          null
       );
 
       QueryableIndex qIndex = INDEX_IO.loadIndex(indexFile);
@@ -185,7 +186,8 @@ public class IndexMergeBenchmark
           rollup,
           schemaInfo.getAggsArray(),
           tmpFile,
-          new IndexSpec()
+          new IndexSpec(),
+          null
       );
 
       blackhole.consume(mergedFile);

@@ -71,6 +71,7 @@ import io.druid.segment.serde.LongGenericColumnSupplier;
 import io.druid.segment.serde.SpatialIndexColumnPartSupplier;
 import org.joda.time.Interval;
 
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -96,13 +97,13 @@ public class IndexIO
   private static final SerializerUtils serializerUtils = new SerializerUtils();
 
   private final ObjectMapper mapper;
-  private final OutputMediumFactory outputMediumFactory;
+  private final OutputMediumFactory defaultOutputMediumFactory;
 
   @Inject
-  public IndexIO(ObjectMapper mapper, OutputMediumFactory outputMediumFactory, ColumnConfig columnConfig)
+  public IndexIO(ObjectMapper mapper, OutputMediumFactory defaultOutputMediumFactory, ColumnConfig columnConfig)
   {
     this.mapper = Preconditions.checkNotNull(mapper, "null ObjectMapper");
-    this.outputMediumFactory = Preconditions.checkNotNull(outputMediumFactory, "null OutputMediumFactory");
+    this.defaultOutputMediumFactory = Preconditions.checkNotNull(defaultOutputMediumFactory, "null OutputMediumFactory");
     Preconditions.checkNotNull(columnConfig, "null ColumnConfig");
     ImmutableMap.Builder<Integer, IndexLoader> indexLoadersBuilder = ImmutableMap.builder();
     LegacyIndexLoader legacyIndexLoader = new LegacyIndexLoader(new DefaultIndexIOHandler(), columnConfig);
@@ -227,12 +228,16 @@ public class IndexIO
       File converted,
       IndexSpec indexSpec,
       boolean forceIfCurrent,
-      boolean validate
+      boolean validate,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
     final int version = SegmentUtils.getVersionFromDir(toConvert);
     boolean current = version == CURRENT_VERSION_ID;
     if (!current || forceIfCurrent) {
+      if (outputMediumFactory == null) {
+        outputMediumFactory = this.defaultOutputMediumFactory;
+      }
       new IndexMergerV9(mapper, this, outputMediumFactory).convert(toConvert, converted, indexSpec);
       if (validate) {
         validateTwoSegments(toConvert, converted);

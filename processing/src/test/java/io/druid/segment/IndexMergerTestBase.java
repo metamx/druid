@@ -166,7 +166,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist,
                 tempDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -213,7 +214,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist,
                 tempDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -255,7 +257,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist,
                 tempDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -315,7 +318,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tempDir1,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -329,7 +333,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist2,
                 tempDir2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -348,7 +353,8 @@ public class IndexMergerTestBase
                 true,
                 mergedAggregators,
                 mergedDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -404,7 +410,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tmpDir1,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -413,7 +420,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist2,
                 tmpDir2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -424,7 +432,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{},
                 tmpDir3,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -464,7 +473,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tempDir1,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -486,7 +496,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 mergedDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -518,11 +529,7 @@ public class IndexMergerTestBase
     );
 
     QueryableIndex index1 = closer.closeLater(
-        indexIO.loadIndex(
-            indexMerger.append(
-                ImmutableList.<IndexableAdapter>of(incrementalAdapter), null, tempDir1, indexSpec
-            )
-        )
+        indexIO.loadIndex(indexMerger.append(ImmutableList.of(incrementalAdapter), null, tempDir1, indexSpec, null))
     );
     final IndexableAdapter queryableAdapter = new QueryableIndexIndexableAdapter(index1);
 
@@ -545,7 +552,8 @@ public class IndexMergerTestBase
                 true,
                 mergedAggregators,
                 mergedDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -586,7 +594,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tempDir1,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -621,7 +630,8 @@ public class IndexMergerTestBase
                 true,
                 mergedAggregators,
                 mergedDir,
-                newSpec
+                newSpec,
+                null
             )
         )
     );
@@ -662,7 +672,7 @@ public class IndexMergerTestBase
     );
 
     QueryableIndex index1 = closer.closeLater(
-        indexIO.loadIndex(indexMerger.persist(toPersist1, tempDir1, indexSpec))
+        indexIO.loadIndex(indexMerger.persist(toPersist1, tempDir1, indexSpec, null))
     );
 
     final IndexableAdapter queryableAdapter = new QueryableIndexIndexableAdapter(index1);
@@ -729,7 +739,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tempDir1,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -836,7 +847,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tmpDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -846,7 +858,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist2,
                 tmpDir2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -856,7 +869,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist3,
                 tmpDir3,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -869,7 +883,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -944,7 +959,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tmpDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -954,7 +970,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist2,
                 tmpDir2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -964,7 +981,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist3,
                 tmpDir3,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -976,7 +994,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1025,7 +1044,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistA,
                 tmpDirA,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1035,7 +1055,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistB,
                 tmpDirB,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1045,7 +1066,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistB2,
                 tmpDirB2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1057,7 +1079,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1069,7 +1092,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1193,7 +1217,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistA,
                 tmpDirA,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1203,7 +1228,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistB,
                 tmpDirB,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1215,7 +1241,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1335,7 +1362,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistA,
                 tmpDirA,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1345,7 +1373,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistB,
                 tmpDirB,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1357,7 +1386,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1476,7 +1506,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistA,
                 tmpDirA,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1486,7 +1517,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistB,
                 tmpDirB,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1498,7 +1530,8 @@ public class IndexMergerTestBase
                 false,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1586,7 +1619,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistA,
                 tmpDirA,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1596,7 +1630,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistB,
                 tmpDirB,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1606,7 +1641,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistBA,
                 tmpDirBA,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1616,7 +1652,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistBA2,
                 tmpDirBA2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1626,7 +1663,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersistC,
                 tmpDirC,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1638,7 +1676,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -1650,7 +1689,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -2025,7 +2065,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist1,
                 tmpDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -2035,7 +2076,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 toPersist2,
                 tmpDir2,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -2047,7 +2089,8 @@ public class IndexMergerTestBase
                 true,
                 new AggregatorFactory[]{new CountAggregatorFactory("count")},
                 tmpDirMerged,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -2156,7 +2199,8 @@ public class IndexMergerTestBase
             indexMerger.persist(
                 index1,
                 tempDir,
-                indexSpec
+                indexSpec,
+                null
             )
         )
     );
@@ -2297,7 +2341,8 @@ public class IndexMergerTestBase
       indexMerger.persist(
           toPersist,
           tempDir,
-          indexSpec
+          indexSpec,
+          null
       );
     }
     finally {
@@ -2416,6 +2461,6 @@ public class IndexMergerTestBase
     }
 
     final File tempDir = temporaryFolder.newFolder();
-    return closer.closeLater(indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec)));
+    return closer.closeLater(indexIO.loadIndex(indexMerger.persist(toPersist, tempDir, indexSpec, null)));
   }
 }

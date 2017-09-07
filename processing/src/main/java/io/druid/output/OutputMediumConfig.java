@@ -17,29 +17,28 @@
  * under the License.
  */
 
-package io.druid.segment.realtime.appenderator;
+package io.druid.output;
 
-import io.druid.output.OutputMediumFactory;
-import io.druid.segment.IndexSpec;
-import org.joda.time.Period;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-import javax.annotation.Nullable;
-import java.io.File;
-
-public interface AppenderatorConfig
+public class OutputMediumConfig
 {
-  boolean isReportParseExceptions();
+  private static final OutputMediumFactory DEFAULT_DEFAULT_OUTPUT_MEDIUM_FACTORY =
+      TmpFileOutputMediumFactory.instance();
 
-  int getMaxRowsInMemory();
+  @JsonProperty
+  private OutputMediumFactory defaultOutputMediumFactory;
 
-  int getMaxPendingPersists();
+  @JsonCreator
+  public OutputMediumConfig(@JsonProperty("defaultOutputMediumFactory") OutputMediumFactory defaultOutputMediumFactory)
+  {
+    this.defaultOutputMediumFactory =
+        defaultOutputMediumFactory != null ? defaultOutputMediumFactory : DEFAULT_DEFAULT_OUTPUT_MEDIUM_FACTORY;
+  }
 
-  Period getIntermediatePersistPeriod();
-
-  IndexSpec getIndexSpec();
-
-  File getBasePersistDirectory();
-
-  @Nullable
-  OutputMediumFactory getOutputMediumFactory();
+  public OutputMediumFactory getDefaultOutputMediumFactory()
+  {
+    return defaultOutputMediumFactory;
+  }
 }

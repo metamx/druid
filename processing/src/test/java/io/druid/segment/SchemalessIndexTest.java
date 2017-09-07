@@ -210,8 +210,8 @@ public class SchemalessIndexTest
         mergedFile.mkdirs();
         mergedFile.deleteOnExit();
 
-        indexMerger.persist(top, topFile, indexSpec);
-        indexMerger.persist(bottom, bottomFile, indexSpec);
+        indexMerger.persist(top, topFile, indexSpec, null);
+        indexMerger.persist(bottom, bottomFile, indexSpec, null);
 
         mergedIndex = indexIO.loadIndex(
             indexMerger.mergeQueryableIndex(
@@ -219,7 +219,8 @@ public class SchemalessIndexTest
                 true,
                 METRIC_AGGS,
                 mergedFile,
-                indexSpec
+                indexSpec,
+                null
             )
         );
 
@@ -265,7 +266,8 @@ public class SchemalessIndexTest
                 true,
                 METRIC_AGGS,
                 mergedFile,
-                indexSpec
+                indexSpec,
+                null
             )
         );
 
@@ -301,7 +303,7 @@ public class SchemalessIndexTest
         }
 
         return indexIO.loadIndex(
-            indexMerger.mergeQueryableIndex(indexesToMerge, true, METRIC_AGGS, mergedFile, indexSpec)
+            indexMerger.mergeQueryableIndex(indexesToMerge, true, METRIC_AGGS, mergedFile, indexSpec, null)
         );
       }
       catch (IOException e) {
@@ -387,7 +389,7 @@ public class SchemalessIndexTest
           tmpFile.mkdirs();
           tmpFile.deleteOnExit();
 
-          indexMerger.persist(rowIndex, tmpFile, indexSpec);
+          indexMerger.persist(rowIndex, tmpFile, indexSpec, null);
           rowPersistedIndexes.add(indexIO.loadIndex(tmpFile));
         }
       }
@@ -453,7 +455,7 @@ public class SchemalessIndexTest
       theFile.mkdirs();
       theFile.deleteOnExit();
       filesToMap.add(theFile);
-      indexMerger.persist(index, theFile, indexSpec);
+      indexMerger.persist(index, theFile, indexSpec, null);
     }
 
     return filesToMap;
@@ -527,7 +529,7 @@ public class SchemalessIndexTest
           )
       );
 
-      return indexIO.loadIndex(indexMerger.append(adapters, null, mergedFile, indexSpec));
+      return indexIO.loadIndex(indexMerger.append(adapters, null, mergedFile, indexSpec, null));
     }
     catch (IOException e) {
       throw Throwables.propagate(e);
@@ -568,7 +570,8 @@ public class SchemalessIndexTest
               true,
               METRIC_AGGS,
               mergedFile,
-              indexSpec
+              indexSpec,
+              null
           )
       );
     }

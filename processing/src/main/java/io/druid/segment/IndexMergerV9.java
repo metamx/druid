@@ -112,7 +112,7 @@ public class IndexMergerV9 implements IndexMerger
       final List<String> mergedMetrics,
       final Function<ArrayList<Iterable<Rowboat>>, Iterable<Rowboat>> rowMergerFn,
       final IndexSpec indexSpec,
-      final OutputMediumFactory outputMediumFactory
+      final @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
     progress.start();
@@ -152,7 +152,9 @@ public class IndexMergerV9 implements IndexMerger
       final FileSmoosher v9Smoosher = new FileSmoosher(outDir);
       FileUtils.forceMkdir(outDir);
 
-      OutputMedium outputMedium = outputMediumFactory.makeOutputMedium(outDir);
+      OutputMediumFactory omf = outputMediumFactory != null ? outputMediumFactory : defaultOutputMediumFactory;
+      log.info("Using OutputMediumFactory[%s]", omf.getClass().getSimpleName());
+      OutputMedium outputMedium = omf.makeOutputMedium(outDir);
       closer.register(outputMedium);
       long startTime = System.currentTimeMillis();
       Files.asByteSink(new File(outDir, "version.bin")).write(Ints.toByteArray(IndexIO.V9_VERSION));
@@ -605,21 +607,11 @@ public class IndexMergerV9 implements IndexMerger
   public File persist(
       final IncrementalIndex index,
       File outDir,
-      IndexSpec indexSpec
+      IndexSpec indexSpec,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
-    return persist(index, index.getInterval(), outDir, indexSpec);
-  }
-
-  @Override
-  public File persist(
-      final IncrementalIndex index,
-      final Interval dataInterval,
-      File outDir,
-      IndexSpec indexSpec
-  ) throws IOException
-  {
-    return persist(index, dataInterval, outDir, indexSpec, new BaseProgressIndicator());
+    return persist(index, index.getInterval(), outDir, indexSpec, outputMediumFactory);
   }
 
   @Override
@@ -628,7 +620,20 @@ public class IndexMergerV9 implements IndexMerger
       final Interval dataInterval,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
+      @Nullable OutputMediumFactory outputMediumFactory
+  ) throws IOException
+  {
+    return persist(index, dataInterval, outDir, indexSpec, new BaseProgressIndicator(), outputMediumFactory);
+  }
+
+  @Override
+  public File persist(
+      final IncrementalIndex index,
+      final Interval dataInterval,
+      File outDir,
+      IndexSpec indexSpec,
+      ProgressIndicator progress,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
     if (index.isEmpty()) {
@@ -665,7 +670,8 @@ public class IndexMergerV9 implements IndexMerger
         index.getMetricAggs(),
         outDir,
         indexSpec,
-        progress
+        progress,
+        outputMediumFactory
     );
   }
 
@@ -675,10 +681,19 @@ public class IndexMergerV9 implements IndexMerger
       boolean rollup,
       final AggregatorFactory[] metricAggs,
       File outDir,
-      IndexSpec indexSpec
+      IndexSpec indexSpec,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
-    return mergeQueryableIndex(indexes, rollup, metricAggs, outDir, indexSpec, new BaseProgressIndicator());
+    return mergeQueryableIndex(
+        indexes,
+        rollup,
+        metricAggs,
+        outDir,
+        indexSpec,
+        new BaseProgressIndicator(),
+        outputMediumFactory
+    );
   }
 
   @Override
@@ -688,7 +703,8 @@ public class IndexMergerV9 implements IndexMerger
       final AggregatorFactory[] metricAggs,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
+      ProgressIndicator progress,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
     return merge(
@@ -697,7 +713,8 @@ public class IndexMergerV9 implements IndexMerger
         metricAggs,
         outDir,
         indexSpec,
-        progress
+        progress,
+        outputMediumFactory
     );
   }
 
@@ -710,17 +727,17 @@ public class IndexMergerV9 implements IndexMerger
       IndexSpec indexSpec
   ) throws IOException
   {
-    return merge(indexes, rollup, metricAggs, outDir, indexSpec, new BaseProgressIndicator());
+    return merge(indexes, rollup, metricAggs, outDir, indexSpec, new BaseProgressIndicator(), null);
   }
 
-  @Override
-  public File merge(
+  private File merge(
       List<IndexableAdapter> indexes,
       final boolean rollup,
       final AggregatorFactory[] metricAggs,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
+      ProgressIndicator progress,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
     FileUtils.deleteDirectory(outDir);
@@ -826,21 +843,14 @@ public class IndexMergerV9 implements IndexMerger
         mergedMetrics,
         rowMergerFn,
         indexSpec,
-        defaultOutputMediumFactory
+        outputMediumFactory
     );
   }
 
   @Override
   public File convert(final File inDir, final File outDir, final IndexSpec indexSpec) throws IOException
   {
-    return convert(inDir, outDir, indexSpec, new BaseProgressIndicator());
-  }
-
-  @Override
-  public File convert(final File inDir, final File outDir, final IndexSpec indexSpec, final ProgressIndicator progress)
-      throws IOException
-  {
-    return convert(inDir, outDir, indexSpec, progress, defaultOutputMediumFactory);
+    return convert(inDir, outDir, indexSpec, new BaseProgressIndicator(), defaultOutputMediumFactory);
   }
 
   @Override
@@ -871,17 +881,9 @@ public class IndexMergerV9 implements IndexMerger
             }
           },
           indexSpec,
-          outputMediumFactory != null ? outputMediumFactory : defaultOutputMediumFactory
+          outputMediumFactory
       );
     }
-  }
-
-  @Override
-  public File append(
-      List<IndexableAdapter> indexes, AggregatorFactory[] aggregators, File outDir, IndexSpec indexSpec
-  ) throws IOException
-  {
-    return append(indexes, aggregators, outDir, indexSpec, new BaseProgressIndicator());
   }
 
   @Override
@@ -890,7 +892,7 @@ public class IndexMergerV9 implements IndexMerger
       AggregatorFactory[] aggregators,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException
   {
     FileUtils.deleteDirectory(outDir);
@@ -937,12 +939,12 @@ public class IndexMergerV9 implements IndexMerger
         indexes,
         aggregators,
         outDir,
-        progress,
+        new BaseProgressIndicator(),
         mergedDimensions,
         mergedMetrics,
         rowMergerFn,
         indexSpec,
-        defaultOutputMediumFactory
+        outputMediumFactory
     );
   }
 

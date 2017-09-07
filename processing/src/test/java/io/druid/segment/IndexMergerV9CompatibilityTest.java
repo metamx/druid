@@ -177,7 +177,7 @@ public class IndexMergerV9CompatibilityTest
     QueryableIndex index = null;
     try {
       outDir = Files.createTempDir();
-      index = indexIO.loadIndex(indexMerger.persist(toPersist, outDir, INDEX_SPEC));
+      index = indexIO.loadIndex(indexMerger.persist(toPersist, outDir, INDEX_SPEC, null));
 
       Assert.assertEquals("value", index.getMetadata().get("key"));
     }

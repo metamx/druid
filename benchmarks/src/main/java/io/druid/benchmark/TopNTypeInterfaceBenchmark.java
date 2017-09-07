@@ -293,7 +293,8 @@ public class TopNTypeInterfaceBenchmark
       File indexFile = INDEX_MERGER_V9.persist(
           incIndexes.get(i),
           tmpFile,
-          new IndexSpec()
+          new IndexSpec(),
+          null
       );
 
       QueryableIndex qIndex = INDEX_IO.loadIndex(indexFile);

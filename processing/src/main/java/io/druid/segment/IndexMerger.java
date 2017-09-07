@@ -19,6 +19,7 @@
 
 package io.druid.segment;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -158,7 +159,12 @@ public interface IndexMerger
     return Lists.newArrayList(retVal);
   }
 
-  File persist(IncrementalIndex index, File outDir, IndexSpec indexSpec) throws IOException;
+  File persist(
+      IncrementalIndex index,
+      File outDir,
+      IndexSpec indexSpec,
+      @Nullable OutputMediumFactory outputMediumFactory
+  ) throws IOException;
 
   /**
    * This is *not* thread-safe and havok will ensue if this is called and writes are still occurring
@@ -172,22 +178,21 @@ public interface IndexMerger
    *
    * @throws IOException if an IO error occurs persisting the index
    */
-  File persist(IncrementalIndex index, Interval dataInterval, File outDir, IndexSpec indexSpec) throws IOException;
+  File persist(
+      IncrementalIndex index,
+      Interval dataInterval,
+      File outDir,
+      IndexSpec indexSpec,
+      @Nullable OutputMediumFactory outputMediumFactory
+  ) throws IOException;
 
   File persist(
       IncrementalIndex index,
       Interval dataInterval,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
-  ) throws IOException;
-
-  File mergeQueryableIndex(
-      List<QueryableIndex> indexes,
-      boolean rollup,
-      AggregatorFactory[] metricAggs,
-      File outDir,
-      IndexSpec indexSpec
+      ProgressIndicator progress,
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException;
 
   File mergeQueryableIndex(
@@ -196,9 +201,20 @@ public interface IndexMerger
       AggregatorFactory[] metricAggs,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException;
 
+  File mergeQueryableIndex(
+      List<QueryableIndex> indexes,
+      boolean rollup,
+      AggregatorFactory[] metricAggs,
+      File outDir,
+      IndexSpec indexSpec,
+      ProgressIndicator progress,
+      @Nullable OutputMediumFactory outputMediumFactory
+  ) throws IOException;
+
+  @VisibleForTesting
   File merge(
       List<IndexableAdapter> indexes,
       boolean rollup,
@@ -207,20 +223,7 @@ public interface IndexMerger
       IndexSpec indexSpec
   ) throws IOException;
 
-  File merge(
-      List<IndexableAdapter> indexes,
-      boolean rollup,
-      AggregatorFactory[] metricAggs,
-      File outDir,
-      IndexSpec indexSpec,
-      ProgressIndicator progress
-  ) throws IOException;
-
-  // Faster than IndexMaker
   File convert(File inDir, File outDir, IndexSpec indexSpec) throws IOException;
-
-  File convert(File inDir, File outDir, IndexSpec indexSpec, ProgressIndicator progress)
-      throws IOException;
 
   File convert(
       File inDir,
@@ -230,15 +233,12 @@ public interface IndexMerger
       @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException;
 
-  File append(List<IndexableAdapter> indexes, AggregatorFactory[] aggregators, File outDir, IndexSpec indexSpec)
-      throws IOException;
-
   File append(
       List<IndexableAdapter> indexes,
       AggregatorFactory[] aggregators,
       File outDir,
       IndexSpec indexSpec,
-      ProgressIndicator progress
+      @Nullable OutputMediumFactory outputMediumFactory
   ) throws IOException;
 
   interface IndexSeeker

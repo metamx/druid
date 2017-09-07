@@ -28,6 +28,6 @@ public class OutputMediumModule implements Module
   @Override
   public void configure(Binder binder)
   {
-    JsonConfigProvider.bind(binder, "druid.indexing", OutputMediumFactory.class);
+    JsonConfigProvider.bind(binder, "druid.defaultOutputMediumFactory", OutputMediumConfig.class);
   }
 }

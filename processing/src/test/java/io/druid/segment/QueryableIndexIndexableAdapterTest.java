@@ -87,7 +87,8 @@ public class QueryableIndexIndexableAdapterTest
             indexMerger.persist(
                 toPersist,
                 tempDir,
-                INDEX_SPEC
+                INDEX_SPEC,
+                null
             )
         )
     );

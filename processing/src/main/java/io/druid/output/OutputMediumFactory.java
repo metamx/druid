@@ -27,7 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "outputMedium", defaultImpl = TmpFileOutputMediumFactory.class)
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, defaultImpl = TmpFileOutputMediumFactory.class)
 @JsonSubTypes(value = {
     @JsonSubTypes.Type(name = "tmpFile", value = TmpFileOutputMediumFactory.class),
     @JsonSubTypes.Type(name = "offHeapMemory", value = OffHeapMemoryOutputMediumFactory.class),

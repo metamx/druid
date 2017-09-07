@@ -127,7 +127,8 @@ public class IndexBuilder
           indexMerger.persist(
               incrementalIndex,
               new File(tmpDir, StringUtils.format("testIndex-%s", new Random().nextInt(Integer.MAX_VALUE))),
-              indexSpec
+              indexSpec,
+              null
           )
       );
     }
@@ -153,7 +154,8 @@ public class IndexBuilder
                         rows.subList(i, Math.min(rows.size(), i + ROWS_PER_INDEX_FOR_MERGING))
                     ),
                     new File(tmpDir, StringUtils.format("testIndex-%s", UUID.randomUUID().toString())),
-                    indexSpec
+                    indexSpec,
+                    null
                 )
             )
         );

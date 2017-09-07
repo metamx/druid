@@ -180,7 +180,8 @@ public class FilterPartitionBenchmark
     indexFile = INDEX_MERGER_V9.persist(
         incIndex,
         tmpDir,
-        new IndexSpec()
+        new IndexSpec(),
+        null
     );
     qIndex = INDEX_IO.loadIndex(indexFile);
 

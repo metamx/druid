@@ -362,7 +362,8 @@ public class SearchBenchmark
       File indexFile = INDEX_MERGER_V9.persist(
           incIndexes.get(i),
           tmpDir,
-          new IndexSpec()
+          new IndexSpec(),
+          null
       );
 
       QueryableIndex qIndex = INDEX_IO.loadIndex(indexFile);
