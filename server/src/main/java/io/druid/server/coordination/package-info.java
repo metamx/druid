@@ -17,37 +17,7 @@
  * under the License.
  */
 
-package io.druid.client;
+@ParametersAreNonnullByDefault
+package io.druid.server.coordination;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Set;
-
-/**
- */
-public class BrokerSegmentWatcherConfig
-{
-  @JsonProperty
-  private Set<String> watchedTiers = null;
-
-  @JsonProperty
-  private Set<String> watchedDataSources = null;
-
-  @JsonProperty
-  private int historicalSegmentServingDelayMillis = 0;
-
-  public Set<String> getWatchedTiers()
-  {
-    return watchedTiers;
-  }
-
-  public Set<String> getWatchedDataSources()
-  {
-    return watchedDataSources;
-  }
-
-  public int getHistoricalSegmentServingDelayMillis()
-  {
-    return historicalSegmentServingDelayMillis;
-  }
-}
+import javax.annotation.ParametersAreNonnullByDefault;
