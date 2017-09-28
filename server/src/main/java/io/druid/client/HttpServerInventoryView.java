@@ -87,7 +87,7 @@ public class HttpServerInventoryView implements ServerInventoryView, FilteredSer
 
   private final LifecycleLock lifecycleLock = new LifecycleLock();
 
-  private final ConcurrentMap<ServerCallback, Executor> serverCallbacks = new MapMaker().makeMap();
+  private final ConcurrentMap<ServerRemovedCallback, Executor> serverCallbacks = new MapMaker().makeMap();
   private final ConcurrentMap<SegmentCallback, Executor> segmentCallbacks = new MapMaker().makeMap();
 
   private final ConcurrentMap<SegmentCallback, Predicate<Pair<DruidServerMetadata, DataSegment>>> segmentPredicates = new MapMaker()
@@ -259,7 +259,7 @@ public class HttpServerInventoryView implements ServerInventoryView, FilteredSer
   }
 
   @Override
-  public void registerServerCallback(Executor exec, ServerCallback callback)
+  public void registerServerRemovedCallback(Executor exec, ServerRemovedCallback callback)
   {
     serverCallbacks.put(callback, exec);
   }
@@ -328,7 +328,7 @@ public class HttpServerInventoryView implements ServerInventoryView, FilteredSer
 
   private void runServerCallbacks(final DruidServer server)
   {
-    for (final Map.Entry<ServerCallback, Executor> entry : serverCallbacks.entrySet()) {
+    for (final Map.Entry<ServerRemovedCallback, Executor> entry : serverCallbacks.entrySet()) {
       entry.getValue().execute(
           new Runnable()
           {
