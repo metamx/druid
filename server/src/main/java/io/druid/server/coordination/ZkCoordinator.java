@@ -554,7 +554,7 @@ public class ZkCoordinator implements DataSegmentChangeHandler
     private void periodicAnnounce()
     {
       if (!(finished && queue.isEmpty())) {
-        final List<DataSegment> segments = queue.takeAvailable();
+        final List<DataSegment> segments = queue.drainAvailable();
         try {
           // With delays, it might be that we drained no elements this time
           if (!segments.isEmpty()) {
@@ -633,7 +633,7 @@ public class ZkCoordinator implements DataSegmentChangeHandler
   private interface SegmentQueue
   {
     void put(DataSegment segment) throws InterruptedException;
-    List<DataSegment> takeAvailable();
+    List<DataSegment> drainAvailable();
     List<DataSegment> takeAllRemaining() throws InterruptedException;
     boolean isEmpty();
   }
@@ -649,7 +649,7 @@ public class ZkCoordinator implements DataSegmentChangeHandler
     }
 
     @Override
-    public List<DataSegment> takeAvailable()
+    public List<DataSegment> drainAvailable()
     {
       List<DataSegment> list = new ArrayList<>(delegate.size());
       delegate.drainTo(list);
@@ -659,7 +659,7 @@ public class ZkCoordinator implements DataSegmentChangeHandler
     @Override
     public List<DataSegment> takeAllRemaining()
     {
-      return takeAvailable();
+      return drainAvailable();
     }
 
     @Override
@@ -686,7 +686,7 @@ public class ZkCoordinator implements DataSegmentChangeHandler
     }
 
     @Override
-    public List<DataSegment> takeAvailable()
+    public List<DataSegment> drainAvailable()
     {
       List<DelayedDataSegment> list = new ArrayList<>();
       delayQueue.drainTo(list);
@@ -732,6 +732,7 @@ public class ZkCoordinator implements DataSegmentChangeHandler
     @Override
     public int compareTo(Delayed o)
     {
+      // nanosecond "stamps" should be compared with -, not Long.compare(), because they may overflow themselves
       return Ints.saturatedCast(timeOutNs - ((DelayedDataSegment) o).timeOutNs);
     }
   }
