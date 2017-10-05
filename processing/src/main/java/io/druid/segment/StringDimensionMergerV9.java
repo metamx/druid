@@ -22,7 +22,6 @@ package io.druid.segment;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import io.druid.collections.bitmap.BitmapFactory;
 import io.druid.collections.bitmap.ImmutableBitmap;
@@ -289,7 +288,7 @@ public class StringDimensionMergerV9 implements DimensionMergerV9<int[]>
     // write dim values to one single file because we need to read it
     File dimValueFile = IndexIO.makeDimFile(outDir, dimensionName);
     try (FileOutputStream fos = new FileOutputStream(dimValueFile)) {
-      ByteStreams.copy(dictionaryWriter.combineStreams(), fos);
+      dictionaryWriter.combineStreams().copyTo(fos);
     }
 
     final MappedByteBuffer dimValsMapped = Files.map(dimValueFile);

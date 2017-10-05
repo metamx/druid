@@ -102,7 +102,7 @@ public class BlockLayoutDoubleSupplierSerializer implements DoubleSupplierSerial
     try (OutputStream out = consolidatedOut.openStream();
          InputStream meta = ioPeon.makeInputStream(metaFile)) {
       ByteStreams.copy(meta, out);
-      ByteStreams.copy(flattener.combineStreams(), out);
+      flattener.combineStreams().copyTo(out);
     }
   }
 

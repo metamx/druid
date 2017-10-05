@@ -101,7 +101,7 @@ public class BlockLayoutFloatSupplierSerializer implements FloatSupplierSerializ
     try (OutputStream out = consolidatedOut.openStream();
          InputStream meta = ioPeon.makeInputStream(metaFile)) {
       ByteStreams.copy(meta, out);
-      ByteStreams.copy(flattener.combineStreams(), out);
+      flattener.combineStreams().copyTo(out);
     }
   }
 

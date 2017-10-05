@@ -22,10 +22,10 @@ package io.druid.segment.data;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.common.io.CountingOutputStream;
-import com.google.common.io.InputSupplier;
 import com.google.common.primitives.Ints;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.io.smoosh.FileSmoosher;
@@ -125,25 +125,20 @@ public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter implements C
     }
   }
 
-  public InputSupplier<InputStream> combineStreams()
+  public ByteSource combineStreams()
   {
-    return ByteStreams.join(
+    return ByteSource.concat(
         Iterables.transform(
             Arrays.asList(metaFileName, headerFileName, valuesFileName),
-            new Function<String, InputSupplier<InputStream>>()
-            {
-              @Override
-              public InputSupplier<InputStream> apply(final String input)
+            (Function<String, ByteSource>) input -> {
+              return new ByteSource()
               {
-                return new InputSupplier<InputStream>()
+                @Override
+                public InputStream openStream() throws IOException
                 {
-                  @Override
-                  public InputStream getInput() throws IOException
-                  {
-                    return ioPeon.makeInputStream(input);
-                  }
-                };
-              }
+                  return ioPeon.makeInputStream(input);
+                }
+              };
             }
         )
     );
@@ -163,7 +158,7 @@ public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter implements C
   @Override
   public void writeToChannel(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
   {
-    try (final ReadableByteChannel from = Channels.newChannel(combineStreams().getInput())) {
+    try (final ReadableByteChannel from = Channels.newChannel(combineStreams().openStream())) {
       ByteStreams.copy(from, channel);
     }
   }

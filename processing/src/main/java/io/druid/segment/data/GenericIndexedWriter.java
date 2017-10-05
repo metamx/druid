@@ -22,9 +22,9 @@ package io.druid.segment.data;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CountingOutputStream;
-import com.google.common.io.InputSupplier;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.druid.common.utils.SerializerUtils;
@@ -308,7 +308,7 @@ public class GenericIndexedWriter<T> implements Closeable
   }
 
   @Deprecated
-  public InputSupplier<InputStream> combineStreams()
+  public ByteSource combineStreams()
   {
     // ByteSource.concat is only available in guava 15 and higher
     // This is guava 14 compatible
@@ -316,23 +316,18 @@ public class GenericIndexedWriter<T> implements Closeable
       throw new ISE("Can not combine streams for version 2."); //fallback to old behaviour.
     }
 
-    return ByteStreams.join(
+    return ByteSource.concat(
         Iterables.transform(
             Arrays.asList("meta", "header", "values"),
-            new Function<String, InputSupplier<InputStream>>()
-            {
-              @Override
-              public InputSupplier<InputStream> apply(final String input)
+            (Function<String, ByteSource>) input -> {
+              return new ByteSource()
               {
-                return new InputSupplier<InputStream>()
+                @Override
+                public InputStream openStream() throws IOException
                 {
-                  @Override
-                  public InputStream getInput() throws IOException
-                  {
-                    return ioPeon.makeInputStream(makeFilename(input));
-                  }
-                };
-              }
+                  return ioPeon.makeInputStream(makeFilename(input));
+                }
+              };
             }
         )
     );
@@ -340,7 +335,7 @@ public class GenericIndexedWriter<T> implements Closeable
 
   private void writeToChannelVersionOne(WritableByteChannel channel) throws IOException
   {
-    try (ReadableByteChannel from = Channels.newChannel(combineStreams().getInput())) {
+    try (ReadableByteChannel from = Channels.newChannel(combineStreams().openStream())) {
       ByteStreams.copy(from, channel);
     }
 

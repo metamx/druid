@@ -20,7 +20,6 @@
 package io.druid.common.utils;
 
 import com.google.common.io.ByteStreams;
-import com.google.common.io.OutputSupplier;
 import com.google.common.primitives.Floats;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
@@ -107,13 +106,6 @@ public class SerializerUtils
     byte[] nameBytes = StringUtils.toUtf8(name);
     writeInt(out, nameBytes.length);
     out.write(nameBytes);
-  }
-
-  public void writeString(OutputSupplier<? extends OutputStream> supplier, String name) throws IOException
-  {
-    try (OutputStream out = supplier.getOutput()) {
-      writeString(out, name);
-    }
   }
 
   public void writeString(WritableByteChannel out, String name) throws IOException

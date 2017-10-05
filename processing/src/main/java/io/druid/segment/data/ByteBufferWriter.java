@@ -22,9 +22,9 @@ package io.druid.segment.data;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.CountingOutputStream;
-import com.google.common.io.InputSupplier;
 import com.google.common.primitives.Ints;
 import io.druid.common.utils.SerializerUtils;
 import io.druid.java.util.common.StringUtils;
@@ -97,25 +97,20 @@ public class ByteBufferWriter<T> implements Closeable
     return headerOut.getCount() + valueOut.getCount();
   }
 
-  public InputSupplier<InputStream> combineStreams()
+  public ByteSource combineStreams()
   {
-    return ByteStreams.join(
+    return ByteSource.concat(
         Iterables.transform(
             Arrays.asList("header", "value"),
-            new Function<String, InputSupplier<InputStream>>()
-            {
-              @Override
-              public InputSupplier<InputStream> apply(final String input)
+            (Function<String, ByteSource>) input -> {
+              return new ByteSource()
               {
-                return new InputSupplier<InputStream>()
+                @Override
+                public InputStream openStream() throws IOException
                 {
-                  @Override
-                  public InputStream getInput() throws IOException
-                  {
-                    return ioPeon.makeInputStream(makeFilename(input));
-                  }
-                };
-              }
+                  return ioPeon.makeInputStream(makeFilename(input));
+                }
+              };
             }
         )
     );
@@ -123,7 +118,7 @@ public class ByteBufferWriter<T> implements Closeable
 
   public void writeToChannel(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
   {
-    try (final ReadableByteChannel from = Channels.newChannel(combineStreams().getInput())) {
+    try (final ReadableByteChannel from = Channels.newChannel(combineStreams().openStream())) {
       ByteStreams.copy(from, channel);
     }
   }

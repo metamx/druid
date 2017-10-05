@@ -28,17 +28,16 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import com.google.inject.Inject;
 import io.druid.collections.CombiningIterable;
-import io.druid.java.util.common.DateTimes;
-import io.druid.java.util.common.JodaUtils;
 import io.druid.io.ZeroCopyByteArrayOutputStream;
+import io.druid.java.util.common.DateTimes;
 import io.druid.java.util.common.IAE;
 import io.druid.java.util.common.ISE;
+import io.druid.java.util.common.JodaUtils;
 import io.druid.java.util.common.guava.Comparators;
 import io.druid.java.util.common.guava.FunctionalIterable;
 import io.druid.java.util.common.guava.MergeIterable;
@@ -174,10 +173,8 @@ public class IndexMergerV9 implements IndexMerger
       final IOPeon ioPeon = new TmpFileIOPeon(tmpPeonFilesDir, false);
       closer.register(ioPeon);
       long startTime = System.currentTimeMillis();
-      ByteStreams.write(
-          Ints.toByteArray(IndexIO.V9_VERSION),
-          Files.newOutputStreamSupplier(new File(outDir, "version.bin"))
-      );
+
+      Files.asByteSink(new File(outDir, "version.bin")).write(Ints.toByteArray(IndexIO.V9_VERSION));
       log.info("Completed version.bin in %,d millis.", System.currentTimeMillis() - startTime);
 
       progress.progress();

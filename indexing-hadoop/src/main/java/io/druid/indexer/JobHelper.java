@@ -23,9 +23,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
-import com.google.common.io.ByteStreams;
+import com.google.common.io.ByteSink;
 import com.google.common.io.Files;
-import com.google.common.io.OutputSupplier;
 import io.druid.indexer.updater.HadoopDruidConverterConfig;
 import io.druid.java.util.common.DateTimes;
 import io.druid.java.util.common.FileUtils;
@@ -283,17 +282,15 @@ public class JobHelper
   static void uploadJar(File jarFile, final Path path, final FileSystem fs) throws IOException
   {
     log.info("Uploading jar to path[%s]", path);
-    ByteStreams.copy(
-        Files.newInputStreamSupplier(jarFile),
-        new OutputSupplier<OutputStream>()
-        {
-          @Override
-          public OutputStream getOutput() throws IOException
-          {
-            return fs.create(path);
-          }
-        }
-    );
+    ByteSink sink = new ByteSink()
+    {
+      @Override
+      public OutputStream openStream() throws IOException
+      {
+        return fs.create(path);
+      }
+    };
+    Files.asByteSource(jarFile).copyTo(sink);
   }
 
   static boolean isSnapshot(File jarFile)
