@@ -1,2 +1,56 @@
 com.google.common.collect.MapMaker @ Create java.util.concurrent.ConcurrentHashMap directly
 com.google.common.collect.Maps#newConcurrentMap() @ Create java.util.concurrent.ConcurrentHashMap directly
+
+com.google.common.util.concurrent.Service @ Don't use because removed in Guava 17
+
+@defaultMessage Don't use because removed in Guava 18
+com.google.common.io.ByteStreams#newInputStreamSupplier(byte[])
+com.google.common.io.ByteStreams#newInputStreamSupplier(byte[], int, int)
+com.google.common.io.ByteStreams#write(byte[], com.google.common.io.OutputSupplier)
+com.google.common.io.ByteStreams#copy(com.google.common.io.InputSupplier, com.google.common.io.OutputSupplier)
+com.google.common.io.ByteStreams#copy(com.google.common.io.InputSupplier, java.io.OutputStream)
+com.google.common.io.ByteStreams#copy(java.io.InputStream, com.google.common.io.OutputSupplier)
+com.google.common.io.ByteStreams#toByteArray(com.google.common.io.InputSupplier)
+com.google.common.io.ByteStreams#length(com.google.common.io.InputSupplier)
+com.google.common.io.ByteStreams#equal(com.google.common.io.InputSupplier, com.google.common.io.InputSupplier)
+com.google.common.io.ByteStreams#readBytes(com.google.common.io.InputSupplier, com.google.common.io.ByteProcessor)
+com.google.common.io.ByteStreams#hash(com.google.common.io.InputSupplier, com.google.common.hash.HashFunction)
+com.google.common.io.ByteStreams#slice(com.google.common.io.InputSupplier, long, long)
+com.google.common.io.ByteStreams#join(java.lang.Iterable)
+com.google.common.io.ByteStreams#join(com.google.common.io.InputSupplier[])
+com.google.common.io.ByteStreams#asByteSource(com.google.common.io.InputSupplier)
+com.google.common.io.ByteStreams#asByteSink(com.google.common.io.OutputSupplier)
+
+com.google.common.io.CharStreams#newReaderSupplier(java.lang.String)
+com.google.common.io.CharStreams#newReaderSupplier(com.google.common.io.InputSupplier, java.nio.charset.Charset)
+com.google.common.io.CharStreams#newWriterSupplier(com.google.common.io.OutputSupplier, java.nio.charset.Charset)
+com.google.common.io.CharStreams#write(java.lang.CharSequence, com.google.common.io.OutputSupplier)
+com.google.common.io.CharStreams#copy(com.google.common.io.InputSupplier, com.google.common.io.OutputSupplier)
+com.google.common.io.CharStreams#copy(com.google.common.io.InputSupplier, java.lang.Appendable)
+com.google.common.io.CharStreams#toString(com.google.common.io.InputSupplier)
+com.google.common.io.CharStreams#readFirstLine(com.google.common.io.InputSupplier)
+com.google.common.io.CharStreams#readLines(com.google.common.io.InputSupplier)
+com.google.common.io.CharStreams#readLines(com.google.common.io.InputSupplier, com.google.common.io.LineProcessor)
+com.google.common.io.CharStreams#join(java.lang.Iterable)
+com.google.common.io.CharStreams#join(com.google.common.io.InputSupplier[])
+com.google.common.io.CharStreams#asCharSource(com.google.common.io.InputSupplier)
+com.google.common.io.CharStreams#asCharSink(com.google.common.io.OutputSupplier)
+
+com.google.common.io.Files#newInputStreamSupplier(java.io.File)
+com.google.common.io.Files#newOutputStreamSupplier(java.io.File)
+com.google.common.io.Files#newOutputStreamSupplier(java.io.File, boolean)
+com.google.common.io.Files#newReaderSupplier(java.io.File, java.nio.charset.Charset)
+com.google.common.io.Files#newWriterSupplier(java.io.File, java.nio.charset.Charset)
+com.google.common.io.Files#newWriterSupplier(java.io.File, java.nio.charset.Charset, boolean)
+com.google.common.io.Files#copy(com.google.common.io.InputSupplier, java.io.File)
+com.google.common.io.Files#copy(java.io.File, com.google.common.io.OutputSupplier)
+com.google.common.io.Files#copy(com.google.common.io.InputSupplier, java.io.File, java.nio.charset.Charset)
+com.google.common.io.Files#copy(java.io.File, java.nio.charset.Charset, com.google.common.io.OutputSupplier)
+
+com.google.common.io.Resources#newInputStreamSupplier(java.net.URL)
+com.google.common.io.Resources#newReaderSupplier(java.net.URL, java.nio.charset.Charset)
+
+com.google.common.io.ByteSink#getOutput()
+com.google.common.io.ByteSource#getInput()
+com.google.common.io.CharSink#getOutput()
+com.google.common.io.CharSource#getInput()
