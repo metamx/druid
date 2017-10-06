@@ -48,7 +48,7 @@ import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
 import javax.annotation.Nullable;
-import java.net.MalformedURLException;
+import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -510,7 +510,7 @@ public class LookupReferencesManager
   }
 
   private FullResponseHolder fetchLookupsForTier(String tier)
-      throws ExecutionException, InterruptedException, MalformedURLException
+      throws ExecutionException, InterruptedException, IOException
   {
     return druidLeaderClient.go(
         druidLeaderClient.makeRequest(
