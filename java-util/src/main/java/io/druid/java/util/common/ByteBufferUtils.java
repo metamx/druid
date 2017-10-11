@@ -59,4 +59,15 @@ public class ByteBufferUtils
       cleaner.clean();
     }
   }
+
+  public static void touch(ByteBuffer buffer)
+  {
+    int i = 0;
+    for (; i < buffer.capacity() - Long.BYTES; i += Long.BYTES) {
+      buffer.putLong(i, 0L);
+    }
+    for (; i < buffer.capacity(); i++) {
+      buffer.put(i, (byte) 0);
+    }
+  }
 }

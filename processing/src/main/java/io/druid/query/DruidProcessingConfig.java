@@ -33,6 +33,12 @@ public abstract class DruidProcessingConfig extends ExecutorServiceConfig implem
     return 1024 * 1024 * 1024;
   }
 
+  @Config({"druid.computation.buffer.preTouch", "${base_path}.buffer.preTouch"})
+  public boolean isPreTouch()
+  {
+    return false;
+  }
+
   @Config({"druid.computation.buffer.poolCacheMaxCount", "${base_path}.buffer.poolCacheMaxCount"})
   public int poolCacheMaxCount()
   {

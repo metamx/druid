@@ -21,6 +21,7 @@ package io.druid.offheap;
 
 import com.google.common.base.Supplier;
 
+import io.druid.java.util.common.ByteBufferUtils;
 import io.druid.java.util.common.logger.Logger;
 
 import java.nio.ByteBuffer;
@@ -33,11 +34,18 @@ public class OffheapBufferGenerator implements Supplier<ByteBuffer>
   private final String description;
   private final int computationBufferSize;
   private final AtomicLong count = new AtomicLong(0);
+  private final boolean touch;
 
   public OffheapBufferGenerator(String description, int computationBufferSize)
   {
+    this(description, computationBufferSize, false);
+  }
+
+  public OffheapBufferGenerator(String description, int computationBufferSize, boolean touch)
+  {
     this.description = description;
     this.computationBufferSize = computationBufferSize;
+    this.touch = touch;
   }
 
   @Override
@@ -50,6 +58,10 @@ public class OffheapBufferGenerator implements Supplier<ByteBuffer>
         computationBufferSize
     );
 
-    return ByteBuffer.allocateDirect(computationBufferSize);
+    ByteBuffer result = ByteBuffer.allocateDirect(computationBufferSize);
+    if (touch) {
+      ByteBufferUtils.touch(result);
+    }
+    return result;
   }
 }
