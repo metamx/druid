@@ -432,6 +432,7 @@ public class MemcachedCache implements Cache
         MAX_PREFIX_LENGTH
     );
     this.mode = config.getMode();
+    log.info("Mode: %s", mode);
     this.monitor = monitor;
     this.timeout = config.getTimeout();
     this.expiration = config.getExpiration();
