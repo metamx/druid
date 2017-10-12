@@ -28,6 +28,7 @@ import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.common.primitives.Ints;
 import com.google.inject.ImplementedBy;
+import io.druid.alloc.DirectMemoryAllocator;
 import io.druid.common.utils.SerializerUtils;
 import io.druid.java.util.common.ISE;
 import io.druid.java.util.common.Pair;
@@ -46,7 +47,6 @@ import org.joda.time.Interval;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -446,7 +446,9 @@ public interface IndexMerger
         }
         Indexed<String> indexed = dimValueLookups[i];
         if (useDirect) {
-          conversions[i] = ByteBuffer.allocateDirect(indexed.size() * Ints.BYTES).asIntBuffer();
+          conversions[i] = DirectMemoryAllocator
+              .allocate(indexed.size() * Ints.BYTES, "index merging buffer")
+              .asIntBuffer();
         } else {
           conversions[i] = IntBuffer.allocate(indexed.size());
         }

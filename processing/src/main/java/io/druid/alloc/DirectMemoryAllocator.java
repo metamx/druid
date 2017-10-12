@@ -17,40 +17,39 @@
  * under the License.
  */
 
-package io.druid.offheap;
+package io.druid.alloc;
 
-import com.google.common.base.Supplier;
-
-import io.druid.alloc.DirectMemoryAllocator;
+import io.druid.guice.LazySingleton;
 import io.druid.java.util.common.logger.Logger;
 
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicLong;
 
-public class OffheapBufferGenerator implements Supplier<ByteBuffer>
+@LazySingleton
+public class DirectMemoryAllocator
 {
-  private static final Logger log = new Logger(OffheapBufferGenerator.class);
+  private static final Logger log = new Logger(DirectMemoryAllocator.class);
+  private static final int PAGE_SIZE = 4096;
 
-  private final String description;
-  private final int computationBufferSize;
-  private final AtomicLong count = new AtomicLong(0);
+  private static final boolean preTouch = Boolean.getBoolean("preTouchDirectMemory");
 
-  public OffheapBufferGenerator(String description, int computationBufferSize)
+  public static ByteBuffer allocate(int size, String reason)
   {
-    this.description = description;
-    this.computationBufferSize = computationBufferSize;
+    log.info("Allocating direct memory for [%s] of [%,d] bytes, pre touch: [%s]", reason, size, preTouch);
+    ByteBuffer result = ByteBuffer.allocateDirect(size);
+    if (preTouch) {
+      touch(result);
+    }
+    return result;
   }
 
-  @Override
-  public ByteBuffer get()
+  private static void touch(ByteBuffer buffer)
   {
-    log.info(
-        "Allocating new %s buffer[%,d] of size[%,d]",
-        description,
-        count.getAndIncrement(),
-        computationBufferSize
-    );
-
-    return DirectMemoryAllocator.allocate(computationBufferSize, description);
+    if (buffer.capacity() == 0) {
+      return;
+    }
+    for (int i = 0; i < buffer.capacity() - PAGE_SIZE; i += PAGE_SIZE) {
+      buffer.put(i, (byte) 0);
+    }
+    buffer.put(buffer.capacity() - 1, (byte) 0);
   }
 }
