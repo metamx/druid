@@ -57,6 +57,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,16 @@ import java.util.concurrent.atomic.AtomicReference;
 public class MemcachedCache implements Cache
 {
   private static final Logger log = new Logger(MemcachedCache.class);
+
+  public enum Mode
+  {
+    /** Default mode, both get from and put values into Memcached */
+    READ_AND_WRITE,
+    /** Get values from Memcached, but never try to put into */
+    READ_ONLY,
+    /** Put values into Memcached, but never try to get from */
+    WRITE_ONLY
+  }
 
   final static HashAlgorithm MURMUR3_128 = new HashAlgorithm()
   {
@@ -388,6 +399,7 @@ public class MemcachedCache implements Cache
     }
   }
 
+  private final Mode mode;
   private final int timeout;
   private final int expiration;
   private final String memcachedPrefix;
@@ -413,6 +425,8 @@ public class MemcachedCache implements Cache
         config.getMemcachedPrefix().length(),
         MAX_PREFIX_LENGTH
     );
+    this.mode = config.getMode();
+    log.info("Mode: %s", mode);
     this.monitor = monitor;
     this.timeout = config.getTimeout();
     this.expiration = config.getExpiration();
@@ -434,9 +448,13 @@ public class MemcachedCache implements Cache
     );
   }
 
+  @Nullable
   @Override
   public byte[] get(NamedKey key)
   {
+    if (mode == Mode.WRITE_ONLY) {
+      return null;
+    }
     try (ResourceHolder<MemcachedClientIF> clientHolder = client.get()) {
       Future<Object> future;
       try {
@@ -477,6 +495,9 @@ public class MemcachedCache implements Cache
   @Override
   public void put(NamedKey key, byte[] value)
   {
+    if (mode == Mode.READ_ONLY) {
+      return;
+    }
     try (final ResourceHolder<MemcachedClientIF> clientHolder = client.get()) {
       clientHolder.get().set(
           computeKeyHash(memcachedPrefix, key),
@@ -521,6 +542,9 @@ public class MemcachedCache implements Cache
   @Override
   public Map<NamedKey, byte[]> getBulk(Iterable<NamedKey> keys)
   {
+    if (mode == Mode.WRITE_ONLY) {
+      return Collections.emptyMap();
+    }
     try (ResourceHolder<MemcachedClientIF> clientHolder = client.get()) {
       Map<String, NamedKey> keyLookup = Maps.uniqueIndex(
           keys,
