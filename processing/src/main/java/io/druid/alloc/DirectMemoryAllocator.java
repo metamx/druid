@@ -34,7 +34,7 @@ public class DirectMemoryAllocator
 
   public static ByteBuffer allocate(int size, String reason)
   {
-    log.info("Allocating [%d] direct memory for [%s]", size, reason);
+    log.info("Allocating direct memory for [%s] of [%,d] bytes, pre touch: [%s]", reason, size, preTouch);
     ByteBuffer result = ByteBuffer.allocateDirect(size);
     if (preTouch) {
       touch(result);
