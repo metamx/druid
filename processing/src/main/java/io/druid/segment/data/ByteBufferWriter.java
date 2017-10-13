@@ -99,7 +99,7 @@ public class ByteBufferWriter<T> implements Closeable
 
   public ByteSource combineStreams()
   {
-    return ByteSource.concat(
+    return ByteSourceUtil.concat(
         Iterables.transform(
             Arrays.asList("header", "value"),
             (Function<String, ByteSource>) input -> {

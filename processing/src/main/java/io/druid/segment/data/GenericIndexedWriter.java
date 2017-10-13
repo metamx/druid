@@ -48,7 +48,6 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.util.Arrays;
 
-
 /**
  * Streams arrays of objects out in the binary format described by GenericIndexed
  */
@@ -311,23 +310,21 @@ public class GenericIndexedWriter<T> implements Closeable
   public ByteSource combineStreams()
   {
     // ByteSource.concat is only available in guava 15 and higher
-    // This is guava 14 compatible
+    // This is guava 14 compatible copy-paste
     if (requireMultipleFiles) {
       throw new ISE("Can not combine streams for version 2."); //fallback to old behaviour.
     }
 
-    return ByteSource.concat(
+    return ByteSourceUtil.concat(
         Iterables.transform(
             Arrays.asList("meta", "header", "values"),
-            (Function<String, ByteSource>) input -> {
-              return new ByteSource()
+            (Function<String, ByteSource>) input -> new ByteSource()
+            {
+              @Override
+              public InputStream openStream() throws IOException
               {
-                @Override
-                public InputStream openStream() throws IOException
-                {
-                  return ioPeon.makeInputStream(makeFilename(input));
-                }
-              };
+                return ioPeon.makeInputStream(makeFilename(input));
+              }
             }
         )
     );
@@ -338,7 +335,6 @@ public class GenericIndexedWriter<T> implements Closeable
     try (ReadableByteChannel from = Channels.newChannel(combineStreams().openStream())) {
       ByteStreams.copy(from, channel);
     }
-
   }
 
   private void writeToChannelVersionTwo(WritableByteChannel channel, FileSmoosher smoosher) throws IOException
@@ -452,5 +448,4 @@ public class GenericIndexedWriter<T> implements Closeable
       }
     }
   }
-
 }

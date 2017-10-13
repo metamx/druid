@@ -19,12 +19,15 @@
 
 package io.druid.java.util.common.parsers;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class DelimitedParser extends AbstractFlatTextFormatParser
@@ -80,6 +83,28 @@ public class DelimitedParser extends AbstractFlatTextFormatParser
   @Override
   protected List<String> parseLine(String input) throws IOException
   {
-    return splitter.splitToList(input);
+    return splitToList(splitter, input);
+  }
+
+  /**
+   * Splits {@code sequence} into string components and returns them as
+   * an immutable list. If you want an {@link Iterable} which may be lazily
+   * evaluated, use {@link #split(CharSequence)}.
+   *
+   * @param sequence the sequence of characters to split
+   *
+   * @return an immutable list of the segments split from the parameter
+   */
+  @Beta
+  public static List<String> splitToList(Splitter splitter, CharSequence sequence)
+  {
+    Preconditions.checkNotNull(sequence);
+
+    List<String> result = new ArrayList<>();
+    for (String cell : splitter.split(sequence)) {
+      result.add(cell);
+    }
+
+    return Collections.unmodifiableList(result);
   }
 }

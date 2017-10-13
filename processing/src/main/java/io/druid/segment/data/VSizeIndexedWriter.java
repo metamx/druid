@@ -127,18 +127,16 @@ public class VSizeIndexedWriter extends MultiValueIndexedIntsWriter implements C
 
   public ByteSource combineStreams()
   {
-    return ByteSource.concat(
+    return ByteSourceUtil.concat(
         Iterables.transform(
             Arrays.asList(metaFileName, headerFileName, valuesFileName),
-            (Function<String, ByteSource>) input -> {
-              return new ByteSource()
+            (Function<String, ByteSource>) input -> new ByteSource()
+            {
+              @Override
+              public InputStream openStream() throws IOException
               {
-                @Override
-                public InputStream openStream() throws IOException
-                {
-                  return ioPeon.makeInputStream(input);
-                }
-              };
+                return ioPeon.makeInputStream(input);
+              }
             }
         )
     );
