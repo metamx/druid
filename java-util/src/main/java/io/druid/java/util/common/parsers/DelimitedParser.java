@@ -24,7 +24,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class DelimitedParser extends AbstractFlatTextFormatParser
@@ -78,8 +79,24 @@ public class DelimitedParser extends AbstractFlatTextFormatParser
   }
 
   @Override
-  protected List<String> parseLine(String input) throws IOException
+  protected List<String> parseLine(String input)
   {
-    return splitter.splitToList(input);
+    return splitToList(splitter, input);
+  }
+
+  /**
+   * This method is a copy of {@link Splitter#splitToList}, which is added only in Guava 15.0, and thus incompatible
+   * with ancient Guava version imposed by Hadoop.
+   */
+  private static List<String> splitToList(Splitter splitter, CharSequence sequence)
+  {
+    Preconditions.checkNotNull(sequence);
+
+    List<String> result = new ArrayList<>();
+    for (String cell : splitter.split(sequence)) {
+      result.add(cell);
+    }
+
+    return Collections.unmodifiableList(result);
   }
 }
