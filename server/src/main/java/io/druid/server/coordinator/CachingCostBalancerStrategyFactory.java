@@ -28,8 +28,8 @@ import io.druid.client.ServerInventoryView;
 import io.druid.client.ServerView;
 import io.druid.concurrent.Execs;
 import io.druid.concurrent.LifecycleLock;
-import io.druid.guice.ManageLifecycle;
 import io.druid.java.util.common.ISE;
+import io.druid.java.util.common.lifecycle.Lifecycle;
 import io.druid.java.util.common.lifecycle.LifecycleStart;
 import io.druid.java.util.common.lifecycle.LifecycleStop;
 import io.druid.server.coordination.DruidServerMetadata;
@@ -44,7 +44,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-@ManageLifecycle
 public class CachingCostBalancerStrategyFactory implements BalancerStrategyFactory
 {
   private static final EmittingLogger LOG = new EmittingLogger(CachingCostBalancerStrategyFactory.class);
@@ -57,9 +56,13 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   private volatile boolean initialized = false;
 
   @JsonCreator
-  public CachingCostBalancerStrategyFactory(@JacksonInject ServerInventoryView serverInventoryView)
+  public CachingCostBalancerStrategyFactory(
+      @JacksonInject ServerInventoryView serverInventoryView,
+      @JacksonInject Lifecycle lifecycle
+  ) throws Exception
   {
     this.serverInventoryView = Preconditions.checkNotNull(serverInventoryView);
+    lifecycle.addMaybeStartManagedInstance(this);
   }
 
   @LifecycleStart
@@ -124,7 +127,7 @@ public class CachingCostBalancerStrategyFactory implements BalancerStrategyFacto
   @Override
   public BalancerStrategy createBalancerStrategy(final ListeningExecutorService exec)
   {
-    if (!lifecycleLock.awaitStarted()) {
+    if (!lifecycleLock.awaitStarted(1, TimeUnit.MINUTES)) {
       throw new ISE("CachingCostBalancerStrategyFactory is not started");
     }
     if (initialized) {
