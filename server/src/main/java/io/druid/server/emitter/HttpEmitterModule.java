@@ -21,6 +21,7 @@ package io.druid.server.emitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Supplier;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Binder;
 import com.google.inject.Module;
@@ -29,15 +30,17 @@ import com.google.inject.name.Named;
 import com.google.inject.util.Providers;
 import com.metamx.emitter.core.Emitter;
 import com.metamx.emitter.core.HttpPostEmitter;
-import com.metamx.http.client.HttpClientConfig;
-import com.metamx.http.client.HttpClientInit;
 import com.metamx.metrics.FeedDefiningMonitor;
 import com.metamx.metrics.HttpPostEmitterMonitor;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.LazySingleton;
 import io.druid.guice.ManageLifecycle;
-import io.druid.guice.http.LifecycleUtils;
 import io.druid.java.util.common.lifecycle.Lifecycle;
+import io.netty.handler.ssl.ClientAuth;
+import io.netty.handler.ssl.JdkSslContext;
+import org.asynchttpclient.AsyncHttpClient;
+import org.asynchttpclient.DefaultAsyncHttpClient;
+import org.asynchttpclient.DefaultAsyncHttpClientConfig;
 
 import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
@@ -79,25 +82,50 @@ public class HttpEmitterModule implements Module
       EmitterMonitorProvider emitterMonitorProvider
   )
   {
-    final HttpClientConfig.Builder builder = HttpClientConfig
-        .builder()
-        .withNumConnections(1)
-        .withReadTimeout(config.get().getReadTimeout().toStandardDuration());
+    final DefaultAsyncHttpClientConfig.Builder builder = new DefaultAsyncHttpClientConfig.Builder()
+        .setReadTimeout((int) config.get().getReadTimeout().toStandardDuration().getMillis());
 
     if (sslContext != null) {
-      builder.withSslContext(sslContext);
+      builder.setSslContext(new JdkSslContext(sslContext, true, ClientAuth.NONE));
     }
-    HttpPostEmitter emitter = new HttpPostEmitter(
-        config.get(),
-        HttpClientInit.createClient(builder.build(), LifecycleUtils.asMmxLifecycle(lifecycle)),
-        jsonMapper
-    );
-    HttpPostEmitterMonitor emitterMonitor = new HttpPostEmitterMonitor(
+
+    final AsyncHttpClient client = new DefaultAsyncHttpClient(builder.build());
+    try {
+      lifecycle.addMaybeStartHandler(
+          new Lifecycle.Handler()
+          {
+            @Override
+            public void start()
+            {
+
+            }
+
+            @Override
+            public void stop()
+            {
+              try {
+                client.close();
+              }
+              catch (final Exception e) {
+                Throwables.propagate(e);
+              }
+            }
+          }
+      );
+    }
+    catch (final Exception e) {
+      Throwables.propagate(e);
+    }
+
+    final HttpPostEmitter emitter = new HttpPostEmitter(config.get(), client, jsonMapper);
+
+    final HttpPostEmitterMonitor emitterMonitor = new HttpPostEmitterMonitor(
         FeedDefiningMonitor.DEFAULT_METRICS_FEED,
         emitter,
         ImmutableMap.of()
     );
     emitterMonitorProvider.setEmitterMontor(emitterMonitor);
+
     return emitter;
   }
 }
