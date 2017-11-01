@@ -21,15 +21,13 @@ package io.druid.server.emitter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Supplier;
-import com.google.common.base.Throwables;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.name.Named;
 import com.metamx.emitter.core.Emitter;
 import com.metamx.emitter.core.ParametrizedUriEmitter;
-import com.metamx.metrics.FeedDefiningMonitor;
-import com.metamx.metrics.ParametrizedUriEmitterMonitor;
+import com.metamx.emitter.core.ParametrizedUriEmitterConfig;
 import io.druid.guice.JsonConfigProvider;
 import io.druid.guice.ManageLifecycle;
 import io.druid.java.util.common.lifecycle.Lifecycle;
@@ -58,53 +56,16 @@ public class ParametrizedUriEmitterModule implements Module
       Supplier<ParametrizedUriEmitterConfig> config,
       @Nullable SSLContext sslContext,
       Lifecycle lifecycle,
-      ObjectMapper jsonMapper,
-      EmitterMonitorProvider emitterMonitorProvider
+      ObjectMapper jsonMapper
   )
   {
-    final DefaultAsyncHttpClientConfig.Builder builder = new DefaultAsyncHttpClientConfig.Builder()
-        .setReadTimeout((int) config.get().getReadTimeout().toStandardDuration().getMillis());
-
+    final DefaultAsyncHttpClientConfig.Builder builder = new DefaultAsyncHttpClientConfig.Builder();
     if (sslContext != null) {
       builder.setSslContext(new JdkSslContext(sslContext, true, ClientAuth.NONE));
     }
-
     final AsyncHttpClient client = new DefaultAsyncHttpClient(builder.build());
-    try {
-      lifecycle.addMaybeStartHandler(
-          new Lifecycle.Handler()
-          {
-            @Override
-            public void start()
-            {
+    lifecycle.addCloseableInstance(client);
 
-            }
-
-            @Override
-            public void stop()
-            {
-              try {
-                client.close();
-              }
-              catch (final Exception e) {
-                Throwables.propagate(e);
-              }
-            }
-          }
-      );
-    }
-    catch (final Exception e) {
-      Throwables.propagate(e);
-    }
-
-    final ParametrizedUriEmitter emitter = new ParametrizedUriEmitter(config.get(), client, jsonMapper);
-
-    final ParametrizedUriEmitterMonitor emitterMonitor = new ParametrizedUriEmitterMonitor(
-        FeedDefiningMonitor.DEFAULT_METRICS_FEED,
-        emitter
-    );
-    emitterMonitorProvider.setEmitterMontor(emitterMonitor);
-
-    return emitter;
+    return new ParametrizedUriEmitter(config.get(), client, jsonMapper);
   }
 }
