@@ -27,10 +27,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
 import com.metamx.emitter.EmittingLogger;
 import com.metamx.http.client.response.FullResponseHolder;
@@ -40,10 +36,14 @@ import io.druid.concurrent.LifecycleLock;
 import io.druid.discovery.DruidLeaderClient;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.Json;
+import io.druid.java.util.common.IOE;
 import io.druid.java.util.common.ISE;
+import io.druid.java.util.common.RE;
+import io.druid.java.util.common.RetryUtils;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.lifecycle.LifecycleStart;
 import io.druid.java.util.common.lifecycle.LifecycleStop;
+import org.apache.commons.lang.mutable.MutableBoolean;
 import org.jboss.netty.handler.codec.http.HttpMethod;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 
@@ -55,14 +55,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * This class provide a basic {@link LookupExtractorFactory} references manager.
@@ -260,7 +263,7 @@ public class LookupReferencesManager
   public void add(String lookupName, LookupExtractorFactoryContainer lookupExtractorFactoryContainer)
   {
     Preconditions.checkState(lifecycleLock.awaitStarted(1, TimeUnit.MILLISECONDS));
-    addNotice(new LoadNotice(lookupName, lookupExtractorFactoryContainer));
+    addNotice(new LoadNotice(lookupName, lookupExtractorFactoryContainer, lookupConfig.getLookupStartRetries()));
   }
 
   public void remove(String lookupName)
@@ -343,13 +346,33 @@ public class LookupReferencesManager
 
   private void loadAllLookupsAndInitStateRef()
   {
-    List<LookupBean> lookupBeanList = getLookupsListFromLookupConfig();
+    List<LookupBean> lookupBeanList = getLookupsList();
     if (lookupBeanList != null) {
       startLookups(lookupBeanList);
     } else {
       LOG.info("No lookups to be loaded at this point");
       stateRef.set(new LookupUpdateState(ImmutableMap.of(), ImmutableList.of(), ImmutableList.of()));
     }
+  }
+
+  /**
+   * Gets the lookup list from coordinator or from snapshot.
+   */
+  @Nullable
+  private List<LookupBean> getLookupsList()
+  {
+    List<LookupBean> lookupBeanList;
+    if (lookupConfig.getEnableLookupSyncOnStartup()) {
+      String tier = lookupListeningAnnouncerConfig.getLookupTier();
+      lookupBeanList = getLookupListFromCoordinator(tier);
+      if (lookupBeanList == null) {
+        LOG.info("Coordinator is unavailable. Loading saved snapshot instead");
+        lookupBeanList = getLookupListFromSnapshot();
+      }
+    } else {
+      lookupBeanList = getLookupListFromSnapshot();
+    }
+    return lookupBeanList;
   }
 
   /**
@@ -363,31 +386,29 @@ public class LookupReferencesManager
   private List<LookupBean> getLookupListFromCoordinator(String tier)
   {
     try {
-      final FullResponseHolder response = fetchLookupsForTier(tier);
-      List<LookupBean> lookupBeanList = new ArrayList<>();
-      if (!response.getStatus().equals(HttpResponseStatus.OK)) {
-        LOG.error(
-            "Error while fetching lookup code from Coordinator with status[%s] and content[%s]",
-            response.getStatus(),
-            response.getContent()
-        );
-        return null;
-      }
-
-      // Older version of getSpecificTier returns a list of lookup names.
-      // Lookup loading is performed via snapshot if older version is present.
-      // This check is only for backward compatibility and should be removed in a future release
-      if (response.getContent().startsWith("[")) {
-        return null;
-      } else {
-        Map<String, LookupExtractorFactoryContainer> lookupMap = jsonMapper.readValue(
-            response.getContent(),
-            LOOKUPS_ALL_REFERENCE
-        );
+      MutableBoolean firstAttempt = new MutableBoolean(true);
+      Map<String, LookupExtractorFactoryContainer> lookupMap = RetryUtils.retry(
+          () -> {
+            if (firstAttempt.isTrue()) {
+              firstAttempt.setValue(false);
+            } else {
+              // Adding an extra minute in addition to the retry wait. In RetryUtils, retry wait starts from a few
+              // seconds, that is likely not enough to coordinator to be back to healthy state, e. g. if it experiences
+              // 30-second GC pause.
+              Thread.sleep(60_000);
+            }
+            return tryGetLookupListFromCoordinator(tier);
+          },
+          e -> true,
+          lookupConfig.getCoordinatorFetchRetries()
+      );
+      if (lookupMap != null) {
+        List<LookupBean> lookupBeanList = new ArrayList<>();
         lookupMap.forEach((k, v) -> lookupBeanList.add(new LookupBean(k, null, v)));
-
+        return lookupBeanList;
+      } else {
+        return null;
       }
-      return lookupBeanList;
     }
     catch (Exception e) {
       LOG.error(e, "Error while trying to get lookup list from coordinator for tier[%s]", tier);
@@ -395,8 +416,39 @@ public class LookupReferencesManager
     }
   }
 
+  @Nullable
+  private Map<String, LookupExtractorFactoryContainer> tryGetLookupListFromCoordinator(String tier) throws Exception
+  {
+    final FullResponseHolder response = fetchLookupsForTier(tier);
+    if (response.getStatus().equals(HttpResponseStatus.NOT_FOUND)) {
+      LOG.warn("No lookups found for tier [%s], response [%s]", tier, response);
+      return null;
+    } else if (!response.getStatus().equals(HttpResponseStatus.OK)) {
+      throw new IOE(
+          "Error while fetching lookup code from Coordinator with status[%s] and content[%s]",
+          response.getStatus(),
+          response.getContent()
+      );
+    }
+
+    // Older version of getSpecificTier returns a list of lookup names.
+    // Lookup loading is performed via snapshot if older version is present.
+    // This check is only for backward compatibility and should be removed in a future release
+    if (response.getContent().startsWith("[")) {
+      LOG.info(
+          "Failed to retrieve lookup information from coordinator, " +
+          "because coordinator appears to be running on older Druid version. " +
+          "Attempting to load lookups using snapshot instead"
+      );
+      return null;
+    } else {
+      return jsonMapper.readValue(response.getContent(), LOOKUPS_ALL_REFERENCE);
+    }
+  }
+
   /**
-   * Returns a list of lookups from the snapshot if the lookupsnapshottaker is configured. If it's not available, returns null.
+   * Returns a list of lookups from the snapshot if the lookupsnapshottaker is configured. If it's not available,
+   * returns null.
    *
    * @return list of LookupBean objects, or null
    */
@@ -418,83 +470,93 @@ public class LookupReferencesManager
     return lookups;
   }
 
-  private List<LookupBean> getLookupsListFromLookupConfig()
-  {
-    List<LookupBean> lookupBeanList = new ArrayList<>();
-    if (lookupConfig.getEnableLookupSyncOnStartup()) {
-      String tier = lookupListeningAnnouncerConfig.getLookupTier();
-      lookupBeanList = getLookupListFromCoordinator(tier);
-      if (lookupBeanList == null) {
-        LOG.info("Coordinator is unavailable. Loading saved snapshot instead");
-        lookupBeanList = getLookupListFromSnapshot();
-      }
-    } else {
-      lookupBeanList = getLookupListFromSnapshot();
-    }
-    return lookupBeanList;
-  }
-
-  private void startLookups(List<LookupBean> lookupBeanList)
+  private void startLookups(final List<LookupBean> lookupBeanList)
   {
     ImmutableMap.Builder<String, LookupExtractorFactoryContainer> builder = ImmutableMap.builder();
-    ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
-        Executors.newScheduledThreadPool(
-            lookupConfig.getNumLookupLoadingThreads(),
-            Execs.makeThreadFactory("LookupReferencesManager-Startup-%s")
-        )
+    ExecutorService executorService = Execs.multiThreaded(
+        lookupConfig.getNumLookupLoadingThreads(),
+        "LookupReferencesManager-Startup-%s"
     );
+    CompletionService<Map.Entry<String, LookupExtractorFactoryContainer>> completionService =
+        new ExecutorCompletionService<>(executorService);
     try {
-      List<ListenableFuture<Map.Entry>> futures = new ArrayList<>();
       LOG.info("Starting lookup loading process");
-      for (LookupBean lookupBean : lookupBeanList) {
-        futures.add(
-            executorService.submit(
-                () -> {
-
-                  LookupExtractorFactoryContainer container = lookupBean.getContainer();
-                  LOG.info(
-                      "Starting lookup [%s]:[%s]",
-                      lookupBean.getName(),
-                      container
-                  );
-                  if (container.getLookupExtractorFactory().start()) {
-                    LOG.info(
-                        "Started lookup [%s]:[%s]",
-                        lookupBean.getName(),
-                        container
-                    );
-                    return new AbstractMap.SimpleImmutableEntry<>(lookupBean.getName(), container);
-                  } else {
-                    LOG.error(
-                        "Failed to start lookup [%s]:[%s]",
-                        lookupBean.getName(),
-                        container
-                    );
-                    return null;
-                  }
-                }
-            )
-        );
+      List<LookupBean> remainingLookups = lookupBeanList;
+      for (int i = 0; i < lookupConfig.getLookupStartRetries(); i++) {
+        LOG.info("Round of attempts #%d, [%d] lookups", i + 1, remainingLookups.size());
+        Map<String, LookupExtractorFactoryContainer> successfulLookups =
+            startLookups(remainingLookups, completionService);
+        builder.putAll(successfulLookups);
+        List<LookupBean> failedLookups = remainingLookups
+            .stream()
+            .filter(l -> !successfulLookups.containsKey(l.getName()))
+            .collect(Collectors.toList());
+        if (failedLookups.isEmpty()) {
+          break;
+        } else {
+          // next round
+          remainingLookups = failedLookups;
+        }
       }
-      final ListenableFuture<List<Map.Entry>> futureList = Futures.allAsList(futures);
-      try {
-        futureList.get()
-                  .stream()
-                  .filter(Objects::nonNull)
-                  .forEach(builder::put);
-
-        stateRef.set(new LookupUpdateState(builder.build(), ImmutableList.of(), ImmutableList.of()));
-      }
-      catch (InterruptedException | ExecutionException ex) {
-        futureList.cancel(true);
-        throw ex;
-      }
+      LOG.info(
+          "Failed to start the following lookups after [%d] attempts: [%s]",
+          lookupConfig.getLookupStartRetries(),
+          remainingLookups
+      );
+      stateRef.set(new LookupUpdateState(builder.build(), ImmutableList.of(), ImmutableList.of()));
     }
-    catch (Exception e) {
+    catch (InterruptedException | RuntimeException e) {
       LOG.error(e, "Failed to finish lookup load process.");
     }
     finally {
       executorService.shutdownNow();
+    }
+  }
+
+  /**
+   * @return a map with successful lookups
+   */
+  private Map<String, LookupExtractorFactoryContainer> startLookups(
+      List<LookupBean> lookupBeans,
+      CompletionService<Map.Entry<String, LookupExtractorFactoryContainer>> completionService
+  ) throws InterruptedException
+  {
+    for (LookupBean lookupBean : lookupBeans) {
+      completionService.submit(() -> startLookup(lookupBean));
+    }
+    Map<String, LookupExtractorFactoryContainer> successfulLookups = new HashMap<>();
+    for (int i = 0; i < lookupBeans.size(); i++) {
+      Future<Map.Entry<String, LookupExtractorFactoryContainer>> completedFuture = completionService.take();
+      try {
+        Map.Entry<String, LookupExtractorFactoryContainer> lookupResult = completedFuture.get();
+        if (lookupResult != null) {
+          successfulLookups.put(lookupResult.getKey(), lookupResult.getValue());
+        }
+      }
+      catch (ExecutionException e) {
+        LOG.error(e.getCause(), "Exception while starting a lookup");
+        // not adding to successfulLookups
+      }
+    }
+    return successfulLookups;
+  }
+
+  @Nullable
+  private Map.Entry<String, LookupExtractorFactoryContainer> startLookup(LookupBean lookupBean)
+  {
+    LookupExtractorFactoryContainer container = lookupBean.getContainer();
+    LOG.info("Starting lookup [%s]:[%s]", lookupBean.getName(), container);
+    try {
+      if (container.getLookupExtractorFactory().start()) {
+        LOG.info("Started lookup [%s]:[%s]", lookupBean.getName(), container);
+        return new AbstractMap.SimpleImmutableEntry<>(lookupBean.getName(), container);
+      } else {
+        LOG.error("Failed to start lookup [%s]:[%s]", lookupBean.getName(), container);
+        return null;
+      }
+    }
+    catch (RuntimeException e) {
+      throw new RE(e, "Failed to start lookup [%s]:[%s]", lookupBean.getName(), container);
     }
   }
 
@@ -515,32 +577,32 @@ public class LookupReferencesManager
     return druidLeaderClient.go(
         druidLeaderClient.makeRequest(
             HttpMethod.GET,
-            StringUtils.format(
-                "/druid/coordinator/v1/lookups/%s?detailed=true",
-                tier
-            )
-        ));
+            StringUtils.format("/druid/coordinator/v1/lookups/config/%s?detailed=true", tier)
+        )
+    );
   }
 
   @VisibleForTesting
   interface Notice
   {
-    void handle(Map<String, LookupExtractorFactoryContainer> lookupMap);
+    void handle(Map<String, LookupExtractorFactoryContainer> lookupMap) throws Exception;
   }
 
   private static class LoadNotice implements Notice
   {
     private final String lookupName;
     private final LookupExtractorFactoryContainer lookupExtractorFactoryContainer;
+    private final int startRetries;
 
-    public LoadNotice(String lookupName, LookupExtractorFactoryContainer lookupExtractorFactoryContainer)
+    LoadNotice(String lookupName, LookupExtractorFactoryContainer lookupExtractorFactoryContainer, int startRetries)
     {
       this.lookupName = lookupName;
       this.lookupExtractorFactoryContainer = lookupExtractorFactoryContainer;
+      this.startRetries = startRetries;
     }
 
     @Override
-    public void handle(Map<String, LookupExtractorFactoryContainer> lookupMap)
+    public void handle(Map<String, LookupExtractorFactoryContainer> lookupMap) throws Exception
     {
       LookupExtractorFactoryContainer old = lookupMap.get(lookupName);
       if (old != null && !lookupExtractorFactoryContainer.replaces(old)) {
@@ -552,13 +614,20 @@ public class LookupReferencesManager
         return;
       }
 
-      if (!lookupExtractorFactoryContainer.getLookupExtractorFactory().start()) {
-        throw new ISE(
-            "start method returned false for lookup [%s]:[%s]",
-            lookupName,
-            lookupExtractorFactoryContainer
-        );
-      }
+      RetryUtils.retry(
+          () -> {
+            if (!lookupExtractorFactoryContainer.getLookupExtractorFactory().start()) {
+              throw new ISE(
+                  "start method returned false for lookup [%s]:[%s]",
+                  lookupName,
+                  lookupExtractorFactoryContainer
+              );
+            }
+            return null;
+          },
+          e -> true,
+          startRetries
+      );
 
       old = lookupMap.put(lookupName, lookupExtractorFactoryContainer);
 
@@ -585,7 +654,7 @@ public class LookupReferencesManager
   {
     private final String lookupName;
 
-    public DropNotice(String lookupName)
+    DropNotice(String lookupName)
     {
       this.lookupName = lookupName;
     }
