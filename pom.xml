@@ -70,6 +70,8 @@
         <!-- Need 2.6.5 for compatibility with Spark -->
         <jackson.version>2.6.5</jackson.version>
         <log4j.version>2.5</log4j.version>
+        <!-- Update to Netty 4.1 is not possible yet, see https://github.com/druid-io/druid/issues/4390 and comments
+             in https://github.com/druid-io/druid/pull/4973 -->
         <netty.version>4.0.52.Final</netty.version>
         <slf4j.version>1.7.12</slf4j.version>
         <!-- If compiling with different hadoop version also modify default hadoop coordinates in TaskConfig.java -->
