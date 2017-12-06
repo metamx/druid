@@ -33,8 +33,6 @@ import com.google.inject.Binder;
 import com.google.inject.Guice;
 import com.google.inject.Module;
 import com.metamx.emitter.service.ServiceEmitter;
-import io.druid.java.util.common.Intervals;
-import io.druid.java.util.common.JodaUtils;
 import io.druid.data.input.InputRow;
 import io.druid.data.input.impl.DimensionsSpec;
 import io.druid.data.input.impl.InputRowParser;
@@ -56,6 +54,8 @@ import io.druid.indexing.overlord.HeapMemoryTaskStorage;
 import io.druid.indexing.overlord.TaskLockbox;
 import io.druid.indexing.overlord.supervisor.SupervisorManager;
 import io.druid.java.util.common.IOE;
+import io.druid.java.util.common.Intervals;
+import io.druid.java.util.common.JodaUtils;
 import io.druid.java.util.common.StringUtils;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.metadata.IndexerSQLMetadataStorageCoordinator;
@@ -65,6 +65,7 @@ import io.druid.query.filter.SelectorDimFilter;
 import io.druid.segment.IndexIO;
 import io.druid.segment.IndexMergerV9;
 import io.druid.segment.IndexSpec;
+import io.druid.segment.TestHelper;
 import io.druid.segment.incremental.IncrementalIndex;
 import io.druid.segment.incremental.IncrementalIndexSchema;
 import io.druid.segment.loading.DataSegmentArchiver;
@@ -115,7 +116,7 @@ public class IngestSegmentFirehoseFactoryTest
 
   static {
     TestUtils testUtils = new TestUtils();
-    MAPPER = setupInjectablesInObjectMapper(testUtils.getTestObjectMapper());
+    MAPPER = setupInjectablesInObjectMapper(TestHelper.makeJsonMapper());
     INDEX_MERGER_V9 = testUtils.getTestIndexMergerV9();
     INDEX_IO = testUtils.getTestIndexIO();
   }

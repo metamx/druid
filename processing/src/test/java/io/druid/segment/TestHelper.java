@@ -34,6 +34,7 @@ import io.druid.query.expression.TestExprMacroTable;
 import io.druid.query.timeseries.TimeseriesResultValue;
 import io.druid.query.topn.TopNResultValue;
 import io.druid.segment.column.ColumnConfig;
+import io.druid.timeline.DataSegment;
 import org.junit.Assert;
 
 import java.util.Iterator;
@@ -50,7 +51,7 @@ public class TestHelper
   private static final IndexIO INDEX_IO;
 
   static {
-    final ObjectMapper jsonMapper = getJsonMapper();
+    final ObjectMapper jsonMapper = makeJsonMapper();
     INDEX_IO = new IndexIO(
         jsonMapper,
         new ColumnConfig()
@@ -75,13 +76,14 @@ public class TestHelper
     return INDEX_IO;
   }
 
-  public static ObjectMapper getJsonMapper()
+  public static ObjectMapper makeJsonMapper()
   {
     final ObjectMapper mapper = new DefaultObjectMapper();
     mapper.setInjectableValues(
         new InjectableValues.Std()
             .addValue(ExprMacroTable.class.getName(), TestExprMacroTable.INSTANCE)
             .addValue(ObjectMapper.class.getName(), mapper)
+            .addValue(DataSegment.PruneLoadSpecHolder.class, DataSegment.PruneLoadSpecHolder.DEFAULT)
     );
     return mapper;
   }

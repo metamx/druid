@@ -48,7 +48,7 @@ public class DefaultTimeseriesQueryMetricsTest
   {
     CachingEmitter cachingEmitter = new CachingEmitter();
     ServiceEmitter serviceEmitter = new ServiceEmitter("", "", cachingEmitter);
-    DefaultTimeseriesQueryMetrics queryMetrics = new DefaultTimeseriesQueryMetrics(TestHelper.getJsonMapper());
+    DefaultTimeseriesQueryMetrics queryMetrics = new DefaultTimeseriesQueryMetrics(TestHelper.makeJsonMapper());
     TimeseriesQuery query = Druids
         .newTimeseriesQueryBuilder()
         .dataSource(QueryRunnerTestHelper.dataSource)
@@ -96,7 +96,7 @@ public class DefaultTimeseriesQueryMetricsTest
   {
     CachingEmitter cachingEmitter = new CachingEmitter();
     ServiceEmitter serviceEmitter = new ServiceEmitter("", "", cachingEmitter);
-    DefaultTimeseriesQueryMetrics queryMetrics = new DefaultTimeseriesQueryMetrics(TestHelper.getJsonMapper());
+    DefaultTimeseriesQueryMetrics queryMetrics = new DefaultTimeseriesQueryMetrics(TestHelper.makeJsonMapper());
     DefaultQueryMetricsTest.testQueryMetricsDefaultMetricNamesAndUnits(cachingEmitter, serviceEmitter, queryMetrics);
   }
 }

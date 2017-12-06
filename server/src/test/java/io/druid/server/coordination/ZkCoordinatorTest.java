@@ -34,7 +34,6 @@ import io.druid.client.cache.LocalCacheProvider;
 import io.druid.concurrent.Execs;
 import io.druid.curator.CuratorTestBase;
 import io.druid.curator.announcement.Announcer;
-import io.druid.jackson.DefaultObjectMapper;
 import io.druid.java.util.common.Intervals;
 import io.druid.java.util.common.concurrent.ScheduledExecutorFactory;
 import io.druid.java.util.common.concurrent.ScheduledExecutors;
@@ -45,6 +44,7 @@ import io.druid.segment.IndexIO;
 import io.druid.segment.loading.CacheTestSegmentLoader;
 import io.druid.segment.loading.SegmentLoaderConfig;
 import io.druid.server.SegmentManager;
+import io.druid.server.ServerTestHelper;
 import io.druid.server.initialization.BatchDataSegmentAnnouncerConfig;
 import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.server.metrics.NoopServiceEmitter;
@@ -78,7 +78,7 @@ public class ZkCoordinatorTest extends CuratorTestBase
 
   private static final Logger log = new Logger(ZkCoordinatorTest.class);
 
-  private final ObjectMapper jsonMapper = new DefaultObjectMapper();
+  private final ObjectMapper jsonMapper = ServerTestHelper.MAPPER;
   private final DruidServerMetadata me = new DruidServerMetadata(
       "dummyServer",
       "dummyHost",
@@ -127,7 +127,7 @@ public class ZkCoordinatorTest extends CuratorTestBase
         new NoopServiceEmitter(),
         MoreExecutors.sameThreadExecutor(),
         MoreExecutors.sameThreadExecutor(),
-        new DefaultObjectMapper(),
+        ServerTestHelper.MAPPER,
         new LocalCacheProvider().get(),
         new CacheConfig(),
         segmentManager

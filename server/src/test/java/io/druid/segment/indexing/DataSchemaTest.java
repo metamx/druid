@@ -43,7 +43,7 @@ import java.util.Map;
 
 public class DataSchemaTest
 {
-  private final ObjectMapper jsonMapper = TestHelper.getJsonMapper();
+  private final ObjectMapper jsonMapper = TestHelper.makeJsonMapper();
 
   @Test
   public void testDefaultExclusions() throws Exception

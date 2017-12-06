@@ -31,9 +31,6 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Objects;
 
-/**
- * identifier to DataSegment.
- */
 @PublicApi
 public class DataSegmentUtils
 {

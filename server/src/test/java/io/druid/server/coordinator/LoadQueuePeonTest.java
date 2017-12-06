@@ -26,8 +26,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.druid.concurrent.Execs;
 import io.druid.curator.CuratorTestBase;
-import io.druid.jackson.DefaultObjectMapper;
 import io.druid.java.util.common.Intervals;
+import io.druid.segment.TestHelper;
 import io.druid.server.coordination.DataSegmentChangeCallback;
 import io.druid.server.coordination.DataSegmentChangeHandler;
 import io.druid.server.coordination.DataSegmentChangeRequest;
@@ -54,7 +54,7 @@ public class LoadQueuePeonTest extends CuratorTestBase
 {
   private static final String LOAD_QUEUE_PATH = "/druid/loadqueue/localhost:1234";
 
-  private final ObjectMapper jsonMapper = new DefaultObjectMapper();
+  private final ObjectMapper jsonMapper = TestHelper.makeJsonMapper();
 
   private LoadQueuePeon loadQueuePeon;
   private PathChildrenCache loadQueueCache;

@@ -97,6 +97,7 @@ import io.druid.query.timeseries.TimeseriesQueryEngine;
 import io.druid.query.timeseries.TimeseriesQueryQueryToolChest;
 import io.druid.query.timeseries.TimeseriesQueryRunnerFactory;
 import io.druid.query.timeseries.TimeseriesResultValue;
+import io.druid.segment.TestHelper;
 import io.druid.segment.indexing.DataSchema;
 import io.druid.segment.indexing.RealtimeIOConfig;
 import io.druid.segment.indexing.RealtimeTuningConfig;
@@ -873,7 +874,7 @@ public class RealtimeIndexTaskTest
 
   private RealtimeIndexTask makeRealtimeTask(final String taskId, boolean reportParseExceptions, long handoffTimeout)
   {
-    ObjectMapper objectMapper = new DefaultObjectMapper();
+    ObjectMapper objectMapper = TestHelper.makeJsonMapper();
     DataSchema dataSchema = new DataSchema(
         "test_ds",
         null,
