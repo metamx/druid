@@ -249,10 +249,7 @@ public class QueryLifecycle
   {
     transition(State.AUTHORIZED, State.EXECUTING);
 
-    final Map<String, Object> responseContext = DirectDruidClient.makeResponseContextForQuery(
-        queryPlus.getQuery(),
-        System.currentTimeMillis()
-    );
+    final Map<String, Object> responseContext = DirectDruidClient.makeResponseContextForQuery();
 
     final Sequence res = queryPlus.run(texasRanger, responseContext);
 
