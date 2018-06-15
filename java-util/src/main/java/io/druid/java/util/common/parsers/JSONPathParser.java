@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.annotation.Nullable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -72,8 +72,9 @@ public class JSONPathParser implements Parser<String, Object>
     try {
       JsonNode document = mapper.readValue(input, JsonNode.class);
       Map<String, Object> mapFromFlattener = flattener.flatten(document);
-      // The map from the flattener might be immutable, so moving the data into a HashMap
-      return mapFromFlattener != null ? new HashMap<>(mapFromFlattener) : null;
+      // The map from the flattener might be immutable, so moving the data into a LinkedHashMap. Using LinkedHashMap
+      // to preserve the order of entries, if it matters.
+      return mapFromFlattener != null ? new LinkedHashMap<>(mapFromFlattener) : null;
     }
     catch (Exception e) {
       throw new ParseException(e, "Unable to parse row [%s]", input);

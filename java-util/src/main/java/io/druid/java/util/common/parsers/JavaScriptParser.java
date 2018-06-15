@@ -24,7 +24,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ScriptableObject;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -83,8 +83,9 @@ public class JavaScriptParser implements Parser<String, Object>
         throw new ParseException("JavaScript parsed value must be in {key: value} format!");
       }
 
-      // The map from the JavaScript function might be immutable, so moving the data into a HashMap
-      return new HashMap<>((Map<String, Object>) compiled);
+      // The map from the JavaScript function might be immutable, so moving the data into a LinkedHashMap. Using
+      // LinkedHashMap to preserve the order of entries, if it matters.
+      return new LinkedHashMap<>((Map<String, Object>) compiled);
     }
     catch (Exception e) {
       throw new ParseException(e, "Unable to parse row [%s]", input);

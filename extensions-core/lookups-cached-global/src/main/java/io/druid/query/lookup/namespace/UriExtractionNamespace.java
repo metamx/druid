@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -620,8 +621,9 @@ public class UriExtractionNamespace implements ExtractionNamespace
           try {
             Map<String, String> mapFromJackson =
                 jsonFactory.createParser(input).readValueAs(JacksonUtils.TYPE_REFERENCE_MAP_STRING_STRING);
-            // The Map from Jackson might be immutable(?), so moving the data into a HashMap
-            return mapFromJackson != null ? new HashMap<>(mapFromJackson) : null;
+            // The Map from Jackson might be immutable(?), so moving the data into a LinkedHashMap. Using LinkedHashMap
+            // to preserve the order of entries, if it matters.
+            return mapFromJackson != null ? new LinkedHashMap<>(mapFromJackson) : null;
           }
           catch (IOException e) {
             throw new RuntimeException(e);
