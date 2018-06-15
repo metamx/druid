@@ -24,6 +24,7 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.ScriptableObject;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -82,7 +83,8 @@ public class JavaScriptParser implements Parser<String, Object>
         throw new ParseException("JavaScript parsed value must be in {key: value} format!");
       }
 
-      return (Map) compiled;
+      // The map from the JavaScript function might be immutable, so moving the data into a HashMap
+      return new HashMap<>((Map<String, Object>) compiled);
     }
     catch (Exception e) {
       throw new ParseException(e, "Unable to parse row [%s]", input);

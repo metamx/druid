@@ -38,7 +38,8 @@ public interface Parser<K, V>
   }
 
   /**
-   * Parse a String into a Map.  The result can be null which means the given input string will be ignored.
+   * Parse a String into a Map.  The result can be null which means the given input string will be ignored. The caller
+   * of this method should be able to safely mutate the map (e. g. put new entries), retuned from this method.
    *
    * @throws ParseException if the String cannot be parsed
    */

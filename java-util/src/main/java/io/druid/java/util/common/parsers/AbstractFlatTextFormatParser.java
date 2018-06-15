@@ -127,6 +127,7 @@ public abstract class AbstractFlatTextFormatParser implements Parser<String, Obj
   }
 
   @Override
+  @Nullable
   public Map<String, Object> parseToMap(final String input)
   {
     if (!supportSkipHeaderRows && (hasHeaderRow || maxSkipHeaderRows > 0)) {

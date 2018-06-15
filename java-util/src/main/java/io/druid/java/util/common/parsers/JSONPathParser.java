@@ -21,9 +21,9 @@ package io.druid.java.util.common.parsers;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
 
-import java.nio.charset.CharsetEncoder;
+import javax.annotation.Nullable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,7 +33,6 @@ import java.util.Map;
 public class JSONPathParser implements Parser<String, Object>
 {
   private final ObjectMapper mapper;
-  private final CharsetEncoder enc = Charsets.UTF_8.newEncoder();
   private final ObjectFlattener<JsonNode> flattener;
 
   /**
@@ -67,11 +66,14 @@ public class JSONPathParser implements Parser<String, Object>
    * @return A map of field names and values
    */
   @Override
+  @Nullable
   public Map<String, Object> parseToMap(String input)
   {
     try {
       JsonNode document = mapper.readValue(input, JsonNode.class);
-      return flattener.flatten(document);
+      Map<String, Object> mapFromFlattener = flattener.flatten(document);
+      // The map from the flattener might be immutable, so moving the data into a HashMap
+      return mapFromFlattener != null ? new HashMap<>(mapFromFlattener) : null;
     }
     catch (Exception e) {
       throw new ParseException(e, "Unable to parse row [%s]", input);
