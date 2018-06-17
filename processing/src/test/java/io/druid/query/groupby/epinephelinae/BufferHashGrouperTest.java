@@ -34,6 +34,7 @@ import io.druid.query.aggregation.CountAggregatorFactory;
 import io.druid.query.aggregation.LongSumAggregatorFactory;
 import io.druid.segment.CloserRule;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -47,6 +48,7 @@ import java.nio.channels.FileChannel;
 import java.util.Comparator;
 import java.util.List;
 
+@Ignore
 public class BufferHashGrouperTest
 {
   @Rule
