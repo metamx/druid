@@ -27,23 +27,21 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Inject;
-import io.druid.java.util.emitter.EmittingLogger;
 import io.druid.audit.AuditEntry;
 import io.druid.audit.AuditInfo;
 import io.druid.audit.AuditManager;
 import io.druid.client.DruidServer;
-import io.druid.java.util.common.concurrent.Execs;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.Json;
 import io.druid.java.util.common.DateTimes;
 import io.druid.java.util.common.Pair;
 import io.druid.java.util.common.StringUtils;
+import io.druid.java.util.common.concurrent.Execs;
 import io.druid.java.util.common.lifecycle.LifecycleStart;
 import io.druid.java.util.common.lifecycle.LifecycleStop;
+import io.druid.java.util.emitter.EmittingLogger;
 import io.druid.server.coordinator.rules.ForeverLoadRule;
 import io.druid.server.coordinator.rules.Rule;
 import org.joda.time.DateTime;
@@ -57,12 +55,14 @@ import org.skife.jdbi.v2.TransactionStatus;
 import org.skife.jdbi.v2.tweak.HandleCallback;
 import org.skife.jdbi.v2.tweak.ResultSetMapper;
 
+import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -143,12 +143,9 @@ public class SQLMetadataRuleManager implements MetadataRuleManager
 
   private final Object lock = new Object();
 
-  private volatile boolean started = false;
-
-  private volatile ListeningScheduledExecutorService exec = null;
-  private volatile ListenableFuture<?> future = null;
-
-  private volatile long retryStartTime = 0;
+  private boolean started = false;
+  private ScheduledExecutorService exec = null;
+  private long retryStartTime = 0;
 
   @Inject
   public SQLMetadataRuleManager(
@@ -169,9 +166,7 @@ public class SQLMetadataRuleManager implements MetadataRuleManager
     Preconditions.checkNotNull(config.getAlertThreshold().toStandardDuration());
     Preconditions.checkNotNull(config.getPollDuration().toStandardDuration());
 
-    this.rules = new AtomicReference<>(
-        ImmutableMap.<String, List<Rule>>of()
-    );
+    this.rules = new AtomicReference<>(ImmutableMap.of());
   }
 
   @Override
@@ -186,7 +181,7 @@ public class SQLMetadataRuleManager implements MetadataRuleManager
       exec = MoreExecutors.listeningDecorator(Execs.scheduledSingleThreaded("DatabaseRuleManager-Exec--%d"));
 
       createDefaultRule(dbi, getRulesTable(), config.getDefaultRule(), jsonMapper);
-      future = exec.scheduleWithFixedDelay(
+      exec.scheduleWithFixedDelay(
           new Runnable()
           {
             @Override
@@ -217,11 +212,7 @@ public class SQLMetadataRuleManager implements MetadataRuleManager
       if (!started) {
         return;
       }
-
-      rules.set(ImmutableMap.<String, List<Rule>>of());
-
-      future.cancel(false);
-      future = null;
+      rules.set(ImmutableMap.of());
       started = false;
       exec.shutdownNow();
       exec = null;
@@ -230,6 +221,17 @@ public class SQLMetadataRuleManager implements MetadataRuleManager
 
   @Override
   public void poll()
+  {
+    synchronized (lock) {
+      if (!started) {
+        return;
+      }
+      doPoll();
+    }
+  }
+
+  @GuardedBy("lock")
+  private void doPoll()
   {
     try {
       ImmutableMap<String, List<Rule>> newRules = ImmutableMap.copyOf(
