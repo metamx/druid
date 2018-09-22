@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Preconditions;
 import io.druid.timeline.DataSegment;
 
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -63,6 +64,12 @@ public class DruidDataSource
     return Collections.unmodifiableCollection(idToSegmentMap.values());
   }
 
+  @Nullable
+  public DataSegment getSegment(String segmentId)
+  {
+    return idToSegmentMap.get(segmentId);
+  }
+
   public DruidDataSource addSegment(DataSegment dataSegment)
   {
     idToSegmentMap.put(dataSegment.getIdentifier(), dataSegment);
@@ -73,11 +80,6 @@ public class DruidDataSource
   {
     idToSegmentMap.remove(segmentId);
     return this;
-  }
-
-  public DataSegment getSegment(String identifier)
-  {
-    return idToSegmentMap.get(identifier);
   }
 
   public boolean isEmpty()
