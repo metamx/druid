@@ -26,7 +26,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.TypeLiteral;
 import com.google.inject.name.Names;
-import io.druid.java.util.http.client.HttpClient;
 import io.airlift.airline.Command;
 import io.druid.curator.discovery.DiscoveryModule;
 import io.druid.curator.discovery.ServerDiscoveryFactory;
@@ -45,9 +44,11 @@ import io.druid.guice.annotations.EscalatedGlobal;
 import io.druid.guice.annotations.Self;
 import io.druid.guice.http.JettyHttpClientModule;
 import io.druid.java.util.common.logger.Logger;
+import io.druid.java.util.http.client.HttpClient;
 import io.druid.query.lookup.LookupModule;
 import io.druid.server.AsyncQueryForwardingServlet;
 import io.druid.server.http.RouterResource;
+import io.druid.server.http.SelfDiscoveryResource;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import io.druid.server.metrics.QueryCountStatsProvider;
 import io.druid.server.router.AvaticaConnectionBalancer;
@@ -117,6 +118,7 @@ public class CliRouter extends ServerRunnable
             LifecycleModule.register(binder, Server.class);
             DiscoveryModule.register(binder, Self.class);
 
+            binder.bind(String.class).annotatedWith(Self.class).toInstance(DruidNodeDiscoveryProvider.NODE_TYPE_ROUTER);
             binder.bind(DiscoverySideEffectsProvider.Child.class).toProvider(
                 new DiscoverySideEffectsProvider(
                     DruidNodeDiscoveryProvider.NODE_TYPE_ROUTER,
@@ -124,6 +126,9 @@ public class CliRouter extends ServerRunnable
                 )
             ).in(LazySingleton.class);
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class));
+
+            Jerseys.addResource(binder, SelfDiscoveryResource.class);
+            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           @Provides

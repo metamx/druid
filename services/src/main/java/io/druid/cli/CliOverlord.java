@@ -48,6 +48,7 @@ import io.druid.guice.ListProvider;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.PolyBind;
 import io.druid.guice.annotations.Json;
+import io.druid.guice.annotations.Self;
 import io.druid.indexing.common.actions.LocalTaskActionClientFactory;
 import io.druid.indexing.common.actions.TaskActionClientFactory;
 import io.druid.indexing.common.actions.TaskActionToolbox;
@@ -87,6 +88,7 @@ import io.druid.server.audit.AuditManagerProvider;
 import io.druid.server.coordinator.CoordinatorOverlordServiceConfig;
 import io.druid.server.http.RedirectFilter;
 import io.druid.server.http.RedirectInfo;
+import io.druid.server.http.SelfDiscoveryResource;
 import io.druid.server.initialization.jetty.JettyServerInitUtils;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import io.druid.server.security.AuthConfig;
@@ -203,6 +205,7 @@ public class CliOverlord extends ServerRunnable
               LifecycleModule.register(binder, Server.class);
             }
 
+            binder.bind(String.class).annotatedWith(Self.class).toInstance(DruidNodeDiscoveryProvider.NODE_TYPE_OVERLORD);
             binder.bind(DiscoverySideEffectsProvider.Child.class).annotatedWith(IndexingService.class).toProvider(
                 new DiscoverySideEffectsProvider(
                     DruidNodeDiscoveryProvider.NODE_TYPE_OVERLORD,
@@ -210,6 +213,9 @@ public class CliOverlord extends ServerRunnable
                 )
             ).in(LazySingleton.class);
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class, IndexingService.class));
+
+            Jerseys.addResource(binder, SelfDiscoveryResource.class);
+            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           private void configureTaskStorage(Binder binder)

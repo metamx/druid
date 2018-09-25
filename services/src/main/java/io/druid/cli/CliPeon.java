@@ -36,6 +36,7 @@ import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.druid.client.cache.CacheConfig;
 import io.druid.client.coordinator.CoordinatorClient;
+import io.druid.discovery.DruidNodeDiscoveryProvider;
 import io.druid.guice.Binders;
 import io.druid.guice.CacheModule;
 import io.druid.guice.DruidProcessingModule;
@@ -51,6 +52,7 @@ import io.druid.guice.QueryRunnerFactoryModule;
 import io.druid.guice.QueryableModule;
 import io.druid.guice.QueryablePeonModule;
 import io.druid.guice.annotations.Json;
+import io.druid.guice.annotations.Self;
 import io.druid.guice.annotations.Smile;
 import io.druid.indexing.common.RetryPolicyConfig;
 import io.druid.indexing.common.RetryPolicyFactory;
@@ -226,7 +228,8 @@ public class CliPeon extends GuiceRunnable
                 Key.get(RemoteTaskActionClientFactory.class)
             );
             final MapBinder<String, TaskActionClientFactory> taskActionBinder = PolyBind.optionBinder(
-                binder, Key.get(TaskActionClientFactory.class)
+                binder,
+                Key.get(TaskActionClientFactory.class)
             );
             taskActionBinder.addBinding("local")
                             .to(LocalTaskActionClientFactory.class).in(LazySingleton.class);
@@ -234,12 +237,14 @@ public class CliPeon extends GuiceRunnable
             JsonConfigProvider.bind(binder, "druid.indexer.storage", TaskStorageConfig.class);
             binder.bind(TaskStorage.class).to(HeapMemoryTaskStorage.class).in(LazySingleton.class);
             binder.bind(TaskActionToolbox.class).in(LazySingleton.class);
-            binder.bind(IndexerMetadataStorageCoordinator.class).to(IndexerSQLMetadataStorageCoordinator.class).in(
-                LazySingleton.class
-            );
+            binder.bind(IndexerMetadataStorageCoordinator.class)
+                  .to(IndexerSQLMetadataStorageCoordinator.class)
+                  .in(LazySingleton.class);
             taskActionBinder.addBinding("remote")
-                            .to(RemoteTaskActionClientFactory.class).in(LazySingleton.class);
+                            .to(RemoteTaskActionClientFactory.class)
+                            .in(LazySingleton.class);
 
+            binder.bind(String.class).annotatedWith(Self.class).toInstance(DruidNodeDiscoveryProvider.NODE_TYPE_PEON);
           }
 
           @Provides
@@ -277,12 +282,7 @@ public class CliPeon extends GuiceRunnable
               @Nullable BatchDataSegmentAnnouncer announcer
           )
           {
-            return new SegmentListerResource(
-                jsonMapper,
-                smileMapper,
-                announcer,
-                null
-            );
+            return new SegmentListerResource(jsonMapper, smileMapper, announcer, null);
           }
         },
         new QueryablePeonModule(),

@@ -44,6 +44,7 @@ import io.druid.guice.LazySingleton;
 import io.druid.guice.LifecycleModule;
 import io.druid.guice.QueryRunnerFactoryModule;
 import io.druid.guice.QueryableModule;
+import io.druid.guice.annotations.Self;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.query.QuerySegmentWalker;
 import io.druid.query.RetryQueryRunnerConfig;
@@ -53,6 +54,7 @@ import io.druid.server.ClientInfoResource;
 import io.druid.server.ClientQuerySegmentWalker;
 import io.druid.server.coordination.broker.DruidBroker;
 import io.druid.server.http.BrokerResource;
+import io.druid.server.http.SelfDiscoveryResource;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import io.druid.server.metrics.MetricsModule;
 import io.druid.server.metrics.QueryCountStatsProvider;
@@ -126,6 +128,7 @@ public class CliBroker extends ServerRunnable
 
             LifecycleModule.register(binder, Server.class);
 
+            binder.bind(String.class).annotatedWith(Self.class).toInstance(DruidNodeDiscoveryProvider.NODE_TYPE_BROKER);
             binder.bind(DiscoverySideEffectsProvider.Child.class).toProvider(
                 new DiscoverySideEffectsProvider(
                     DruidNodeDiscoveryProvider.NODE_TYPE_BROKER,
@@ -133,6 +136,9 @@ public class CliBroker extends ServerRunnable
                 )
             ).in(LazySingleton.class);
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class));
+
+            Jerseys.addResource(binder, SelfDiscoveryResource.class);
+            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
         },
         new LookupModule(),

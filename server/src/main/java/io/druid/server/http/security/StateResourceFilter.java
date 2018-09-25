@@ -47,9 +47,7 @@ import io.druid.server.security.ResourceType;
 public class StateResourceFilter extends AbstractResourceFilter
 {
   @Inject
-  public StateResourceFilter(
-      AuthorizerMapper authorizerMapper
-  )
+  public StateResourceFilter(AuthorizerMapper authorizerMapper)
   {
     super(authorizerMapper);
   }
@@ -87,6 +85,7 @@ public class StateResourceFilter extends AbstractResourceFilter
            requestPath.startsWith("druid/worker/v1") ||
            requestPath.startsWith("druid/coordinator/v1/servers") ||
            requestPath.startsWith("druid/v2") ||
-           requestPath.startsWith("status");
+           requestPath.startsWith("status") ||
+           requestPath.startsWith("selfDiscovered");
   }
 }

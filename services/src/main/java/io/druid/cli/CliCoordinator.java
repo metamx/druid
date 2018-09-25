@@ -28,7 +28,6 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.name.Names;
-import io.druid.java.util.http.client.HttpClient;
 import io.airlift.airline.Command;
 import io.druid.audit.AuditManager;
 import io.druid.client.CoordinatorServerView;
@@ -44,8 +43,10 @@ import io.druid.guice.LifecycleModule;
 import io.druid.guice.ManageLifecycle;
 import io.druid.guice.annotations.CoordinatorIndexingServiceHelper;
 import io.druid.guice.annotations.Global;
+import io.druid.guice.annotations.Self;
 import io.druid.java.util.common.concurrent.ScheduledExecutorFactory;
 import io.druid.java.util.common.logger.Logger;
+import io.druid.java.util.http.client.HttpClient;
 import io.druid.metadata.MetadataRuleManager;
 import io.druid.metadata.MetadataRuleManagerConfig;
 import io.druid.metadata.MetadataRuleManagerProvider;
@@ -75,6 +76,7 @@ import io.druid.server.http.MetadataResource;
 import io.druid.server.http.RedirectFilter;
 import io.druid.server.http.RedirectInfo;
 import io.druid.server.http.RulesResource;
+import io.druid.server.http.SelfDiscoveryResource;
 import io.druid.server.http.ServersResource;
 import io.druid.server.http.TiersResource;
 import io.druid.server.initialization.ZkPathsConfig;
@@ -214,6 +216,7 @@ public class CliCoordinator extends ServerRunnable
                 DruidCoordinatorCleanupPendingSegments.class
             );
 
+            binder.bind(String.class).annotatedWith(Self.class).toInstance(DruidNodeDiscoveryProvider.NODE_TYPE_COORDINATOR);
             binder.bind(DiscoverySideEffectsProvider.Child.class).annotatedWith(Coordinator.class).toProvider(
                 new DiscoverySideEffectsProvider(
                     DruidNodeDiscoveryProvider.NODE_TYPE_COORDINATOR,
@@ -221,6 +224,9 @@ public class CliCoordinator extends ServerRunnable
                 )
             ).in(LazySingleton.class);
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class, Coordinator.class));
+
+            Jerseys.addResource(binder, SelfDiscoveryResource.class);
+            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           @Provides

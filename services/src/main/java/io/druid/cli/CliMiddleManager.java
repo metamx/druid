@@ -49,6 +49,7 @@ import io.druid.indexing.worker.http.WorkerResource;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.segment.realtime.firehose.ChatHandlerProvider;
 import io.druid.server.DruidNode;
+import io.druid.server.http.SelfDiscoveryResource;
 import io.druid.server.initialization.jetty.JettyServerInitializer;
 import org.eclipse.jetty.server.Server;
 
@@ -101,6 +102,7 @@ public class CliMiddleManager extends ServerRunnable
 
             LifecycleModule.register(binder, Server.class);
 
+            binder.bind(String.class).annotatedWith(Self.class).toInstance(DruidNodeDiscoveryProvider.NODE_TYPE_MM);
             binder.bind(DiscoverySideEffectsProvider.Child.class).toProvider(
                 new DiscoverySideEffectsProvider(
                     DruidNodeDiscoveryProvider.NODE_TYPE_MM,
@@ -108,6 +110,9 @@ public class CliMiddleManager extends ServerRunnable
                 )
             ).in(LazySingleton.class);
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class));
+
+            Jerseys.addResource(binder, SelfDiscoveryResource.class);
+            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           @Provides

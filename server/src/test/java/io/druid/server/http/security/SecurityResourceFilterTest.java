@@ -35,6 +35,7 @@ import io.druid.server.http.HistoricalResource;
 import io.druid.server.http.IntervalsResource;
 import io.druid.server.http.MetadataResource;
 import io.druid.server.http.RulesResource;
+import io.druid.server.http.SelfDiscoveryResource;
 import io.druid.server.http.ServersResource;
 import io.druid.server.http.TiersResource;
 import io.druid.server.security.ForbiddenException;
@@ -68,6 +69,7 @@ public class SecurityResourceFilterTest extends ResourceFilterTestHelper
             getRequestPathsWithAuthorizer(CoordinatorDynamicConfigsResource.class),
             getRequestPathsWithAuthorizer(QueryResource.class),
             getRequestPathsWithAuthorizer(StatusResource.class),
+            getRequestPathsWithAuthorizer(SelfDiscoveryResource.class),
             getRequestPathsWithAuthorizer(BrokerQueryResource.class)
         )
     );
