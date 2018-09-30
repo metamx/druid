@@ -33,6 +33,8 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.util.Collections;
 import java.util.List;
 
 @Path("/selfDiscovered")
@@ -100,8 +102,8 @@ public class SelfDiscoveryResource
 
   @GET
   @Produces(MediaType.APPLICATION_JSON)
-  public boolean getSelfDiscovered()
+  public Response getSelfDiscovered()
   {
-    return selfDiscovered;
+    return Response.ok(Collections.singletonMap("selfDiscovered", selfDiscovered)).build();
   }
 }
