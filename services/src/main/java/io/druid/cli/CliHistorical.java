@@ -123,7 +123,6 @@ public class CliHistorical extends ServerRunnable
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class));
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
-            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
         },
         new LookupModule()

@@ -226,7 +226,6 @@ public class CliCoordinator extends ServerRunnable
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class, Coordinator.class));
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
-            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           @Provides

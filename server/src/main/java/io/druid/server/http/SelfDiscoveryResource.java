@@ -20,6 +20,7 @@
 package io.druid.server.http;
 
 import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import com.sun.jersey.spi.container.ResourceFilters;
 import io.druid.discovery.DiscoveryDruidNode;
 import io.druid.discovery.DruidNodeDiscovery;
@@ -37,6 +38,12 @@ import javax.ws.rs.core.Response;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * This class is annotated {@link Singleton} rather than {@link io.druid.guice.LazySingleton}, because it adds
+ * a lifecycle handler in the constructor, that should happen before the lifecycle is started, i. e. eagerly during the
+ * DI configuration phase.
+ */
+@Singleton
 @Path("/selfDiscovered")
 @ResourceFilters(StateResourceFilter.class)
 public class SelfDiscoveryResource

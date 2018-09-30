@@ -215,7 +215,6 @@ public class CliOverlord extends ServerRunnable
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class, IndexingService.class));
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
-            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           private void configureTaskStorage(Binder binder)

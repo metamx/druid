@@ -128,7 +128,6 @@ public class CliRouter extends ServerRunnable
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class));
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
-            binder.bind(SelfDiscoveryResource.class).in(LazySingleton.class);
           }
 
           @Provides
@@ -136,7 +135,6 @@ public class CliRouter extends ServerRunnable
           public ServerDiscoverySelector getCoordinatorServerDiscoverySelector(
               TieredBrokerConfig config,
               ServerDiscoveryFactory factory
-
           )
           {
             return factory.createSelector(config.getCoordinatorServiceName());
