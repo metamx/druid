@@ -57,6 +57,7 @@ import org.joda.time.Duration;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;
@@ -71,6 +72,7 @@ import java.util.stream.Collectors;
 /**
  * This tests zookeeper specific coordinator/load queue/historical interactions, such as moving segments by the balancer
  */
+@Ignore
 public class CuratorDruidCoordinatorTest extends CuratorTestBase
 {
   private DruidCoordinator coordinator;
