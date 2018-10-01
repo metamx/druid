@@ -128,6 +128,7 @@ public class CliRouter extends ServerRunnable
             LifecycleModule.registerKey(binder, Key.get(DiscoverySideEffectsProvider.Child.class));
 
             Jerseys.addResource(binder, SelfDiscoveryResource.class);
+            LifecycleModule.registerKey(binder, Key.get(SelfDiscoveryResource.class));
           }
 
           @Provides
