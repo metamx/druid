@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
  */
@@ -49,6 +50,9 @@ public class MonitorsConfig
    * for backwards compatibility purposes, easing the upgrade process for users.
    */
   public static final String OLD_METAMX_PACKAGE_NAME = "com.metamx.metrics";
+  private static final Pattern OLD_METAMX_PACKAGE_NAME_PATTERN =
+      Pattern.compile(OLD_METAMX_PACKAGE_NAME, Pattern.LITERAL);
+
   public static final String NEW_DRUID_PACKAGE_NAME = "io.druid.java.util.metrics";
 
   @JsonProperty("monitors")
@@ -115,7 +119,8 @@ public class MonitorsConfig
     }
     try {
       for (String monitorName : monitorNames) {
-        String effectiveMonitorName = monitorName.replace(OLD_METAMX_PACKAGE_NAME, NEW_DRUID_PACKAGE_NAME);
+        String effectiveMonitorName =
+            OLD_METAMX_PACKAGE_NAME_PATTERN.matcher(monitorName).replaceAll(NEW_DRUID_PACKAGE_NAME);
         if (!effectiveMonitorName.equals(monitorName)) {
           log.warn(
               "Deprecated Monitor class name [%s] found, please use package %s instead of %s",

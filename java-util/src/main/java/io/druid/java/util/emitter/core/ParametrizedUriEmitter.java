@@ -37,11 +37,14 @@ import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.regex.Pattern;
 
 public class ParametrizedUriEmitter implements Flushable, Closeable, Emitter
 {
   private static final Logger log = new Logger(ParametrizedUriEmitter.class);
   private static final Set<String> ONLY_FEED_PARAM = ImmutableSet.of("feed");
+
+  private static final Pattern FEED_PATTERN = Pattern.compile("{feed}", Pattern.LITERAL);
 
   private static UriExtractor makeUriExtractor(ParametrizedUriEmitterConfig config)
   {
@@ -49,7 +52,7 @@ public class ParametrizedUriEmitter implements Flushable, Closeable, Emitter
     final ParametrizedUriExtractor parametrizedUriExtractor = new ParametrizedUriExtractor(baseUri);
     UriExtractor uriExtractor = parametrizedUriExtractor;
     if (ONLY_FEED_PARAM.equals(parametrizedUriExtractor.getParams())) {
-      uriExtractor = new FeedUriExtractor(baseUri.replace("{feed}", "%s"));
+      uriExtractor = new FeedUriExtractor(FEED_PATTERN.matcher(baseUri).replaceAll("%s"));
     }
     return uriExtractor;
   }

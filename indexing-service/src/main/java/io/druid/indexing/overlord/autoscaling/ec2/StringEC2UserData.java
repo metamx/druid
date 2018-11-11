@@ -21,14 +21,17 @@ package io.druid.indexing.overlord.autoscaling.ec2;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import io.druid.java.util.common.StringUtils;
 import org.apache.commons.codec.binary.Base64;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class StringEC2UserData implements EC2UserData<StringEC2UserData>
 {
   private final String data;
   private final String versionReplacementString;
+  private final Pattern versionReplacementPattern;
   private final String version;
 
   @JsonCreator
@@ -40,6 +43,7 @@ public class StringEC2UserData implements EC2UserData<StringEC2UserData>
   {
     this.data = data;
     this.versionReplacementString = versionReplacementString;
+    versionReplacementPattern = Pattern.compile(versionReplacementString, Pattern.LITERAL);
     this.version = version;
   }
 
@@ -72,7 +76,7 @@ public class StringEC2UserData implements EC2UserData<StringEC2UserData>
   {
     final String finalData;
     if (versionReplacementString != null && version != null) {
-      finalData = data.replace(versionReplacementString, version);
+      finalData = versionReplacementPattern.matcher(data).replaceAll(Matcher.quoteReplacement(version));
     } else {
       finalData = data;
     }

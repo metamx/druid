@@ -19,10 +19,10 @@
 
 package io.druid.sql.avatica;
 
+import io.druid.java.util.common.logger.Logger;
 import io.druid.java.util.emitter.service.ServiceEmitter;
 import io.druid.java.util.emitter.service.ServiceMetricEvent;
 import io.druid.java.util.metrics.AbstractMonitor;
-import io.druid.java.util.common.logger.Logger;
 import org.apache.calcite.avatica.metrics.Counter;
 import org.apache.calcite.avatica.metrics.Gauge;
 import org.apache.calcite.avatica.metrics.Histogram;
@@ -35,10 +35,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
 public class AvaticaMonitor extends AbstractMonitor implements MetricsSystem
 {
   private static final Logger log = new Logger(AvaticaMonitor.class);
+
+  private static final Pattern AVATICA_PACKAGE_PATTERN = Pattern.compile("org.apache.calcite.avatica", Pattern.LITERAL);
 
   private final ConcurrentMap<String, AtomicLong> counters = new ConcurrentHashMap<>();
   private final ConcurrentMap<String, Gauge<?>> gauges = new ConcurrentHashMap<>();
@@ -178,6 +181,6 @@ public class AvaticaMonitor extends AbstractMonitor implements MetricsSystem
 
   private String fullMetricName(final String name)
   {
-    return name.replace("org.apache.calcite.avatica", "avatica").replace(".", "/");
+    return AVATICA_PACKAGE_PATTERN.matcher(name).replaceAll("avatica").replace('.', '/');
   }
 }

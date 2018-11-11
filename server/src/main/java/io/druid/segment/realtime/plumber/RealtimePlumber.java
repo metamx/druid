@@ -616,7 +616,7 @@ public class RealtimePlumber implements Plumber
     Object metadata = null;
     long latestCommitTime = 0;
     for (File sinkDir : files) {
-      final Interval sinkInterval = Intervals.of(sinkDir.getName().replace("_", "/"));
+      final Interval sinkInterval = Intervals.of(sinkDir.getName().replace('_', '/'));
 
       //final File[] sinkFiles = sinkDir.listFiles();
       // To avoid reading and listing of "merged" dir
@@ -898,7 +898,7 @@ public class RealtimePlumber implements Plumber
 
   protected File computePersistDir(DataSchema schema, Interval interval)
   {
-    return new File(computeBaseDir(schema), interval.toString().replace("/", "_"));
+    return new File(computeBaseDir(schema), interval.toString().replace('/', '_'));
   }
 
   /**

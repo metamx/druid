@@ -140,8 +140,13 @@ public class StringUtils
     return s.toUpperCase(Locale.ENGLISH);
   }
 
+  /**
+   * Removes all occurrences of the given char from the given string. This method is an optimal version of
+   * {@link String#replace(CharSequence, CharSequence) s.replace("c", "")}.
+   */
   public static String removeChar(String s, char c)
   {
+    // TODO use String.indexOf() API
     for (int i = 0; i < s.length(); i++) {
       if (s.charAt(i) == c) {
         return removeChar(s, c, i);
@@ -154,10 +159,43 @@ public class StringUtils
   {
     StringBuilder sb = new StringBuilder(s.length() - 1);
     sb.append(s, 0, firstOccurranceIndex);
+    // TODO use String.indexOf() API
     for (int i = firstOccurranceIndex + 1; i < s.length(); i++) {
       char charOfString = s.charAt(i);
       if (charOfString != c) {
         sb.append(charOfString);
+      }
+    }
+    return sb.toString();
+  }
+
+  /**
+   * Replaces all occurrences of the given char in the given string with the given replacement string. This method is an
+   * optimal version of {@link String#replace(CharSequence, CharSequence) s.replace("c", replacement)}.
+   */
+  public static String replaceChar(String s, char c, String replacement)
+  {
+    // TODO use String.indexOf() API
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) == c) {
+        return replaceChar(s, c, replacement, i);
+      }
+    }
+    return s;
+  }
+
+  private static String replaceChar(String s, char c, String replacement, int firstOccurranceIndex)
+  {
+    StringBuilder sb = new StringBuilder(s.length() - 1 + replacement.length());
+    sb.append(s, 0, firstOccurranceIndex);
+    sb.append(replacement);
+    // TODO use String.indexOf() API
+    for (int i = firstOccurranceIndex + 1; i < s.length(); i++) {
+      char charOfString = s.charAt(i);
+      if (charOfString != c) {
+        sb.append(charOfString);
+      } else {
+        sb.append(replacement);
       }
     }
     return sb.toString();
