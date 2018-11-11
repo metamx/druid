@@ -764,10 +764,10 @@ public class JobHelper
       // getHdfsStorageDir. But that wouldn't fix this issue for people who already have segments with ":".
       // Because of this we just URL encode the : making everything work as it should.
       segmentLocURI = URI.create(
-          StringUtils.replaceChar(
-              StringUtils.format("gs://%s/%s", loadSpec.get("bucket"), loadSpec.get("path").toString()),
-              ':',
-              "%3A"
+          StringUtils.format(
+              "gs://%s/%s",
+              loadSpec.get("bucket"),
+              StringUtils.replaceChar(loadSpec.get("path").toString(), ':', "%3A")
           )
       );
     } else if ("local".equals(type)) {
