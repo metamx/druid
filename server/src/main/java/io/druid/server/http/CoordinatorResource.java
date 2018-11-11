@@ -37,13 +37,30 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  */
 @Path("/druid/coordinator/v1")
 public class CoordinatorResource
 {
+  private static class LoadStatusResult
+  {
+    final long timestamp;
+    final Map<String, Double> result;
+
+    public LoadStatusResult(long timestamp, Map<String, Double> result)
+    {
+      this.timestamp = timestamp;
+      this.result = result;
+    }
+  }
+
   private final DruidCoordinator coordinator;
+
+  private final Object loadStatusLock = new Object();
+  private LoadStatusResult lastLoadStatusResult;
+
 
   @Inject
   public CoordinatorResource(
@@ -95,7 +112,26 @@ public class CoordinatorResource
     if (full != null) {
       return Response.ok(coordinator.getReplicationStatus()).build();
     }
-    return Response.ok(coordinator.getLoadStatus()).build();
+    return Response.ok(computeLoadStatus()).build();
+  }
+
+  private Map<String, Double> computeLoadStatus()
+  {
+    LoadStatusResult lastLoadStatusResult = this.lastLoadStatusResult;
+    if (lastLoadStatusResult != null &&
+        System.currentTimeMillis() - lastLoadStatusResult.timestamp < TimeUnit.SECONDS.toMillis(5)) {
+      return lastLoadStatusResult.result;
+    }
+    synchronized (loadStatusLock) {
+      lastLoadStatusResult = this.lastLoadStatusResult;
+      if (lastLoadStatusResult != null &&
+          System.currentTimeMillis() - lastLoadStatusResult.timestamp < TimeUnit.SECONDS.toMillis(5)) {
+        return lastLoadStatusResult.result;
+      }
+      Map<String, Double> result = coordinator.getLoadStatus();
+      this.lastLoadStatusResult = new LoadStatusResult(System.currentTimeMillis(), result);
+      return result;
+    }
   }
 
   @GET

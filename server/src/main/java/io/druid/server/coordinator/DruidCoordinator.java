@@ -69,6 +69,7 @@ import io.druid.server.coordinator.rules.Rule;
 import io.druid.server.initialization.ZkPathsConfig;
 import io.druid.server.lookup.cache.LookupCoordinatorManager;
 import io.druid.timeline.DataSegment;
+import it.unimi.dsi.fastutil.objects.Object2DoubleOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import org.apache.curator.framework.CuratorFramework;
@@ -78,6 +79,7 @@ import org.joda.time.Duration;
 import org.joda.time.Interval;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +124,8 @@ public class DruidCoordinator
   private final BalancerStrategyFactory factory;
   private final LookupCoordinatorManager lookupCoordinatorManager;
   private final DruidLeaderSelector coordLeaderSelector;
+
+  private final Object loadStatusLock = new Object();
 
   @Inject
   public DruidCoordinator(
@@ -283,31 +287,38 @@ public class DruidCoordinator
 
   public Map<String, Double> getLoadStatus()
   {
-    Map<String, Double> loadStatus = Maps.newHashMap();
-    for (ImmutableDruidDataSource dataSource : metadataSegmentManager.getInventory()) {
-      final Set<DataSegment> segments = Sets.newHashSet(dataSource.getSegments());
-      final int availableSegmentSize = segments.size();
-
-      // remove loaded segments
-      for (DruidServer druidServer : serverInventoryView.getInventory()) {
-        final DruidDataSource loadedView = druidServer.getDataSource(dataSource.getName());
-        if (loadedView != null) {
-          // This does not use segments.removeAll(loadedView.getSegments()) for performance reasons.
-          // Please see https://github.com/druid-io/druid/pull/5632 and LoadStatusBenchmark for more info.
-          for (DataSegment serverSegment : loadedView.getSegments()) {
-            segments.remove(serverSegment);
+    // This lock is needed to ensure no race on DataSegment.loaded updates in this method.
+    synchronized (loadStatusLock) {
+      Collection<ImmutableDruidDataSource> inventory = metadataSegmentManager.getInventory();
+      Object2DoubleOpenHashMap<String> loadStatus = new Object2DoubleOpenHashMap<>(inventory.size());
+      for (ImmutableDruidDataSource dataSource : inventory) {
+        dataSource.getSegments().forEach(segment -> segment.loaded = false);
+        final int availableSegmentSize = dataSource.getSegments().size();
+        int loadedSegments = 0;
+        for (DruidServer druidServer : serverInventoryView.getInventory()) {
+          final DruidDataSource loadedView = druidServer.getDataSource(dataSource.getName());
+          if (loadedView != null) {
+            for (DataSegment loadedSegment : loadedView.getSegments()) {
+              DataSegment segment = dataSource.getSegment(loadedSegment.getIdentifier());
+              if (segment != null) {
+                if (!segment.loaded) {
+                  segment.loaded = true;
+                  loadedSegments++;
+                }
+              }
+            }
           }
         }
+        loadStatus.put(
+            dataSource.getName(),
+            100 * ((double) (loadedSegments) / (double) availableSegmentSize)
+        );
       }
-      final int unloadedSegmentSize = segments.size();
-      loadStatus.put(
-          dataSource.getName(),
-          100 * ((double) (availableSegmentSize - unloadedSegmentSize) / (double) availableSegmentSize)
-      );
-    }
 
-    return loadStatus;
+      return loadStatus;
+    }
   }
+
 
   public CoordinatorDynamicConfig getDynamicConfigs()
   {

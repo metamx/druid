@@ -110,6 +110,12 @@ public class DataSegment implements Comparable<DataSegment>
   private final long size;
   private final String identifier;
 
+  /**
+   * This is a horrible abstraction leak to have this field in this class. It is used to optimize
+   * {@link io.druid.server.coordinator.DruidCoordinator#getLoadStatus()} implementation.
+   */
+  public boolean loaded = false;
+
   public DataSegment(
       String dataSource,
       Interval interval,
