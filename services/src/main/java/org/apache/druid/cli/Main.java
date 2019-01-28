@@ -80,7 +80,7 @@ public class Main
         CreateTables.class,
         InsertSegment.class,
         DumpSegment.class,
-        DumpMetricsColumns.class,
+        SummarizeSegment.class,
         ResetCluster.class,
         ValidateSegments.class
     );

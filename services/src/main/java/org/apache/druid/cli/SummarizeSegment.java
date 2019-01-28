@@ -78,13 +78,6 @@ public class SummarizeSegment extends GuiceRunnable {
       required = true)
   public String directory;
 
-  @Option(
-      name = {"-o", "--out"},
-      title = "file",
-      description = "File to write to, or omit to write to stdout."
-  )
-  public String outputFileName;
-
   @Override
   public void run()
   {
@@ -92,8 +85,8 @@ public class SummarizeSegment extends GuiceRunnable {
     final IndexIO indexIO = injector.getInstance(IndexIO.class);
     try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
       List<String> metricNames = getMetricNames(index);
+      log.info("Metrics " + metricNames);
       summarize(injector, index, metricNames);
-      log.info(metricNames.toString());
     }
     catch (Exception e) {
       throw Throwables.propagate(e);
@@ -116,7 +109,7 @@ public class SummarizeSegment extends GuiceRunnable {
     class MetricStat {
       double max;
       List<Double> values = new ArrayList<Double>();
-      int []
+      int retainedCount;
 
       public void updateMax(double aDouble)
       {
@@ -130,6 +123,7 @@ public class SummarizeSegment extends GuiceRunnable {
           Integer orDefault = blockerCounts.getOrDefault(blocker, 0);
           blockerCounts.put(blocker, orDefault + 1);
         }
+        retainedCount++;
       }
 
       public void clearMax()
@@ -139,9 +133,10 @@ public class SummarizeSegment extends GuiceRunnable {
     }
       class Summary
       {
+        boolean notAnumber = false;
         private final List<String> columnNames;
         int count;
-        private LinkedMap<String, MetricStat> metricStatsByName = new LinkedHashMap<>();
+        private Map<String, MetricStat> metricStatsByName = new LinkedHashMap<String, MetricStat>();
         private List<MetricStat> metricStatsByIndex = new ArrayList<>();
         int dropCount;
         int retainedCount;
@@ -201,11 +196,13 @@ public class SummarizeSegment extends GuiceRunnable {
                 blockers.add(columnName);
               }
             }
-            if (blockers.isEmpty())
-              dropCount++;
-            else if (blockers.size() != dropped.size()) {
-              retainedCount++;
-              countBlockers(dropped, blockers);
+            if (!dropped.isEmpty()) {
+              if (blockers.isEmpty())
+                dropCount++;
+              else if (blockers.size() != dropped.size()) {
+                retainedCount++;
+                countBlockers(dropped, blockers);
+              }
             }
             blockers.clear();
             dropped.clear();
@@ -227,11 +224,6 @@ public class SummarizeSegment extends GuiceRunnable {
             metricStatsByIndex.get(i).clearMax();
           }
         }
-
-//        public Map<String, Map<String, Integer>> getRetainedStats()
-//        {
-//          return null;
-//        }
       }
     Summary summary = new Summary(columnNames);
     Sequence<Object> map = Sequences.map(
@@ -266,12 +258,20 @@ public class SummarizeSegment extends GuiceRunnable {
             double[] doubles = new double[columnNames.size()];
             for (int i = 0; i < columnNames.size(); i++) {
               BaseObjectColumnValueSelector baseObjectColumnValueSelector = selectors.get(i);
-              Number value = (Number) baseObjectColumnValueSelector.getObject();
-              doubles[i] = value.doubleValue();
+              Object object = baseObjectColumnValueSelector.getObject();
+              if (object instanceof Number) {
+                Number value = (Number) object;
+                doubles[i] = value.doubleValue();
+              } else {
+                summary.notAnumber = true;
+                doubles[i] = 0;
+              }
             }
             summary.collect(doubles);
             cursor.advance();
           }
+          summary.summarizeCollected();
+          summary.resetCollected();
           return null;
         }
     );
@@ -280,11 +280,25 @@ public class SummarizeSegment extends GuiceRunnable {
 
     System.out.println(String.format("Dropped %.3f Retained %.3f", summary.getDropped(), summary.getRetained()));
     for (String columnName : columnNames) {
-//      summary.metricStatsByName.get(columnName)
+      MetricStat metricStat = summary.metricStatsByName.get(columnName);
+
+      if (!metricStat.blockerCounts.isEmpty()) {
+        Set<Map.Entry<String, Integer>> entries = metricStat.blockerCounts.entrySet();
+        TreeMap<Integer, List<String>> sorted = new TreeMap<>((o1, o2) -> -1 * Integer.compare(o1, o2));
+        for (Map.Entry<String, Integer> entry : entries) {
+          List<String> strings = sorted.get(entry.getValue());
+          if (strings == null) {
+            sorted.put(entry.getValue() , strings = new ArrayList<>());
+          }
+          strings.add(entry.getKey());
+        }
+        String s = sorted.entrySet().stream().map(e -> String.format("%s %.5f", e.getValue(), ((double) e.getKey()) / metricStat.retainedCount)).collect(Collectors.joining(" "));
+        System.out.println(String.format("%s retained due to %s", columnName, s));
+      }
+
     }
-    System.out.println(String.format("Dropped %.3f Retained %.3f", summary.getDropped(), summary.getRetained()));
-
-
+    if (summary.notAnumber)
+      System.out.println("Found not a number");
   }
 
   private List<String> getMetricNames(QueryableIndex index)
