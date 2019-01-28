@@ -28,10 +28,10 @@ import com.google.inject.Module;
 import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
-import org.apache.commons.collections4.map.LinkedMap;
 import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
+import org.apache.druid.hll.HyperLogLogCollector;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
@@ -52,6 +52,7 @@ import org.joda.time.chrono.ISOChronology;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -134,6 +135,7 @@ public class SummarizeSegment extends GuiceRunnable {
       class Summary
       {
         boolean notAnumber = false;
+        Map<String, String> notNumbers = new HashMap<>();
         private final List<String> columnNames;
         int count;
         private Map<String, MetricStat> metricStatsByName = new LinkedHashMap<String, MetricStat>();
@@ -262,8 +264,11 @@ public class SummarizeSegment extends GuiceRunnable {
               if (object instanceof Number) {
                 Number value = (Number) object;
                 doubles[i] = value.doubleValue();
+              } else if (object instanceof HyperLogLogCollector) {
+                doubles[i] = ((HyperLogLogCollector)object).estimateCardinality();
               } else {
                 summary.notAnumber = true;
+                summary.notNumbers.putIfAbsent(columnNames.get(i) ,baseObjectColumnValueSelector.classOfObject().getSimpleName());
                 doubles[i] = 0;
               }
             }
@@ -278,7 +283,8 @@ public class SummarizeSegment extends GuiceRunnable {
     map.accumulate(null, (accumulated, in) -> null);
 
 
-    System.out.println(String.format("Dropped %.3f Retained %.3f", summary.getDropped(), summary.getRetained()));
+    output(String.format("Rows %s", summary.count));
+    output(String.format("Dropped %.3f Retained %.3f", summary.getDropped(), summary.getRetained()));
     for (String columnName : columnNames) {
       MetricStat metricStat = summary.metricStatsByName.get(columnName);
 
@@ -293,12 +299,17 @@ public class SummarizeSegment extends GuiceRunnable {
           strings.add(entry.getKey());
         }
         String s = sorted.entrySet().stream().map(e -> String.format("%s %.5f", e.getValue(), ((double) e.getKey()) / metricStat.retainedCount)).collect(Collectors.joining(" "));
-        System.out.println(String.format("%s retained due to %s", columnName, s));
+        output(String.format("%s retained due to %s", columnName, s));
       }
 
     }
     if (summary.notAnumber)
-      System.out.println("Found not a number");
+      output("Found not a number " + summary.notNumbers);
+  }
+
+  private void output(String s)
+  {
+    System.out.println(s);
   }
 
   private List<String> getMetricNames(QueryableIndex index)
