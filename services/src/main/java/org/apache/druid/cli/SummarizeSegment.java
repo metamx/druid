@@ -227,6 +227,7 @@ public class SummarizeSegment extends GuiceRunnable {
           }
         }
       }
+      Set<String> hll = new LinkedHashSet<>();
     Summary summary = new Summary(columnNames);
     Sequence<Object> map = Sequences.map(
         cursors,
@@ -266,6 +267,7 @@ public class SummarizeSegment extends GuiceRunnable {
                 doubles[i] = value.doubleValue();
               } else if (object instanceof HyperLogLogCollector) {
                 doubles[i] = ((HyperLogLogCollector)object).estimateCardinality();
+                hll.add(columnNames.get(i));
               } else {
                 summary.notAnumber = true;
                 summary.notNumbers.putIfAbsent(columnNames.get(i) ,baseObjectColumnValueSelector.classOfObject().getSimpleName());
@@ -303,8 +305,11 @@ public class SummarizeSegment extends GuiceRunnable {
       }
 
     }
-    if (summary.notAnumber)
+    if (summary.notAnumber) {
       output("Found not a number " + summary.notNumbers);
+    }
+
+    output("HLL columns " + hll);
   }
 
   private void output(String s)
