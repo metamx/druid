@@ -187,7 +187,11 @@ public class SummarizeSegment extends GuiceRunnable {
             double[] doubles = collected.get(rowIndex);
             for (int columnIndex = 0; columnIndex < doubles.length; columnIndex++) {
               double aDouble = doubles[columnIndex];
-              ratios[columnIndex] = aDouble / getStat(columnIndex).max;
+              if (Math.abs(getStat(columnIndex).max) < 0.000000001) {
+                ratios[columnIndex] = 0.0;
+              } else{
+                ratios[columnIndex] = aDouble / getStat(columnIndex).max;
+              }
             }
             for (int j = 0; j < ratios.length; j++) {
               String columnName = columnNames.get(j);
