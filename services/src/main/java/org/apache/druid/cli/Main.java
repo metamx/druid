@@ -81,6 +81,7 @@ public class Main
         InsertSegment.class,
         DumpSegment.class,
         SummarizeSegment.class,
+        SummarizeSegment2.class,
         ResetCluster.class,
         ValidateSegments.class
     );
