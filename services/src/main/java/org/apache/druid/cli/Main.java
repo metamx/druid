@@ -82,6 +82,7 @@ public class Main
         DumpSegment.class,
         SummarizeSegment.class,
         SummarizeSegment2.class,
+        DimensionCount.class,
         ResetCluster.class,
         ValidateSegments.class
     );
