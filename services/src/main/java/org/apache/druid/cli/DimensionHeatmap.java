@@ -55,27 +55,28 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Command(
-    name = "summarize-segment-dimensions"
+    name = "dimension-heatmap"
 )
-public class DimensionCount extends GuiceRunnable
-{
+public class DimensionHeatmap extends GuiceRunnable {
 
-  //  private static FileOutputStream fileOutputStream;
+//  private static FileOutputStream fileOutputStream;
   private static PrintWriter printWriter;
 
-  public DimensionCount()
+  public DimensionHeatmap()
   {
     super(log);
   }
@@ -98,28 +99,17 @@ public class DimensionCount extends GuiceRunnable
 
   @Option(
       name = {"-m"},
-      title = "count merged",
-      description = "Count merged",
-      required = false)
-  public Boolean countTotalDropped = false;
-
-  @Option(
-      name = {"-p"},
-      title = "percentage limit",
-      required = false)
-  public Double dimPercentageLimit = 0.0099;
-
-  @Option(
-      name = {"--metric-limit"},
-      title = "metric percentage limit",
-      required = false)
-  public Double metricPercentageLimit = 0.0099;
-
-  @Option(
-      name = {"--metric"},
-      title = "percentage limit",
+      title = "count metric",
+      description = "Count metric",
       required = true)
   public String metric;
+
+  @Option(
+      name = {"--dim"},
+      title = "count dimension",
+      description = "Count dimension",
+      required = true)
+  public String dimension;
 
   @Override
   public void run()
@@ -131,8 +121,6 @@ public class DimensionCount extends GuiceRunnable
 //      fileOutputStream = new FileOutputStream(outputFileName);
       printWriter = new PrintWriter(new File(outputFileName));
       output("Dims " + metricNames);
-      output("Metric limit " + metricPercentageLimit);
-      output("Dim limit " + dimPercentageLimit);
       long l = System.currentTimeMillis();
       summarize(injector, index, metricNames);
       printWriter.println("time " + ((System.currentTimeMillis() - l) / 1000.0/ 60));
@@ -148,7 +136,7 @@ public class DimensionCount extends GuiceRunnable
   private void summarize(Injector injector, QueryableIndex index, List<String> dimNames)
   {
     final QueryableIndexStorageAdapter adapter = new QueryableIndexStorageAdapter(index);
-    final List<String> columnNames = new ArrayList<>(dimNames);
+    final List<String> columnNames = Collections.singletonList(dimension);
 
     final Sequence<Cursor> cursors = adapter.makeCursors(
         Filters.toFilter(null),
@@ -158,110 +146,12 @@ public class DimensionCount extends GuiceRunnable
         false,
         null
     );
-    class Summary
-    {
-
-      private final List<String> columnNames;
-      public int totalCount;
-      private LinkedHashMap<String, Dim> dims;
-
-      public Summary(List<String> columnNames)
+      class Summary
       {
-        this.columnNames = columnNames;
-        dims = new LinkedHashMap<>();
-        for (String columnName : columnNames) {
-          dims.put(columnName, new Dim());
-        }
+        int totalCount;
+
       }
-
-      private int previous = totalCount;
-      private boolean totalOverflow;
-
-      public void add(String dimName, Object v, Double metric) throws OverflowException
-      {
-        dims.get(dimName).add(v);
-        if (previous - totalCount > 100000) {
-          int sum = 0;
-          for (Dim dim : dims.values()) {
-            sum += dim.count();
-          }
-          if (sum >= 100000) {
-            totalOverflow = true;
-            throw new OverflowException();
-          }
-          previous = totalCount;
-        }
-      }
-
-      public void reportDims()
-      {
-        for (String columnName : columnNames) {
-          output(columnName);
-          Dim dim = dims.get(columnName);
-          dim.report(totalCount);
-        }
-      }
-
-      public double getRatio(String column, Object dimValue)
-      {
-        Counts counts = dims.get(column).valueCounts.get(dimValue);
-        if (counts != null) {
-          return ((double) counts.count) / totalCount;
-        }
-        return Double.MAX_VALUE;
-      }
-
-      class Counts
-      {
-        int count;
-      }
-
-      class Dim
-      {
-        private HashMap<Object, Counts> valueCounts;
-
-        {
-          valueCounts = new HashMap<>();
-        }
-
-        boolean overflow = false;
-        int dimRowCount;
-
-        public void add(Object v)
-        {
-          if (!valueCounts.containsKey(v) && valueCounts.size() > 10000) {
-            overflow = true;
-          }
-
-          dimRowCount++;
-          Counts counts = valueCounts.computeIfAbsent(v, k -> new Counts());
-          counts.count += 1;
-        }
-
-        public int count()
-        {
-          return valueCounts.size();
-        }
-
-        public void report(int count)
-        {
-          int dropped = 0;
-          if (overflow) {
-            output("  overflow");
-          }
-          for (Map.Entry<Object, Counts> e : valueCounts.entrySet()) {
-            double ratio = ((double) e.getValue().count) / count;
-            if (ratio > dimPercentageLimit) {
-              output(String.format("    %s %.3f", e.getKey(), ratio));
-            } else {
-              dropped += e.getValue().count;
-            }
-          }
-          output(String.format("  dropped %.3f", ((double) dropped) / count));
-        }
-      }
-    }
-    Summary summary = new Summary(columnNames);
+    Summary summary = new Summary();
     Sequence<Object> map = Sequences.map(
         cursors,
         cursor -> {
@@ -270,103 +160,70 @@ public class DimensionCount extends GuiceRunnable
               .stream()
               .map(columnSelectorFactory::makeColumnValueSelector)
               .collect(Collectors.toList());
+          ColumnValueSelector metricValueSelector = columnSelectorFactory.makeColumnValueSelector(metric);
           ColumnValueSelector timeValueSelector = columnSelectorFactory.makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
 
           // for each dimesion value create Dimension -> value -> count
 
-          ColumnValueSelector metricValueSelector = columnSelectorFactory.makeColumnValueSelector(metric);
-
-          double maxMetricValue = 0;
           LinkedHashSet<Long> timestamps = new LinkedHashSet<>();
-          try {
+          class Dim {
+            private final String name;
+            double sum;
+            int count;
+
+            public Dim(String key)
+            {
+              name = key;
+            }
+          }
+            TreeMap<String, Dim> dimSum = new TreeMap<>();
             while (!cursor.isDone()) {
               summary.totalCount++;
 
               timestamps.add(timeValueSelector.getLong());
               for (int i = 0; i < columnNames.size(); i++) {
-                double metricValue = metricValueSelector.getDouble();
                 BaseObjectColumnValueSelector baseObjectColumnValueSelector = selectors.get(i);
                 Object dimValue = baseObjectColumnValueSelector.getObject();
-                String dimName = columnNames.get(i);
-                if (dimValue instanceof HyperLogLogCollector) {
-                  summary.add(dimName, ((HyperLogLogCollector) dimValue).estimateCardinality(), metricValue);
+                String key = (String)dimValue;
+                Dim dim = dimSum.computeIfAbsent(key, k -> new Dim(key));
+                Object metricValue =  metricValueSelector.getObject();
+                if (metricValue instanceof HyperLogLogCollector) {
+                  dim.sum += ((HyperLogLogCollector) metricValue).estimateCardinality();
+                  dim.count++;
+                } else if (metricValue instanceof Number) {
+                  dim.sum += ((Number)metricValue).doubleValue();
+                  dim.count++;
                 } else {
-                  summary.add(dimName, dimValue, metricValue);
+                  throw new IllegalStateException();
                 }
-                maxMetricValue = Math.max(metricValue, maxMetricValue);
               }
               cursor.advance();
             }
-          }
-          catch (OverflowException e) {
-            output("total overflow");
-          }
           output("Timestamps");
           for (Long timestamp : timestamps) {
             output("  " + new DateTime(timestamp, DateTimeZone.UTC));
           }
-          if (countTotalDropped) {
-            cursor.reset();
-
-            // metric > 1% then count retained
-
-            BloomFilter<Integer> filter = BloomFilter.create(
-                Funnels.integerFunnel(),
-                1500000,
-                0.001
-            );
-            Object[] values = new Object[columnNames.size()];
-            int merged = 0;
-            int previousMerged = 0;
-            int retained = 0;
-            output("Merged examples");
-            long totalDroppedSize = 0;
-            long totalSize = 0;
-            while (!cursor.isDone()) {
-
-              double metricValue = metricValueSelector.getDouble();
-              boolean ret = false;
-              for (int i = 0; i < columnNames.size(); i++) {
-                BaseObjectColumnValueSelector baseObjectColumnValueSelector = selectors.get(i);
-                values[i] = baseObjectColumnValueSelector.getObject();
-                if (summary.getRatio(columnNames.get(i), values[i]) <= dimPercentageLimit) {
-                  String value = null;
-                  if (values[i] instanceof String) {
-                    value = ((String) values[i]);
-                  }
-                  if (metricValue / maxMetricValue <= metricPercentageLimit) {
-                    if (values[i] instanceof String) {
-                      totalDroppedSize += value.length() * 2;
-                    }
-                    values[i] = null;
-                  } else {
-                    ret = true;
-                  }
-                  if (value != null) {
-                    totalSize += value.length() * 2;
-                  }
-                }
-              }
-              if (ret) {
-                retained++;
-              }
-              if (!filter.put(Arrays.hashCode(values))) {
-                merged++;
-                if (merged - previousMerged > 150000) {
-                  output("  merged " + Arrays.asList(values));
-                  previousMerged = merged;
-                }
-              }
-              cursor.advance();
+          TreeMap<Integer, List<Dim>> byCount = new TreeMap<>();
+          for (Map.Entry<String, Dim> e : dimSum.entrySet()) {
+            List<Dim> dims = byCount.computeIfAbsent(e.getValue().count, k -> new ArrayList<>());
+            dims.add(e.getValue());
+          }
+          for (Map.Entry<Integer, List<Dim>> e : byCount.entrySet()) {
+            List<Dim> value = e.getValue();
+//            for (Dim dim : value) {
+//              output(String.format("%s %.3f %.3f", dim.name, dim.sum, ((double)dim.count) / summary.totalCount));
+//            }
+          }
+          TreeMap<Double, List<Dim>> bySum = new TreeMap<>();
+          for (Map.Entry<String, Dim> e : dimSum.entrySet()) {
+            List<Dim> dims = bySum.computeIfAbsent(e.getValue().sum, k -> new ArrayList<>());
+            dims.add(e.getValue());
+          }
+          for (Map.Entry<Double, List<Dim>> e : bySum.entrySet()) {
+            List<Dim> value = e.getValue();
+            for (Dim dim : value) {
+              output(String.format("%s %.3f %.3f", dim.name, dim.sum, ((double)dim.count) / summary.totalCount));
             }
-            output("Merged " + ((double) merged) / summary.totalCount);
-            output("Retained " + ((double) retained) / summary.totalCount);
-            output("Total string size " + totalSize / 1024 / 1024 + " MiB");
-            output(String.format(
-                "Dropped string size %d MiB ratio %.3f",
-                totalDroppedSize / 1024 / 1024,
-                ((double) totalDroppedSize) / totalSize
-            ));
           }
 
           return null;
@@ -376,7 +233,6 @@ public class DimensionCount extends GuiceRunnable
 
 
     output(String.format("Rows %s", summary.totalCount));
-    summary.reportDims();
   }
 
   private void output(String s)

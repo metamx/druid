@@ -83,6 +83,9 @@ public class Main
         SummarizeSegment.class,
         SummarizeSegment2.class,
         DimensionCount.class,
+        DimensionHeatmap.class,
+        DumpColumnNames.class,
+        DimensionCountMultiple.class,
         ResetCluster.class,
         ValidateSegments.class
     );
