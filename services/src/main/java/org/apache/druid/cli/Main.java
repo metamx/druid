@@ -86,6 +86,7 @@ public class Main
         DimensionHeatmap.class,
         DumpColumnNames.class,
         DimensionCountMultiple.class,
+        DumpSegmentBitmapSize.class,
         ResetCluster.class,
         ValidateSegments.class
     );
