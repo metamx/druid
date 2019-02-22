@@ -55,7 +55,6 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,8 +70,6 @@ import java.util.stream.Collectors;
 )
 public class DimensionCount extends GuiceRunnable
 {
-
-  //  private static FileOutputStream fileOutputStream;
   private static PrintWriter printWriter;
 
   public DimensionCount()
@@ -128,23 +125,25 @@ public class DimensionCount extends GuiceRunnable
     final IndexIO indexIO = injector.getInstance(IndexIO.class);
     try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
       List<String> metricNames = getDimNames(index);
-//      fileOutputStream = new FileOutputStream(outputFileName);
       printWriter = new PrintWriter(new File(outputFileName));
       output("Dims " + metricNames);
       output("Metric limit " + metricPercentageLimit);
       output("Dim limit " + dimPercentageLimit);
       long l = System.currentTimeMillis();
       summarize(injector, index, metricNames);
-      printWriter.println("time " + ((System.currentTimeMillis() - l) / 1000.0/ 60));
+      printWriter.println("time " + ((System.currentTimeMillis() - l) / 1000.0 / 60));
       printWriter.close();
     }
     catch (Exception e) {
       throw Throwables.propagate(e);
     }
   }
- class OverflowException extends Exception {
 
- }
+  class OverflowException extends Exception
+  {
+
+  }
+
   private void summarize(Injector injector, QueryableIndex index, List<String> dimNames)
   {
     final QueryableIndexStorageAdapter adapter = new QueryableIndexStorageAdapter(index);
@@ -158,12 +157,12 @@ public class DimensionCount extends GuiceRunnable
         false,
         null
     );
+
     class Summary
     {
-
       private final List<String> columnNames;
+      private final LinkedHashMap<String, Dim> dims;
       public int totalCount;
-      private LinkedHashMap<String, Dim> dims;
 
       public Summary(List<String> columnNames)
       {
@@ -177,7 +176,7 @@ public class DimensionCount extends GuiceRunnable
       private int previous = totalCount;
       private boolean totalOverflow;
 
-      public void add(String dimName, Object v, Double metric) throws OverflowException
+      public void add(String dimName, Object v) throws OverflowException
       {
         dims.get(dimName).add(v);
         if (previous - totalCount > 100000) {
@@ -289,9 +288,9 @@ public class DimensionCount extends GuiceRunnable
                 Object dimValue = baseObjectColumnValueSelector.getObject();
                 String dimName = columnNames.get(i);
                 if (dimValue instanceof HyperLogLogCollector) {
-                  summary.add(dimName, ((HyperLogLogCollector) dimValue).estimateCardinality(), metricValue);
+                  summary.add(dimName, ((HyperLogLogCollector) dimValue).estimateCardinality());
                 } else {
-                  summary.add(dimName, dimValue, metricValue);
+                  summary.add(dimName, dimValue);
                 }
                 maxMetricValue = Math.max(metricValue, maxMetricValue);
               }
@@ -308,7 +307,7 @@ public class DimensionCount extends GuiceRunnable
           if (countTotalDropped) {
             cursor.reset();
 
-            // metric > 1% then count retained
+            // metric value > metricLimit then count as retained
 
             BloomFilter<Integer> filter = BloomFilter.create(
                 Funnels.integerFunnel(),
