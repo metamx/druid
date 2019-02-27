@@ -30,6 +30,10 @@ import com.google.inject.Module;
 import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
+import org.apache.druid.collections.bitmap.WrappedImmutableConciseBitmap;
+import org.apache.druid.extendedset.intset.ConciseSet;
 import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
@@ -47,6 +51,7 @@ import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.QueryableIndexStorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
+import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnHolder;
 import org.apache.druid.segment.filter.Filters;
@@ -56,13 +61,17 @@ import org.joda.time.chrono.ISOChronology;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Command(
@@ -124,13 +133,13 @@ public class DimensionCount extends GuiceRunnable
     final Injector injector = makeInjector();
     final IndexIO indexIO = injector.getInstance(IndexIO.class);
     try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
-      List<String> metricNames = getDimNames(index);
+      List<String> dimNames = getDimNames(index);
       printWriter = new PrintWriter(new File(outputFileName));
-      output("Dims " + metricNames);
+      output("Dims " + dimNames);
       output("Metric limit " + metricPercentageLimit);
       output("Dim limit " + dimPercentageLimit);
       long l = System.currentTimeMillis();
-      summarize(injector, index, metricNames);
+      summarize(injector, index, dimNames);
       printWriter.println("time " + ((System.currentTimeMillis() - l) / 1000.0 / 60));
       printWriter.close();
     }
@@ -163,6 +172,8 @@ public class DimensionCount extends GuiceRunnable
       private final List<String> columnNames;
       private final LinkedHashMap<String, Dim> dims;
       public int totalCount;
+      public int droppedBitmapSize;
+      public int droppedBitmapCompressedSize;
 
       public Summary(List<String> columnNames)
       {
@@ -321,28 +332,54 @@ public class DimensionCount extends GuiceRunnable
             output("Merged examples");
             long totalDroppedSize = 0;
             long totalSize = 0;
-            while (!cursor.isDone()) {
+            Map<String, ConciseSet> sets = new HashMap<>();
+            int rowCount = 0;
 
+            LZ4Factory factory = LZ4Factory.fastestInstance();
+            LZ4Compressor compressor = factory.fastCompressor();
+            byte[] compressed = new byte[1024*1024*20];
+            BloomFilter<CharSequence> valueFilter = BloomFilter.create(
+                Funnels.stringFunnel(Charset.forName("UTF8")),
+                1500000,
+                0.001
+            );
+
+            while (!cursor.isDone()) {
               double metricValue = metricValueSelector.getDouble();
               boolean ret = false;
+
               for (int i = 0; i < columnNames.size(); i++) {
                 BaseObjectColumnValueSelector baseObjectColumnValueSelector = selectors.get(i);
                 values[i] = baseObjectColumnValueSelector.getObject();
-                if (summary.getRatio(columnNames.get(i), values[i]) <= dimPercentageLimit) {
-                  String value = null;
-                  if (values[i] instanceof String) {
-                    value = ((String) values[i]);
-                  }
+                String columnName = columnNames.get(i);
+                if (summary.getRatio(columnName, values[i]) <= dimPercentageLimit) {
+                  BitmapIndex bitmapIndex = index.getColumnHolder(columnName).getBitmapIndex();
+
                   if (metricValue / maxMetricValue <= metricPercentageLimit) {
+                    String value;// = null;
                     if (values[i] instanceof String) {
-                      totalDroppedSize += value.length() * 2;
+                      value = ((String) values[i]);
+                      if (valueFilter.put(value)) {
+                        WrappedImmutableConciseBitmap bitmap = (WrappedImmutableConciseBitmap) bitmapIndex.getBitmap(
+                            bitmapIndex.getIndex(value));
+                        byte[] bytes = bitmap.getBitmap().toBytes();
+                        summary.droppedBitmapSize += bytes.length;
+                        int compressedLength = compressor.compress(
+                            bytes,
+                            0,
+                            bytes.length,
+                            compressed,
+                            0,
+                            compressed.length
+                        );
+                        summary.droppedBitmapCompressedSize += compressedLength;
+                      }
+                      ConciseSet conciseSet = sets.computeIfAbsent(columnName, k -> new ConciseSet());
+                      conciseSet.add(rowCount);
+                      values[i] = null;
                     }
-                    values[i] = null;
                   } else {
                     ret = true;
-                  }
-                  if (value != null) {
-                    totalSize += value.length() * 2;
                   }
                 }
               }
@@ -357,15 +394,25 @@ public class DimensionCount extends GuiceRunnable
                 }
               }
               cursor.advance();
+              rowCount++;
             }
             output("Merged " + ((double) merged) / summary.totalCount);
             output("Retained " + ((double) retained) / summary.totalCount);
-            output("Total string size " + totalSize / 1024 / 1024 + " MiB");
-            output(String.format(
-                "Dropped string size %d MiB ratio %.3f",
-                totalDroppedSize / 1024 / 1024,
-                ((double) totalDroppedSize) / totalSize
-            ));
+            output("Dropped bitmap size " + summary.droppedBitmapSize);
+            output("Dropped bitmap compressed size " + summary.droppedBitmapCompressedSize);
+            int createdBitmapSize = 0;
+            int createdBitmapCompressedSize = 0;
+            for (String s : sets.keySet()) {
+              int[] words = sets.get(s).getWords();
+              createdBitmapSize += words.length * 4;
+              ByteBuffer buf = ByteBuffer.allocate(words.length * Integer.BYTES);
+              buf.asIntBuffer().put(words);
+              byte[] array = buf.array();
+              int compressedLength = compressor.compress(array, 0, array.length, compressed, 0, compressed.length);
+              createdBitmapCompressedSize += compressedLength;
+            }
+            output("Created bitmap size " + createdBitmapSize);
+            output("Created bitmap compressed size " + createdBitmapCompressedSize);
           }
 
           return null;

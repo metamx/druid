@@ -19,10 +19,8 @@
 
 package org.apache.druid.cli;
 
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -34,22 +32,15 @@ import com.google.inject.name.Names;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.netty.util.SuppressForbidden;
-import org.apache.druid.collections.bitmap.BitmapFactory;
-import org.apache.druid.collections.bitmap.ConciseBitmapFactory;
 import org.apache.druid.collections.bitmap.ImmutableBitmap;
-import org.apache.druid.collections.bitmap.RoaringBitmapFactory;
+import org.apache.druid.collections.bitmap.WrappedRoaringBitmap;
 import org.apache.druid.common.config.NullHandling;
 import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
 import org.apache.druid.guice.annotations.Json;
-import org.apache.druid.java.util.common.IAE;
-import org.apache.druid.java.util.common.ISE;
-import org.apache.druid.java.util.common.StringUtils;
 import org.apache.druid.java.util.common.concurrent.Execs;
-import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.Query;
@@ -57,45 +48,23 @@ import org.apache.druid.query.QueryPlus;
 import org.apache.druid.query.QueryRunner;
 import org.apache.druid.query.QueryRunnerFactory;
 import org.apache.druid.query.QueryRunnerFactoryConglomerate;
-import org.apache.druid.query.SegmentDescriptor;
-import org.apache.druid.query.TableDataSource;
-import org.apache.druid.query.filter.DimFilter;
-import org.apache.druid.query.metadata.metadata.ListColumnIncluderator;
-import org.apache.druid.query.metadata.metadata.SegmentAnalysis;
-import org.apache.druid.query.metadata.metadata.SegmentMetadataQuery;
-import org.apache.druid.query.spec.SpecificSegmentSpec;
-import org.apache.druid.segment.BaseObjectColumnValueSelector;
-import org.apache.druid.segment.ColumnSelectorFactory;
-import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.QueryableIndex;
 import org.apache.druid.segment.QueryableIndexSegment;
-import org.apache.druid.segment.QueryableIndexStorageAdapter;
-import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.BitmapIndex;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.data.BitmapSerdeFactory;
-import org.apache.druid.segment.data.ConciseBitmapSerdeFactory;
-import org.apache.druid.segment.data.RoaringBitmapSerdeFactory;
-import org.apache.druid.segment.filter.Filters;
 import org.apache.druid.timeline.SegmentId;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
 import org.roaringbitmap.IntIterator;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Command(
     name = "dump-segment-bitmap-size"
@@ -137,100 +106,76 @@ public class DumpSegmentBitmapSize extends GuiceRunnable
     final IndexIO indexIO = injector.getInstance(IndexIO.class);
 
 
-   try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
-     runBitmaps(injector, index);
-   }
-   catch (IOException e) {
-     e.printStackTrace();
-   }
+    try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
+      runBitmaps(injector, index);
+    }
+    catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
 
   private void runBitmaps(final Injector injector, final QueryableIndex index) throws IOException
   {
-    final ObjectMapper objectMapper = injector.getInstance(Key.get(ObjectMapper.class, Json.class));
-    final BitmapFactory bitmapFactory = index.getBitmapFactoryForDimensions();
-    final BitmapSerdeFactory bitmapSerdeFactory;
-
-    if (bitmapFactory instanceof ConciseBitmapFactory) {
-      bitmapSerdeFactory = new ConciseBitmapSerdeFactory();
-    } else if (bitmapFactory instanceof RoaringBitmapFactory) {
-      bitmapSerdeFactory = new RoaringBitmapSerdeFactory(null);
-    } else {
-      throw new ISE(
-          "Don't know which BitmapSerdeFactory to use for BitmapFactory[%s]!",
-          bitmapFactory.getClass().getName()
-      );
-    }
-
     final List<String> columnNames = getColumnsToInclude(index);
 
     withOutputStream(
-        new Function<OutputStream, Object>()
-        {
-          @Override
-          public Object apply(final OutputStream out)
-          {
-            try (final JsonGenerator jg = objectMapper.getFactory().createGenerator(out)) {
-//              jg.writeStartObject();
-              {
-//                jg.writeObjectField("bitmapSerdeFactory", bitmapSerdeFactory);
-//                jg.writeFieldName("bitmaps");
-//                jg.writeStartObject();
-                {
-                  for (final String columnName : columnNames) {
-                    if (!columnNamesFromCli.isEmpty() && !columnNamesFromCli.contains(columnName))
-                      continue;
-                    final ColumnHolder columnHolder = index.getColumnHolder(columnName);
-                    final BitmapIndex bitmapIndex = columnHolder.getBitmapIndex();
+        out -> {
+          long totalSum = 0;
+          int totalCount = 0;
+          long totalRoaringSum = 0;
+          for (final String columnName : columnNames) {
+            if (!columnNamesFromCli.isEmpty() && !columnNamesFromCli.contains(columnName)) {
+              continue;
+            }
+            final ColumnHolder columnHolder = index.getColumnHolder(columnName);
+            final BitmapIndex bitmapIndex = columnHolder.getBitmapIndex();
 
-                    if (bitmapIndex == null) {
-//                      jg.writeNullField(columnName);
-                    } else {
-//                      jg.writeFieldName(columnName);
-//                      jg.writeStartObject();
-                      out.write((columnName + "\n").getBytes());
-                      out.write(String.format("  cardinality %s\n", bitmapIndex.getCardinality()).getBytes());
-                      int sumSize = 0;
-                      int maxSize = 0;
-                      for (int i = 0; i < bitmapIndex.getCardinality(); i++) {
-                        String val = NullHandling.nullToEmptyIfNeeded(bitmapIndex.getValue(i));
-                        if (val != null) {
-                          final ImmutableBitmap bitmap = bitmapIndex.getBitmap(i);
-                          int length = bitmap.toBytes().length;
-                          sumSize += length;
-                          maxSize = Math.max(maxSize, length);
-                        /*  if (decompressBitmaps) {
-                            jg.writeStartArray();
-                            final IntIterator iterator = bitmap.iterator();
-                            while (iterator.hasNext()) {
-                              final int rowNum = iterator.next();
-                              jg.writeNumber(rowNum);
-                            }
-                            jg.writeEndArray();
-                          } else {
-                            byte[] bytes = bitmapSerdeFactory.getObjectStrategy().toBytes(bitmap);
-                            if (bytes != null) {
-                              jg.writeBinary(bytes);
-                            }
-                          }*/
-                        }
-                      }
-                      out.write(String.format("  Sum %s Max %s\n", sumSize, maxSize).getBytes());
-//                      jg.writeEndObject();
-                    }
+            if (bitmapIndex != null) {
+              assert out != null;
+              out.println(columnName + "\n");
+              String format = String.format("  cardinality %s\n", bitmapIndex.getCardinality());
+              out.println(format);
+              int sumSize = 0;
+              int maxSize = 0;
+              int perColumnCount = 0;
+              int sumRoaringSize = 0;
+              int maxRoaringSize = 0;
+              for (int i = 0; i < bitmapIndex.getCardinality(); i++) {
+                WrappedRoaringBitmap wrappedRoaringBitmap = new WrappedRoaringBitmap();
+                String val = NullHandling.nullToEmptyIfNeeded(bitmapIndex.getValue(i));
+                if (val != null) {
+                  final ImmutableBitmap bitmap = bitmapIndex.getBitmap(i);
+                  int length = bitmap.toBytes().length;
+                  IntIterator iterator = bitmap.iterator();
+                  while (iterator.hasNext()) {
+                    int next = iterator.next();
+                    wrappedRoaringBitmap.add(next);
                   }
+                  int sizeInBytes = wrappedRoaringBitmap.getSizeInBytes();
+                  sumRoaringSize += sizeInBytes;
+                  sumSize += length;
+                  totalSum += length;
+                  totalRoaringSum += sizeInBytes;
+                  perColumnCount++;
+                  totalCount++;
+                  maxSize = Math.max(maxSize, length);
+                  maxRoaringSize = Math.max(sizeInBytes, maxRoaringSize);
+                  wrappedRoaringBitmap.clear();
                 }
-//                jg.writeEndObject();
               }
-//              jg.writeEndObject();
+              out.println(String.format("  %s", columnName));
+              out.println(String.format("    Concise Sum %s Max %s Avg %.3f\n", sumSize, maxSize, ((double)sumSize)/perColumnCount));
+              out.println(String.format("    Roaring Sum %s Max %s Avg %.3f\n", sumRoaringSize, maxRoaringSize, ((double)sumRoaringSize)/perColumnCount));
             }
-            catch (IOException e) {
-              throw Throwables.propagate(e);
-            }
-
-            return null;
           }
+          out.println(String.format("====================================="));
+          out.println(String.format("Total"));
+          out.println(String.format("  Concise sum %s avg %.3f\n", totalSum, ((double) totalSum)/totalCount));
+          out.println(String.format("  Roaring sum %s avg %.3f\n", totalRoaringSum, ((double) totalRoaringSum)/totalCount));
+
+          out.println(String.format("Ratio %.3f", ((double)totalRoaringSum)/totalSum));
+          return null;
         }
     );
   }
@@ -256,12 +201,12 @@ public class DumpSegmentBitmapSize extends GuiceRunnable
   }
 
   @SuppressForbidden(reason = "System#out")
-  private <T> T withOutputStream(Function<OutputStream, T> f) throws IOException
+  private <T> T withOutputStream(Function<PrintStream, T> f) throws IOException
   {
     if (outputFileName == null) {
       return f.apply(System.out);
     } else {
-      try (final OutputStream out = new FileOutputStream(outputFileName)) {
+      try (final PrintStream out = new PrintStream(new FileOutputStream(outputFileName))) {
         return f.apply(out);
       }
     }
