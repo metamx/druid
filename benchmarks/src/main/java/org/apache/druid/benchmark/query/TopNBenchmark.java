@@ -19,6 +19,7 @@
 
 package org.apache.druid.benchmark.query;
 
+import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.io.Files;
 import org.apache.commons.io.FileUtils;
@@ -33,6 +34,7 @@ import org.apache.druid.java.util.common.concurrent.Execs;
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.offheap.OffheapBufferGenerator;
 import org.apache.druid.query.FinalizeResultsQueryRunner;
 import org.apache.druid.query.Query;
@@ -106,10 +108,11 @@ public class TopNBenchmark
   @Param({"750000"})
   private int rowsPerSegment;
 
-  @Param({"basic.A", "basic.numericSort", "basic.alphanumericSort"})
+//  @Param({"basic.A", "basic.numericSort", "basic.alphanumericSort"})
+  @Param({"basic.A"})
   private String schemaAndQuery;
 
-  @Param({"10"})
+  @Param({"100"})
   private int threshold;
 
   private static final Logger log = new Logger(TopNBenchmark.class);
@@ -130,7 +133,11 @@ public class TopNBenchmark
   private ExecutorService executorService;
 
   static {
+//    JSON_MAPPER = new DefaultObjectMapper();
     JSON_MAPPER = new DefaultObjectMapper();
+    InjectableValues.Std injectableValues = new InjectableValues.Std();
+    injectableValues.addValue(ExprMacroTable.class, ExprMacroTable.nil());
+    JSON_MAPPER.setInjectableValues(injectableValues);
     INDEX_IO = new IndexIO(
         JSON_MAPPER,
         new ColumnConfig()

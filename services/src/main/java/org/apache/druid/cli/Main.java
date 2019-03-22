@@ -87,6 +87,8 @@ public class Main
         DumpColumnNames.class,
         DimensionCountMultiple.class,
         DumpSegmentBitmapSize.class,
+        ColumnCorrelation.class,
+        MakeSegment.class,
         ResetCluster.class,
         ValidateSegments.class
     );

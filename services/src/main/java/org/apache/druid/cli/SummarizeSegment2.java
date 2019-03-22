@@ -358,7 +358,7 @@ public class SummarizeSegment2 extends GuiceRunnable {
     System.out.println(s);
   }
 
-  private List<String> getMetricNames(QueryableIndex index)
+  public static List<String> getMetricNames(QueryableIndex index)
   {
     Set<String> columnNames = new LinkedHashSet<>(index.getColumnNames());
     Set<String> availableDimensions = Sets.newLinkedHashSet(index.getAvailableDimensions());
