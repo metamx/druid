@@ -62,7 +62,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Command(
-    name = "summarize-segment"
+    name = "summarize-by-value-segment"
 )
 public class SummarizeSegment extends GuiceRunnable {
   public SummarizeSegment()
@@ -142,6 +142,8 @@ public class SummarizeSegment extends GuiceRunnable {
         private List<MetricStat> metricStatsByIndex = new ArrayList<>();
         int dropCount;
         int retainedCount;
+        private boolean[] negatives;
+
         public double getDropped() {
           return ((double)dropCount) / count;
         }
@@ -230,6 +232,21 @@ public class SummarizeSegment extends GuiceRunnable {
             metricStatsByIndex.get(i).clearMax();
           }
         }
+
+        public void negatives(boolean[] negatives)
+        {
+          this.negatives = negatives;
+        }
+
+        public void printNegatives()
+        {
+          output("Negatives:");
+          for (int i = 0; i < columnNames.size(); i++) {
+            String s = columnNames.get(i);
+            if (negatives[i])
+              output("  " + s);
+          }
+        }
       }
       Set<String> hll = new LinkedHashSet<>();
     Summary summary = new Summary(columnNames);
@@ -251,6 +268,7 @@ public class SummarizeSegment extends GuiceRunnable {
           // print percentage of dropped rows
           // foreach MetricStat print retained ratio to all rows, with percentage for each blocking metric
           long previous = timeValueSelector.getLong();
+          boolean[] negatives = new boolean[columnNames.size()];
           while (!cursor.isDone()) {
             summary.count++;
 
@@ -269,6 +287,8 @@ public class SummarizeSegment extends GuiceRunnable {
               if (object instanceof Number) {
                 Number value = (Number) object;
                 doubles[i] = value.doubleValue();
+                if (doubles[i] < 0)
+                  negatives[i] = true;
               } else if (object instanceof HyperLogLogCollector) {
                 doubles[i] = ((HyperLogLogCollector)object).estimateCardinality();
                 hll.add(columnNames.get(i));
@@ -279,6 +299,7 @@ public class SummarizeSegment extends GuiceRunnable {
               }
             }
             summary.collect(doubles);
+            summary.negatives(negatives);
             cursor.advance();
           }
           summary.summarizeCollected();
@@ -312,6 +333,7 @@ public class SummarizeSegment extends GuiceRunnable {
     if (summary.notAnumber) {
       output("Found not a number " + summary.notNumbers);
     }
+    summary.printNegatives();
 
     output("HLL columns " + hll);
   }
