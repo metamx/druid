@@ -92,6 +92,12 @@ public class MakeSegment extends GuiceRunnable
       required = true)
   public String out;
 
+  @Option(
+      name = {"--order"},
+      title = "order",
+      required = false)
+  public String order;
+
   private static IndexMergerV9 INDEX_MERGER_V9;
   private static IndexIO INDEX_IO;
   public static ObjectMapper JSON_MAPPER;
@@ -162,27 +168,16 @@ public class MakeSegment extends GuiceRunnable
       });
       log.info("Sorted dims: " + dimensionsList);*/
 
-//      dimensionsList.remove("has_mraid");
-//      dimensionsList.add(0, "has_mraid");
-      dimensionsList.remove("agency_atd");
-      dimensionsList.add(0, "agency_atd");
-      dimensionsList.remove("device");
-      dimensionsList.add(0, "device");
-      dimensionsList.remove("country");
-      dimensionsList.add(0, "country");
-      dimensionsList.remove("app_or_site");
-      dimensionsList.add(0, "app_or_site");
-      dimensionsList.remove("is_pmp");
-      dimensionsList.add(0, "is_pmp");
-      dimensionsList.remove("has_mraid_new");
-      dimensionsList.add(0, "has_mraid_new");
-      dimensionsList.remove("creative_mraid");
-      dimensionsList.add(0, "creative_mraid");
-      dimensionsList.remove("pub_id");
-      dimensionsList.add(0, "pub_id");
+      if (order != null) {
+        List<String> orderList = Arrays.asList(order.split(","));
+        Collections.reverse(orderList);
+        for (String s : orderList) {
+          dimensionsList.remove(s);
+          dimensionsList.add(0, s);
+        }
+      }
       List<Column> metrics =
                   metricNames.stream()
-//                             .filter(s -> index.getColumnHolder(s).getCapabilities().getType().isNumeric())
                              .map(s -> new Column(s))
                              .collect(Collectors.toList());
 List<Column> dimensions = dims0.stream()
