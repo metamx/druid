@@ -330,8 +330,8 @@ public class DimensionCount extends GuiceRunnable
             int previousMerged = 0;
             int retained = 0;
             output("Merged examples");
-            long totalDroppedSize = 0;
-            long totalSize = 0;
+//            long totalDroppedSize = 0;
+//            long totalSize = 0;
             Map<String, ConciseSet> sets = new HashMap<>();
             int rowCount = 0;
 

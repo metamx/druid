@@ -82,6 +82,7 @@ public class Main
         DumpSegment.class,
         SummarizeSegment.class,
         SummarizeSegment2.class,
+        DimsToCSV.class,
         DimensionCount.class,
         DimensionHeatmap.class,
         DumpColumnNames.class,
