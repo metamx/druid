@@ -50,6 +50,8 @@ import org.apache.druid.segment.QueryableIndexStorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnConfig;
 import org.apache.druid.segment.column.ColumnHolder;
+import org.apache.druid.segment.data.ConciseBitmapSerdeFactory;
+import org.apache.druid.segment.data.RoaringBitmapSerdeFactory;
 import org.apache.druid.segment.incremental.IncrementalIndex;
 import org.apache.druid.segment.incremental.IncrementalIndexSchema;
 import org.apache.druid.segment.incremental.IndexSizeExceededException;
@@ -61,7 +63,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -98,6 +99,12 @@ public class MakeSegment extends GuiceRunnable
       required = false)
   public String order;
 
+  @Option(
+      name = {"--bitmap"},
+      title = "bitmap",
+      required = false)
+  public String bitmap = "concise";
+
   private static IndexMergerV9 INDEX_MERGER_V9;
   private static IndexIO INDEX_IO;
   public static ObjectMapper JSON_MAPPER;
@@ -105,10 +112,6 @@ public class MakeSegment extends GuiceRunnable
   @Override
   public void run()
   {
-    List<AggregatorFactory> aggs = new ArrayList<>();
-//    aggs.add(new LongSumAggregatorFactory("rows", "rows"));
-//    aggs.add(new LongSumAggregatorFactory("value", "value"));
-//    fillIndex(incrementalIndex);
     IncrementalIndex index = readData();
     persist(index);
   }
@@ -276,7 +279,7 @@ int [] count = new int[1];
       File indexFile = INDEX_MERGER_V9.persist(
           incrementalIndex,
           new File(out),
-          new IndexSpec(),
+          new IndexSpec(bitmap.equals("concise") ? new ConciseBitmapSerdeFactory() : new RoaringBitmapSerdeFactory(null), null, null, null),
           null
       );
     }
