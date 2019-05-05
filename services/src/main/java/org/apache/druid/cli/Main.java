@@ -86,10 +86,12 @@ public class Main
         DimensionCount.class,
         DimensionHeatmap.class,
         DumpColumnNames.class,
+        DumpColumnTypes.class,
         DimensionCountMultiple.class,
         DumpSegmentBitmapSize.class,
         ColumnCorrelation.class,
         MakeSegment.class,
+        TruncateSegment.class,
         ResetCluster.class,
         ValidateSegments.class
     );

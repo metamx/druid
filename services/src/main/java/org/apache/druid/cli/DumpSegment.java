@@ -165,6 +165,13 @@ public class DumpSegment extends GuiceRunnable
       required = false)
   public boolean decompressBitmaps = false;
 
+  @Option(
+      name = {"-r", "--rows"},
+      title = "Number of rows",
+      description = "Number of rows",
+      required = false)
+  public int numberOfRows = 0;
+
   @Override
   public void run()
   {
@@ -281,6 +288,7 @@ public class DumpSegment extends GuiceRunnable
                         .map(columnSelectorFactory::makeColumnValueSelector)
                         .collect(Collectors.toList());
 
+                    int rowCount = 0;
                     while (!cursor.isDone()) {
                       final Map<String, Object> row = Maps.newLinkedHashMap();
 
@@ -302,6 +310,9 @@ public class DumpSegment extends GuiceRunnable
                       catch (IOException e) {
                         throw Throwables.propagate(e);
                       }
+
+                      if (numberOfRows > 0 && ++rowCount >= numberOfRows)
+                        return null;
 
                       cursor.advance();
                     }

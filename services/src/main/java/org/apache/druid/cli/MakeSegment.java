@@ -20,7 +20,6 @@
 package org.apache.druid.cli;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
@@ -105,10 +104,6 @@ public class MakeSegment extends GuiceRunnable
       required = false)
   public String bitmap = "concise";
 
-  private static IndexMergerV9 INDEX_MERGER_V9;
-  private static IndexIO INDEX_IO;
-  public static ObjectMapper JSON_MAPPER;
-
   @Override
   public void run()
   {
@@ -116,9 +111,15 @@ public class MakeSegment extends GuiceRunnable
     persist(index);
   }
 
-  class Column
+  static class Column
   {
     String name;
+
+    public ColumnValueSelector getSelector()
+    {
+      return selector;
+    }
+
     private ColumnValueSelector selector;
 
     public Column(String name)
@@ -133,9 +134,48 @@ public class MakeSegment extends GuiceRunnable
 
   }
 
+  static class IndexBuilder {
+    public IncrementalIndex getIncrementalIndex()
+    {
+      return incrementalIndex;
+    }
+
+    private IncrementalIndex incrementalIndex;
+    private final List<String> dimensions;
+
+    IndexBuilder(AggregatorFactory[] aggregatorFactories, List<String> dimensions) {
+      incrementalIndex = IncrementalIndexes.createIncremental(Arrays.asList(aggregatorFactories));
+      this.dimensions = dimensions;
+    }
+    class RowBuilder {
+      Map<String, Object> event = new HashMap<>();
+      private long time;
+
+      RowBuilder addTime(long time) {
+        this.time = time;
+        return this;
+      }
+      RowBuilder addPair(String name, Object value) {
+         event.put(name, value);
+         return this;
+      }
+      void buildAndInsert() {
+        MapBasedInputRow row = new MapBasedInputRow(
+            time,
+            dimensions,
+            event
+        );
+        IncrementalIndexes.fillIndex(incrementalIndex, row);
+      }
+    }
+    RowBuilder createRow() {
+      return new RowBuilder();
+    }
+  }
+
   private IncrementalIndex readData()
   {
-    IncrementalIndex incrementalIndex[] = new IncrementalIndex[1];
+    IndexBuilder[] indexBuilder = new IndexBuilder[1];
     final Injector injector = makeInjector();
     final IndexIO indexIO = injector.getInstance(IndexIO.class);
     try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
@@ -149,27 +189,10 @@ public class MakeSegment extends GuiceRunnable
           null
       );
       List<String> metricNames = SummarizeSegment2.getMetricNames(index);
-//      List<AggregatorFactory> collect = metricNames.stream()
-//                                                     .map(s -> new LongSumAggregatorFactory(s, s))
-//                                                     .collect(Collectors.toList());
       AggregatorFactory[] aggregators = index.getMetadata().getAggregators();
-      incrementalIndex[0] = createIncremental(Arrays.asList(aggregators));
-//      index.
-      LinkedHashSet<String> dims0 = new LinkedHashSet<>(index.getColumnNames());
-      dims0.removeAll(metricNames);
-      ArrayList<String> dimensionsList = new ArrayList<>(dims0);
-      /*Collections.sort(dimensionsList, new Comparator<String>() {
-
-        @Override
-        public int compare(String o1, String o2)
-        {
-          int cardinality1 = index.getColumnHolder(o1).getBitmapIndex().getCardinality();
-          int cardinality2 = index.getColumnHolder(o2).getBitmapIndex().getCardinality();
-          return Integer.compare(cardinality1, cardinality2);
-        }
-
-      });
-      log.info("Sorted dims: " + dimensionsList);*/
+      new LinkedHashSet<>(index.getColumnNames()).removeAll(metricNames);
+      ArrayList<String> dimensionsList = new ArrayList<>(new LinkedHashSet<>(index.getColumnNames()));
+      indexBuilder[0] = new IndexBuilder(aggregators, dimensionsList);
 
       if (order != null) {
         List<String> orderList = Arrays.asList(order.split(","));
@@ -179,50 +202,39 @@ public class MakeSegment extends GuiceRunnable
           dimensionsList.add(0, s);
         }
       }
-      List<Column> metrics =
-                  metricNames.stream()
-                             .map(s -> new Column(s))
-                             .collect(Collectors.toList());
-List<Column> dimensions = dims0.stream()
-                  .map(s -> new Column(s))
-                  .collect(Collectors.toList());
-int [] count = new int[1];
+      List<Column> metrics = metricNames.stream()
+                                        .map(s -> new Column(s))
+                                        .collect(Collectors.toList());
+      List<Column> dimensions = new LinkedHashSet<>(index.getColumnNames()).stream()
+                                                                           .map(s -> new Column(s))
+                                                                           .collect(Collectors.toList());
+      int[] count = new int[1];
       final Sequence<Object> sequence = Sequences.map(
           cursors,
-          new Function<Cursor, Object>()
-          {
-            @Override
-            public Object apply(Cursor cursor)
-            {
+          cursor -> {
+            ColumnSelectorFactory columnSelectorFactory = cursor.getColumnSelectorFactory();
+            dimensions.forEach(c -> c.setSelector(columnSelectorFactory.makeColumnValueSelector(c.name)));
+            metrics.forEach(c -> c.setSelector(columnSelectorFactory.makeColumnValueSelector(c.name)));
+            ColumnValueSelector timeSelector = columnSelectorFactory.makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
 
-              ColumnSelectorFactory columnSelectorFactory = cursor.getColumnSelectorFactory();
-              dimensions.forEach(c -> c.setSelector(columnSelectorFactory.makeColumnValueSelector(c.name)));
-              metrics.forEach(c -> c.setSelector(columnSelectorFactory.makeColumnValueSelector(c.name)));
-              ColumnValueSelector timeSelector = columnSelectorFactory.makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
-
-              while (!cursor.isDone()) {
-                Map<String, Object> event = new HashMap<>();
-                for (Column c : dimensions) {
-                  final Object value = c.selector.getObject();
-                  event.put(c.name, value);
-                }
-                for (Column c : metrics) {
-                  final Object value = c.selector.getObject();
-                  event.put(c.name, value);
-                }
-                MapBasedInputRow row = new MapBasedInputRow(
-                    timeSelector.getLong(),
-                    dimensionsList,
-                    event
-                );
-                fillIndex(incrementalIndex[0], row);
-                count[0]++;
-                if (count[0]% 25000 == 0)
-                  log.info("Processing " + count[0]);
-                cursor.advance();
+            while (!cursor.isDone()) {
+              IndexBuilder.RowBuilder rowBuilder = indexBuilder[0].createRow().addTime(timeSelector.getLong());
+              for (Column c : dimensions) {
+                final Object value = c.selector.getObject();
+                rowBuilder.addPair(c.name, value);
               }
-              return null;
+              for (Column c : metrics) {
+                final Object value = c.selector.getObject();
+                rowBuilder.addPair(c.name, value);
+              }
+              rowBuilder.buildAndInsert();
+              count[0]++;
+              if (count[0] % 25000 == 0) {
+                log.info("Processing " + count[0]);
+              }
+              cursor.advance();
             }
+            return null;
           }
       );
       sequence.accumulate(null, (accumulated, in) -> null);
@@ -232,60 +244,77 @@ int [] count = new int[1];
       e.printStackTrace();
     }
 
-    return incrementalIndex[0];
+    return indexBuilder[0].incrementalIndex;
   }
 
-  private IncrementalIndex createIncremental(List<AggregatorFactory> aggs)
+  static class IncrementalIndexes
   {
-    JSON_MAPPER = new DefaultObjectMapper();
-    INDEX_IO = new IndexIO(
-        JSON_MAPPER,
-        new ColumnConfig()
-        {
-          @Override
-          public int columnCacheSizeBytes()
+    private static IndexMergerV9 INDEX_MERGER_V9;
+    private static IndexIO INDEX_IO;
+    public static ObjectMapper JSON_MAPPER;
+
+    private static IncrementalIndex createIncremental(List<AggregatorFactory> aggs)
+    {
+      JSON_MAPPER = new DefaultObjectMapper();
+      INDEX_IO = new IndexIO(
+          JSON_MAPPER,
+          new ColumnConfig()
           {
-            return 0;
+            @Override
+            public int columnCacheSizeBytes()
+            {
+              return 0;
+            }
           }
-        }
-    );
-    INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
+      );
+      INDEX_MERGER_V9 = new IndexMergerV9(JSON_MAPPER, INDEX_IO, OffHeapMemorySegmentWriteOutMediumFactory.instance());
 
-    return new IncrementalIndex.Builder()
-        .setIndexSchema(
-            new IncrementalIndexSchema.Builder()
-                .withMetrics(aggs.toArray(new AggregatorFactory[aggs.size()]))
-                .withRollup(true)
-                .build()
-        )
-        .setReportParseExceptions(false)
-        .setMaxRowCount(2_000_000)
-        .buildOnheap();
-  }
-
-  private void fillIndex(IncrementalIndex incrementalIndex, MapBasedInputRow row)
-  {
-    try {
-      incrementalIndex.add(row);
+      return new IncrementalIndex.Builder()
+          .setIndexSchema(
+              new IncrementalIndexSchema.Builder()
+                  .withMetrics(aggs.toArray(new AggregatorFactory[aggs.size()]))
+                  .withRollup(true)
+                  .build()
+          )
+          .setReportParseExceptions(false)
+          .setMaxRowCount(2_000_000)
+          .buildOnheap();
     }
-    catch (IndexSizeExceededException e) {
-      e.printStackTrace();
+
+    private static void fillIndex(IncrementalIndex incrementalIndex, MapBasedInputRow row)
+    {
+      try {
+        incrementalIndex.add(row);
+      }
+      catch (IndexSizeExceededException e) {
+        e.printStackTrace();
+      }
+    }
+
+    static void persist0(IncrementalIndex incrementalIndex, String outDir, String bitmapType)
+    {
+      try {
+        File indexFile = INDEX_MERGER_V9.persist(
+            incrementalIndex,
+            new File(outDir),
+            new IndexSpec(bitmapType.equals("concise")
+                          ? new ConciseBitmapSerdeFactory()
+                          : new RoaringBitmapSerdeFactory(null), null, null, null),
+            null
+        );
+      }
+      catch (IOException e) {
+        e.printStackTrace();
+      }
     }
   }
 
   private void persist(IncrementalIndex incrementalIndex)
   {
-    try {
-      File indexFile = INDEX_MERGER_V9.persist(
-          incrementalIndex,
-          new File(out),
-          new IndexSpec(bitmap.equals("concise") ? new ConciseBitmapSerdeFactory() : new RoaringBitmapSerdeFactory(null), null, null, null),
-          null
-      );
-    }
-    catch (IOException e) {
-      e.printStackTrace();
-    }
+
+    String outDir = this.out;
+    String bitmapType = this.bitmap;
+    IncrementalIndexes.persist0(incrementalIndex, outDir, bitmapType);
   }
 
   @Override

@@ -22,8 +22,6 @@ package org.apache.druid.cli;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.common.hash.BloomFilter;
-import com.google.common.hash.Funnels;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Module;
@@ -33,48 +31,27 @@ import io.airlift.airline.Option;
 import org.apache.druid.guice.DruidProcessingModule;
 import org.apache.druid.guice.QueryRunnerFactoryModule;
 import org.apache.druid.guice.QueryableModule;
-import org.apache.druid.hll.HyperLogLogCollector;
-import org.apache.druid.java.util.common.granularity.Granularities;
-import org.apache.druid.java.util.common.guava.Sequence;
-import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.query.DruidProcessingConfig;
-import org.apache.druid.segment.BaseObjectColumnValueSelector;
-import org.apache.druid.segment.ColumnSelectorFactory;
-import org.apache.druid.segment.ColumnValueSelector;
-import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.QueryableIndex;
-import org.apache.druid.segment.QueryableIndexStorageAdapter;
-import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnConfig;
-import org.apache.druid.segment.column.ColumnHolder;
-import org.apache.druid.segment.filter.Filters;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
-import org.joda.time.chrono.ISOChronology;
 
 import java.io.File;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Command(
-    name = "dump-column-names"
+    name = "dump-column-types"
 )
-public class DumpColumnNames extends GuiceRunnable {
+public class DumpColumnTypes extends GuiceRunnable {
 
-//  private static FileOutputStream fileOutputStream;
   private static PrintWriter printWriter;
 
-  public DumpColumnNames()
+  public DumpColumnTypes()
   {
     super(log);
   }
@@ -88,12 +65,6 @@ public class DumpColumnNames extends GuiceRunnable {
       required = true)
   public String directory;
 
-  private List<String> getMetricNames(QueryableIndex index)
-  {
-    Set<String> columnNames = new LinkedHashSet<>(index.getColumnNames());
-    Set<String> availableDimensions = Sets.newLinkedHashSet(index.getAvailableDimensions());
-    return new ArrayList<>(Sets.difference(columnNames, availableDimensions));
-  }
   @Override
   public void run()
   {
@@ -102,7 +73,6 @@ public class DumpColumnNames extends GuiceRunnable {
     try (final QueryableIndex index = indexIO.loadIndex(new File(directory))) {
       List<String> dimNames = getDimNames(index);
       output("Dims " + dimNames);
-      output("Metrics " + getMetricNames(index));
       System.out.println(index.getColumnHolder(dimNames.get(0)).getBitmapIndex().getBitmapFactory().getClass());
     }
     catch (Exception e) {

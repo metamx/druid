@@ -66,12 +66,11 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Command(
@@ -124,8 +123,8 @@ public class DimensionCount extends GuiceRunnable
   @Option(
       name = {"--metric"},
       title = "percentage limit",
-      required = true)
-  public String metric;
+      required = false)
+  public String metric = null;
 
   @Override
   public void run()
@@ -148,15 +147,163 @@ public class DimensionCount extends GuiceRunnable
     }
   }
 
-  class OverflowException extends Exception
+  public static class Summary
   {
+    class OverflowException extends Exception
+    {
+    }
 
+    private final List<String> columnNames;
+    private final Consumer<String> output;
+    private final double dimLimit;
+    private final LinkedHashMap<String, Dim> dims;
+    public int totalCount;
+    public double maxMetricValue;
+
+    public Summary(List<String> columnNames, Consumer<String> output, double dimLimit)
+    {
+      this.columnNames = columnNames;
+      this.output = output;
+      this.dimLimit = dimLimit;
+      dims = new LinkedHashMap<>();
+      for (String columnName : columnNames) {
+        dims.put(columnName, new Dim());
+      }
+    }
+
+    private int previous = totalCount;
+    private boolean totalOverflow;
+
+    public void add(String dimName, Object v) throws OverflowException
+    {
+      dims.get(dimName).add(v);
+      if (previous - totalCount > 100000) {
+        int sum = 0;
+        for (Dim dim : dims.values()) {
+          sum += dim.count();
+        }
+        if (sum >= 100000) {
+          totalOverflow = true;
+          throw new OverflowException();
+        }
+        previous = totalCount;
+      }
+    }
+
+    public void reportDims()
+    {
+      for (String columnName : columnNames) {
+        output.accept(columnName);
+        Dim dim = dims.get(columnName);
+        dim.report(totalCount);
+      }
+    }
+
+    public double getRatio(String column, Object dimValue)
+    {
+      Counts counts = dims.get(column).valueCounts.get(dimValue);
+      if (counts != null) {
+        return ((double) counts.count) / totalCount;
+      }
+      return Double.MAX_VALUE;
+    }
+
+    public void countDimsAndMetricMax(
+        List<String> dimensionNames,
+        Cursor cursor,
+        List<BaseObjectColumnValueSelector> dimensionSelectors,
+        ColumnValueSelector metricValueSelector,
+        ColumnValueSelector timeValueSelector
+    )
+    {
+      LinkedHashSet<Long> timestamps = new LinkedHashSet<>();
+      try {
+        while (!cursor.isDone()) {
+          totalCount++;
+
+          timestamps.add(timeValueSelector.getLong());
+          for (int i = 0; i < dimensionNames.size(); i++) {
+            double metricValue = 0.0;
+            if (metricValueSelector != null) {
+              metricValue = metricValueSelector.getDouble();
+            }
+            BaseObjectColumnValueSelector baseObjectColumnValueSelector = dimensionSelectors.get(i);
+            Object dimValue = baseObjectColumnValueSelector.getObject();
+            String dimName = dimensionNames.get(i);
+            if (dimValue instanceof HyperLogLogCollector) {
+              add(dimName, ((HyperLogLogCollector) dimValue).estimateCardinality());
+            } else {
+              add(dimName, dimValue);
+            }
+            maxMetricValue = Math.max(metricValue, maxMetricValue);
+          }
+          cursor.advance();
+        }
+      }
+      catch (Summary.OverflowException e) {
+        output.accept("total overflow");
+      }
+      output.accept("Timestamps");
+      for (Long timestamp : timestamps) {
+        output.accept("  " + new DateTime(timestamp, DateTimeZone.UTC));
+      }
+    }
+
+    class Counts
+    {
+      int count;
+    }
+
+    class Dim
+    {
+      private HashMap<Object, Counts> valueCounts;
+
+      {
+        valueCounts = new HashMap<>();
+      }
+
+      boolean overflow = false;
+      int dimRowCount;
+
+      public void add(Object v)
+      {
+        if (!valueCounts.containsKey(v) && valueCounts.size() > 10000) {
+          overflow = true;
+        }
+
+        dimRowCount++;
+        Counts counts = valueCounts.computeIfAbsent(v, k -> new Counts());
+        counts.count += 1;
+      }
+
+      public int count()
+      {
+        return valueCounts.size();
+      }
+
+      public void report(int count)
+      {
+        int dropped = 0;
+        if (overflow) {
+          output.accept("  overflow");
+        }
+        for (Map.Entry<Object, Counts> e : valueCounts.entrySet()) {
+          double ratio = ((double) e.getValue().count) / count;
+          if (ratio > dimLimit) {
+            output.accept(String.format("    %s %.6f", e.getKey(), ratio));
+          } else {
+            dropped += e.getValue().count;
+          }
+        }
+        output.accept(String.format("  dropped %.3f", ((double) dropped) / count));
+      }
+    }
   }
 
   private void summarize(Injector injector, QueryableIndex index, List<String> dimNames)
   {
     final QueryableIndexStorageAdapter adapter = new QueryableIndexStorageAdapter(index);
-    final List<String> columnNames = new ArrayList<>(dimNames);
+    final List<String> dimensionNames = new ArrayList<>(dimNames);
 
     final Sequence<Cursor> cursors = adapter.makeCursors(
         Filters.toFilter(null),
@@ -167,154 +314,36 @@ public class DimensionCount extends GuiceRunnable
         null
     );
 
-    class Summary
+    class Stats
     {
-      private final List<String> columnNames;
-      private final LinkedHashMap<String, Dim> dims;
-      public int totalCount;
       public int droppedBitmapSize;
       public int droppedBitmapCompressedSize;
-
-      public Summary(List<String> columnNames)
-      {
-        this.columnNames = columnNames;
-        dims = new LinkedHashMap<>();
-        for (String columnName : columnNames) {
-          dims.put(columnName, new Dim());
-        }
-      }
-
-      private int previous = totalCount;
-      private boolean totalOverflow;
-
-      public void add(String dimName, Object v) throws OverflowException
-      {
-        dims.get(dimName).add(v);
-        if (previous - totalCount > 100000) {
-          int sum = 0;
-          for (Dim dim : dims.values()) {
-            sum += dim.count();
-          }
-          if (sum >= 100000) {
-            totalOverflow = true;
-            throw new OverflowException();
-          }
-          previous = totalCount;
-        }
-      }
-
-      public void reportDims()
-      {
-        for (String columnName : columnNames) {
-          output(columnName);
-          Dim dim = dims.get(columnName);
-          dim.report(totalCount);
-        }
-      }
-
-      public double getRatio(String column, Object dimValue)
-      {
-        Counts counts = dims.get(column).valueCounts.get(dimValue);
-        if (counts != null) {
-          return ((double) counts.count) / totalCount;
-        }
-        return Double.MAX_VALUE;
-      }
-
-      class Counts
-      {
-        int count;
-      }
-
-      class Dim
-      {
-        private HashMap<Object, Counts> valueCounts;
-
-        {
-          valueCounts = new HashMap<>();
-        }
-
-        boolean overflow = false;
-        int dimRowCount;
-
-        public void add(Object v)
-        {
-          if (!valueCounts.containsKey(v) && valueCounts.size() > 10000) {
-            overflow = true;
-          }
-
-          dimRowCount++;
-          Counts counts = valueCounts.computeIfAbsent(v, k -> new Counts());
-          counts.count += 1;
-        }
-
-        public int count()
-        {
-          return valueCounts.size();
-        }
-
-        public void report(int count)
-        {
-          int dropped = 0;
-          if (overflow) {
-            output("  overflow");
-          }
-          for (Map.Entry<Object, Counts> e : valueCounts.entrySet()) {
-            double ratio = ((double) e.getValue().count) / count;
-            if (ratio > dimPercentageLimit) {
-              output(String.format("    %s %.3f", e.getKey(), ratio));
-            } else {
-              dropped += e.getValue().count;
-            }
-          }
-          output(String.format("  dropped %.3f", ((double) dropped) / count));
-        }
-      }
     }
-    Summary summary = new Summary(columnNames);
+
+    Stats stats = new Stats();
+
+    Summary summary = new Summary(dimensionNames, (String o) -> output(o), dimPercentageLimit);
     Sequence<Object> map = Sequences.map(
         cursors,
         cursor -> {
           ColumnSelectorFactory columnSelectorFactory = cursor.getColumnSelectorFactory();
-          final List<BaseObjectColumnValueSelector> selectors = columnNames
+          final List<BaseObjectColumnValueSelector> dimensionSelectors = dimensionNames
               .stream()
               .map(columnSelectorFactory::makeColumnValueSelector)
               .collect(Collectors.toList());
+
+          ColumnValueSelector metricValueSelector = metric != null ? columnSelectorFactory.makeColumnValueSelector(
+              metric) : null;
+
           ColumnValueSelector timeValueSelector = columnSelectorFactory.makeColumnValueSelector(ColumnHolder.TIME_COLUMN_NAME);
 
-          // for each dimesion value create Dimension -> value -> count
-
-          ColumnValueSelector metricValueSelector = columnSelectorFactory.makeColumnValueSelector(metric);
-
-          double maxMetricValue = 0;
-          LinkedHashSet<Long> timestamps = new LinkedHashSet<>();
-          try {
-            while (!cursor.isDone()) {
-              summary.totalCount++;
-
-              timestamps.add(timeValueSelector.getLong());
-              for (int i = 0; i < columnNames.size(); i++) {
-                double metricValue = metricValueSelector.getDouble();
-                BaseObjectColumnValueSelector baseObjectColumnValueSelector = selectors.get(i);
-                Object dimValue = baseObjectColumnValueSelector.getObject();
-                String dimName = columnNames.get(i);
-                if (dimValue instanceof HyperLogLogCollector) {
-                  summary.add(dimName, ((HyperLogLogCollector) dimValue).estimateCardinality());
-                } else {
-                  summary.add(dimName, dimValue);
-                }
-                maxMetricValue = Math.max(metricValue, maxMetricValue);
-              }
-              cursor.advance();
-            }
-          }
-          catch (OverflowException e) {
-            output("total overflow");
-          }
-          output("Timestamps");
-          for (Long timestamp : timestamps) {
-            output("  " + new DateTime(timestamp, DateTimeZone.UTC));
-          }
+          summary.countDimsAndMetricMax(
+              dimensionNames,
+              cursor,
+              dimensionSelectors,
+              metricValueSelector,
+              timeValueSelector
+          );
           if (countTotalDropped) {
             cursor.reset();
 
@@ -325,19 +354,17 @@ public class DimensionCount extends GuiceRunnable
                 1500000,
                 0.001
             );
-            Object[] values = new Object[columnNames.size()];
+            Object[] dimensionValues = new Object[dimensionNames.size()];
             int merged = 0;
             int previousMerged = 0;
             int retained = 0;
             output("Merged examples");
-//            long totalDroppedSize = 0;
-//            long totalSize = 0;
             Map<String, ConciseSet> sets = new HashMap<>();
             int rowCount = 0;
 
             LZ4Factory factory = LZ4Factory.fastestInstance();
             LZ4Compressor compressor = factory.fastCompressor();
-            byte[] compressed = new byte[1024*1024*20];
+            byte[] compressed = new byte[1024 * 1024 * 20];
             BloomFilter<CharSequence> valueFilter = BloomFilter.create(
                 Funnels.stringFunnel(Charset.forName("UTF8")),
                 1500000,
@@ -345,25 +372,28 @@ public class DimensionCount extends GuiceRunnable
             );
 
             while (!cursor.isDone()) {
-              double metricValue = metricValueSelector.getDouble();
+              double metricValue = 0.0;
+              if (metricValueSelector != null) {
+                metricValue = metricValueSelector.getDouble();
+              }
               boolean ret = false;
 
-              for (int i = 0; i < columnNames.size(); i++) {
-                BaseObjectColumnValueSelector baseObjectColumnValueSelector = selectors.get(i);
-                values[i] = baseObjectColumnValueSelector.getObject();
-                String columnName = columnNames.get(i);
-                if (summary.getRatio(columnName, values[i]) <= dimPercentageLimit) {
+              for (int i = 0; i < dimensionNames.size(); i++) {
+                BaseObjectColumnValueSelector baseObjectColumnValueSelector = dimensionSelectors.get(i);
+                dimensionValues[i] = baseObjectColumnValueSelector.getObject();
+                String columnName = dimensionNames.get(i);
+                if (summary.getRatio(columnName, dimensionValues[i]) <= dimPercentageLimit) {
                   BitmapIndex bitmapIndex = index.getColumnHolder(columnName).getBitmapIndex();
 
-                  if (metricValue / maxMetricValue <= metricPercentageLimit) {
-                    String value;// = null;
-                    if (values[i] instanceof String) {
-                      value = ((String) values[i]);
+                  if (metricValueSelector == null || metricValue / summary.maxMetricValue <= metricPercentageLimit) {
+                    String value;
+                    if (dimensionValues[i] instanceof String) {
+                      value = ((String) dimensionValues[i]);
                       if (valueFilter.put(value)) {
                         WrappedImmutableConciseBitmap bitmap = (WrappedImmutableConciseBitmap) bitmapIndex.getBitmap(
                             bitmapIndex.getIndex(value));
                         byte[] bytes = bitmap.getBitmap().toBytes();
-                        summary.droppedBitmapSize += bytes.length;
+                        stats.droppedBitmapSize += bytes.length;
                         int compressedLength = compressor.compress(
                             bytes,
                             0,
@@ -372,11 +402,11 @@ public class DimensionCount extends GuiceRunnable
                             0,
                             compressed.length
                         );
-                        summary.droppedBitmapCompressedSize += compressedLength;
+                        stats.droppedBitmapCompressedSize += compressedLength;
                       }
                       ConciseSet conciseSet = sets.computeIfAbsent(columnName, k -> new ConciseSet());
                       conciseSet.add(rowCount);
-                      values[i] = null;
+                      dimensionValues[i] = null;
                     }
                   } else {
                     ret = true;
@@ -386,10 +416,10 @@ public class DimensionCount extends GuiceRunnable
               if (ret) {
                 retained++;
               }
-              if (!filter.put(Arrays.hashCode(values))) {
+              if (!filter.put(Arrays.hashCode(dimensionValues))) {
                 merged++;
                 if (merged - previousMerged > 150000) {
-                  output("  merged " + Arrays.asList(values));
+                  output("  merged " + Arrays.asList(dimensionValues));
                   previousMerged = merged;
                 }
               }
@@ -398,8 +428,8 @@ public class DimensionCount extends GuiceRunnable
             }
             output("Merged " + ((double) merged) / summary.totalCount);
             output("Retained " + ((double) retained) / summary.totalCount);
-            output("Dropped bitmap size " + summary.droppedBitmapSize);
-            output("Dropped bitmap compressed size " + summary.droppedBitmapCompressedSize);
+            output("Dropped bitmap size " + stats.droppedBitmapSize);
+            output("Dropped bitmap compressed size " + stats.droppedBitmapCompressedSize);
             int createdBitmapSize = 0;
             int createdBitmapCompressedSize = 0;
             for (String s : sets.keySet()) {
