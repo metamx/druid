@@ -177,7 +177,7 @@ public class TruncateSegment extends GuiceRunnable
             // metric value > metricLimit then count as retained
 
             AggregatorFactory[] aggregators = index.getMetadata().getAggregators();
-            indexBuilder[0] = new MakeSegment.IndexBuilder(aggregators, dimensionNames);
+            indexBuilder[0] = new MakeSegment.IndexBuilder(aggregators, dimensionNames, outputDir, "concise", 750_000);
             String unknown = "unknown";
             while (!cursor.isDone()) {
               double metricValue = 0.0;
@@ -213,8 +213,7 @@ public class TruncateSegment extends GuiceRunnable
     );
     map.accumulate(null, (accumulated, in) -> null);
 
-    MakeSegment.IncrementalIndexes.persist0(indexBuilder[0].getIncrementalIndex(), outputDir, "concise");
-
+    indexBuilder[0].finish();
 
     output(String.format("Rows %s", summary.totalCount));
     summary.reportDims();

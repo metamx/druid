@@ -19,6 +19,7 @@
 
 package org.apache.druid.cli;
 
+import com.fasterxml.jackson.databind.InjectableValues;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
@@ -36,6 +37,7 @@ import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.java.util.common.guava.Sequence;
 import org.apache.druid.java.util.common.guava.Sequences;
 import org.apache.druid.java.util.common.logger.Logger;
+import org.apache.druid.math.expr.ExprMacroTable;
 import org.apache.druid.query.DruidProcessingConfig;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.segment.ColumnSelectorFactory;
@@ -44,7 +46,9 @@ import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.IndexIO;
 import org.apache.druid.segment.IndexMergerV9;
 import org.apache.druid.segment.IndexSpec;
+import org.apache.druid.segment.IndexableAdapter;
 import org.apache.druid.segment.QueryableIndex;
+import org.apache.druid.segment.QueryableIndexIndexableAdapter;
 import org.apache.druid.segment.QueryableIndexStorageAdapter;
 import org.apache.druid.segment.VirtualColumns;
 import org.apache.druid.segment.column.ColumnConfig;
@@ -104,11 +108,23 @@ public class MakeSegment extends GuiceRunnable
       required = false)
   public String bitmap = "concise";
 
+  @Option(
+      name = {"--max_rows"},
+      title = "max rows",
+      required = false)
+  public int maxRows = 750_000;
+
   @Override
   public void run()
   {
-    IncrementalIndex index = readData();
-    persist(index);
+    File file = new File(out);
+    if (!file.exists()) {
+      if (!file.mkdirs()) {
+        System.out.println("Cannot create " + out);
+        return;
+      }
+    }
+    readData();
   }
 
   static class Column
@@ -134,46 +150,112 @@ public class MakeSegment extends GuiceRunnable
 
   }
 
-  static class IndexBuilder {
+  static class IndexBuilder
+  {
     public IncrementalIndex getIncrementalIndex()
     {
       return incrementalIndex;
     }
 
     private IncrementalIndex incrementalIndex;
+    private final AggregatorFactory[] aggregatorFactories;
     private final List<String> dimensions;
+    private final String out;
+    private final String bitmap;
+    private final int maxRows;
 
-    IndexBuilder(AggregatorFactory[] aggregatorFactories, List<String> dimensions) {
-      incrementalIndex = IncrementalIndexes.createIncremental(Arrays.asList(aggregatorFactories));
+    IndexBuilder(
+        AggregatorFactory[] aggregatorFactories,
+        List<String> dimensions,
+        String out,
+        String bitmap,
+        int maxRows
+    )
+    {
+      incrementalIndex = IncrementalIndexes.createIncremental(Arrays.asList(aggregatorFactories), maxRows);
+      this.aggregatorFactories = aggregatorFactories;
       this.dimensions = dimensions;
+      this.out = out;
+      this.bitmap = bitmap;
+      this.maxRows = maxRows;
     }
-    class RowBuilder {
+
+    int parts = 0;
+
+    public void finish()
+    {
+      File file = new File(out, parts++ + "");
+      file.mkdir();
+      persisted.add(IncrementalIndexes.persist0(incrementalIndex, file.getAbsolutePath(), bitmap));
+      List<IndexableAdapter> collect = persisted.stream().map(v -> {
+        try {
+          return new QueryableIndexIndexableAdapter(IncrementalIndexes.INDEX_IO.loadIndex(v));
+        }
+        catch (IOException e) {
+          e.printStackTrace();
+          return null;
+        }
+      }).collect(Collectors.toList());
+      try {
+        IncrementalIndexes.INDEX_MERGER_V9.merge(collect, true, aggregatorFactories, new File(out), createIndexSpec());
+      }
+      catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+
+    private IndexSpec createIndexSpec()
+    {
+      return new IndexSpec(bitmap.equals("concise")
+                           ? new ConciseBitmapSerdeFactory()
+                           : new RoaringBitmapSerdeFactory(null), null, null, null);
+    }
+
+    class RowBuilder
+    {
       Map<String, Object> event = new HashMap<>();
       private long time;
 
-      RowBuilder addTime(long time) {
+      RowBuilder addTime(long time)
+      {
         this.time = time;
         return this;
       }
-      RowBuilder addPair(String name, Object value) {
-         event.put(name, value);
-         return this;
+
+      RowBuilder addPair(String name, Object value)
+      {
+        event.put(name, value);
+        return this;
       }
-      void buildAndInsert() {
+
+      void buildAndInsert()
+      {
         MapBasedInputRow row = new MapBasedInputRow(
             time,
             dimensions,
             event
         );
-        IncrementalIndexes.fillIndex(incrementalIndex, row);
+        if (incrementalIndex.canAppendRow()) {
+          IncrementalIndexes.fillIndex(incrementalIndex, row);
+        } else {
+          File file = new File(out, parts++ + "");
+          file.mkdir();
+          persisted.add(IncrementalIndexes.persist0(incrementalIndex, file.getAbsolutePath(), bitmap));
+          incrementalIndex = IncrementalIndexes.createIncremental(Arrays.asList(aggregatorFactories), maxRows);
+          IncrementalIndexes.fillIndex(incrementalIndex, row);
+        }
       }
     }
-    RowBuilder createRow() {
+
+    List<File> persisted = new ArrayList<>();
+
+    RowBuilder createRow()
+    {
       return new RowBuilder();
     }
   }
 
-  private IncrementalIndex readData()
+  private void readData()
   {
     IndexBuilder[] indexBuilder = new IndexBuilder[1];
     final Injector injector = makeInjector();
@@ -192,7 +274,7 @@ public class MakeSegment extends GuiceRunnable
       AggregatorFactory[] aggregators = index.getMetadata().getAggregators();
       new LinkedHashSet<>(index.getColumnNames()).removeAll(metricNames);
       ArrayList<String> dimensionsList = new ArrayList<>(new LinkedHashSet<>(index.getColumnNames()));
-      indexBuilder[0] = new IndexBuilder(aggregators, dimensionsList);
+      indexBuilder[0] = new IndexBuilder(aggregators, dimensionsList, out, bitmap, maxRows);
 
       if (order != null) {
         List<String> orderList = Arrays.asList(order.split(","));
@@ -238,13 +320,12 @@ public class MakeSegment extends GuiceRunnable
           }
       );
       sequence.accumulate(null, (accumulated, in) -> null);
+      indexBuilder[0].finish();
 
     }
     catch (IOException e) {
       e.printStackTrace();
     }
-
-    return indexBuilder[0].incrementalIndex;
   }
 
   static class IncrementalIndexes
@@ -253,9 +334,12 @@ public class MakeSegment extends GuiceRunnable
     private static IndexIO INDEX_IO;
     public static ObjectMapper JSON_MAPPER;
 
-    private static IncrementalIndex createIncremental(List<AggregatorFactory> aggs)
+    private static IncrementalIndex createIncremental(List<AggregatorFactory> aggs, int maxRows)
     {
       JSON_MAPPER = new DefaultObjectMapper();
+      InjectableValues.Std injectableValues = new InjectableValues.Std();
+      injectableValues.addValue(ExprMacroTable.class, ExprMacroTable.nil());
+      JSON_MAPPER.setInjectableValues(injectableValues);
       INDEX_IO = new IndexIO(
           JSON_MAPPER,
           new ColumnConfig()
@@ -277,7 +361,8 @@ public class MakeSegment extends GuiceRunnable
                   .build()
           )
           .setReportParseExceptions(false)
-          .setMaxRowCount(2_000_000)
+          .setMaxRowCount(maxRows)
+          .setMaxBytesInMemory(750_000_000)
           .buildOnheap();
     }
 
@@ -291,10 +376,10 @@ public class MakeSegment extends GuiceRunnable
       }
     }
 
-    static void persist0(IncrementalIndex incrementalIndex, String outDir, String bitmapType)
+    static File persist0(IncrementalIndex incrementalIndex, String outDir, String bitmapType)
     {
       try {
-        File indexFile = INDEX_MERGER_V9.persist(
+        return INDEX_MERGER_V9.persist(
             incrementalIndex,
             new File(outDir),
             new IndexSpec(bitmapType.equals("concise")
@@ -306,15 +391,8 @@ public class MakeSegment extends GuiceRunnable
       catch (IOException e) {
         e.printStackTrace();
       }
+      return null;
     }
-  }
-
-  private void persist(IncrementalIndex incrementalIndex)
-  {
-
-    String outDir = this.out;
-    String bitmapType = this.bitmap;
-    IncrementalIndexes.persist0(incrementalIndex, outDir, bitmapType);
   }
 
   @Override

@@ -91,6 +91,7 @@ public class Main
         DumpSegmentBitmapSize.class,
         ColumnCorrelation.class,
         MakeSegment.class,
+        GenerateSegment.class,
         TruncateSegment.class,
         ResetCluster.class,
         ValidateSegments.class
