@@ -45,6 +45,8 @@ import io.druid.guice.annotations.Self;
 import io.druid.guice.http.JettyHttpClientModule;
 import io.druid.java.util.common.logger.Logger;
 import io.druid.java.util.http.client.HttpClient;
+import io.druid.metadata.MetadataStorage;
+import io.druid.metadata.MetadataStorageProvider;
 import io.druid.query.lookup.LookupModule;
 import io.druid.server.AsyncQueryForwardingServlet;
 import io.druid.server.http.RouterResource;
@@ -111,6 +113,9 @@ public class CliRouter extends ServerRunnable
 
             binder.bind(QueryCountStatsProvider.class).to(AsyncQueryForwardingServlet.class).in(LazySingleton.class);
             binder.bind(JettyServerInitializer.class).to(RouterJettyServerInitializer.class).in(LazySingleton.class);
+
+            binder.bind(MetadataStorage.class).toProvider(MetadataStorageProvider.class);
+            LifecycleModule.register(binder, MetadataStorage.class);
 
             Jerseys.addResource(binder, RouterResource.class);
 

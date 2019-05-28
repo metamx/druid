@@ -19,6 +19,10 @@
 
 package io.druid.security.basic.authentication.db.cache;
 
+/**
+ * Noop basic authenticator cache notifier.
+ * Might be used as a config option to override default authenticator cache notifier.
+ */
 public class NoopBasicAuthenticatorCacheNotifier implements BasicAuthenticatorCacheNotifier
 {
   @Override
