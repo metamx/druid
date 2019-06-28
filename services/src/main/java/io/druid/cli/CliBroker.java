@@ -46,6 +46,8 @@ import io.druid.guice.QueryRunnerFactoryModule;
 import io.druid.guice.QueryableModule;
 import io.druid.guice.annotations.Self;
 import io.druid.java.util.common.logger.Logger;
+import io.druid.metadata.MetadataStorage;
+import io.druid.metadata.MetadataStorageProvider;
 import io.druid.query.QuerySegmentWalker;
 import io.druid.query.RetryQueryRunnerConfig;
 import io.druid.query.lookup.LookupModule;
@@ -111,6 +113,9 @@ public class CliBroker extends ServerRunnable
             JsonConfigProvider.bind(binder, "druid.broker.balancer", ServerSelectorStrategy.class);
             JsonConfigProvider.bind(binder, "druid.broker.retryPolicy", RetryQueryRunnerConfig.class);
             JsonConfigProvider.bind(binder, "druid.broker.segment", BrokerSegmentWatcherConfig.class);
+
+            binder.bind(MetadataStorage.class).toProvider(MetadataStorageProvider.class);
+            LifecycleModule.register(binder, MetadataStorage.class);
 
             binder.bind(QuerySegmentWalker.class).to(ClientQuerySegmentWalker.class).in(LazySingleton.class);
 

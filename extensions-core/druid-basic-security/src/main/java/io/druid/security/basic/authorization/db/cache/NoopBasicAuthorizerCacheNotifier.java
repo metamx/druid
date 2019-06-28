@@ -17,15 +17,18 @@
  * under the License.
  */
 
-package io.druid.security.authentication;
+package io.druid.security.basic.authorization.db.cache;
 
-import io.druid.security.basic.authentication.db.cache.BasicAuthenticatorCacheNotifier;
-
-public class NoopBasicAuthenticatorCacheNotifier implements BasicAuthenticatorCacheNotifier
+/**
+ * Noop basic authorizer cache notifier.
+ * No notification is sent on user/role udpate.
+ * Might be used as a config option to override default authorizer cache notifier.
+ */
+public class NoopBasicAuthorizerCacheNotifier implements BasicAuthorizerCacheNotifier
 {
   @Override
-  public void addUpdate(String updatedAuthenticatorPrefix, byte[] updatedUserMap)
+  public void addUpdate(String authorizerPrefix, byte[] userAndRoleMap)
   {
-
+    // Do nothing as this is a noop implementation
   }
 }

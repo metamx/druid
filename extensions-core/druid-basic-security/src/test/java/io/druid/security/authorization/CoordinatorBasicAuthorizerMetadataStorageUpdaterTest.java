@@ -31,6 +31,7 @@ import io.druid.security.basic.BasicAuthCommonCacheConfig;
 import io.druid.security.basic.BasicAuthUtils;
 import io.druid.security.basic.BasicSecurityDBResourceException;
 import io.druid.security.basic.authorization.BasicRoleBasedAuthorizer;
+import io.druid.security.basic.authorization.db.cache.NoopBasicAuthorizerCacheNotifier;
 import io.druid.security.basic.authorization.db.updater.CoordinatorBasicAuthorizerMetadataStorageUpdater;
 import io.druid.security.basic.authorization.entity.BasicAuthorizerPermission;
 import io.druid.security.basic.authorization.entity.BasicAuthorizerRole;
