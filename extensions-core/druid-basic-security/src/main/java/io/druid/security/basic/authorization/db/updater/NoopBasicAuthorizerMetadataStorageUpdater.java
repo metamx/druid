@@ -27,6 +27,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Empty implementation of {@link BasicAuthorizerMetadataStorageUpdater}.
+ * Void methods do nothing, other return empty maps or empty arrays depending on the return type.
+ */
 public class NoopBasicAuthorizerMetadataStorageUpdater implements BasicAuthorizerMetadataStorageUpdater
 {
   @Override
@@ -60,9 +64,7 @@ public class NoopBasicAuthorizerMetadataStorageUpdater implements BasicAuthorize
   }
 
   @Override
-  public void setPermissions(
-      String prefix, String roleName, List<ResourceAction> permissions
-  )
+  public void setPermissions(String prefix, String roleName, List<ResourceAction> permissions)
   {
   }
 

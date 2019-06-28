@@ -26,6 +26,10 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Map;
 
+/**
+ * Empty implementation of {@link BasicAuthenticatorMetadataStorageUpdater}.
+ * Void methods do nothing, other return empty maps or empty arrays depending on the return type.
+ */
 public class NoopBasicAuthenticatorMetadataStorageUpdater implements BasicAuthenticatorMetadataStorageUpdater
 {
   @Override
@@ -39,9 +43,7 @@ public class NoopBasicAuthenticatorMetadataStorageUpdater implements BasicAuthen
   }
 
   @Override
-  public void setUserCredentials(
-      String prefix, String userName, BasicAuthenticatorCredentialUpdate update
-  )
+  public void setUserCredentials(String prefix, String userName, BasicAuthenticatorCredentialUpdate update)
   {
   }
 
