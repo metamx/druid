@@ -111,6 +111,9 @@ the author of the PR) or in a comment (if you have added labels to a PR submitte
    comments (there is no specialized label for this).  
    - [`Area - Lookups`](https://github.com/apache/incubator-druid/labels/Area%20-%20Lookups) - for PRs and issues
    related to Druid's Query Time Lookups (QTL) feature.
+   - [`Area - Metadata Management`](https://github.com/apache/incubator-druid/labels/Area%20-%20Metadata%20Management) -
+   for PRs and issues related the data stored in the metadata store, the metadata store itself, and managing the data
+   from the metadata store in memory of Druid nodes.
    - [`Area - Null Handling`](https://github.com/apache/incubator-druid/labels/Area%20-%20Null%20Handling) - for PRs and
    issues related to the [Null Handling project](https://github.com/apache/incubator-druid/issues/4349).
    - [`Area - Operations`](https://github.com/apache/incubator-druid/labels/Area%20-%20Operations) - for PRs and issues
